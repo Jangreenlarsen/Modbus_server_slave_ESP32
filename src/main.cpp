@@ -9,13 +9,6 @@
 #include <Arduino.h>
 #include "constants.h"
 #include "types.h"
-#include "version.h"
-#include "heartbeat.h"
-#include "modbus_server.h"
-#include "counter_engine.h"
-#include "timer_engine.h"
-#include "cli_shell.h"
-#include "debug.h"
 
 // ============================================================================
 // SETUP
@@ -26,8 +19,8 @@ void setup() {
   Serial.begin(SERIAL_BAUD_DEBUG);      // USB debug (UART0)
   delay(1000);  // Wait for serial monitor
 
-  debug_printf("=== %s v%s ===\n", PROJECT_NAME, PROJECT_VERSION);
-  debug_printf("Build: %s %s\n", BUILD_DATE, BUILD_TIME);
+  Serial.printf("=== Modbus RTU Server (ESP32) ===\n");
+  Serial.printf("Version: %s\n", PROJECT_VERSION);
 
   // Initialize hardware drivers
   // TODO: gpio_driver_init()
@@ -42,7 +35,7 @@ void setup() {
   // TODO: cli_shell_init()
   // TODO: heartbeat_init()
 
-  debug_printf("Setup complete.\n");
+  Serial.println("Setup complete.");
 }
 
 // ============================================================================
@@ -50,16 +43,16 @@ void setup() {
 // ============================================================================
 
 void loop() {
-  // CLI takes priority (blocks other subsystems when active)
-  if (/* CLI is active */) {
-    cli_shell_loop();
-  } else {
-    // Normal operation: Modbus + features
-    // TODO: modbus_server_loop();
-    // TODO: counter_engine_loop();
-    // TODO: timer_engine_loop();
-    // TODO: heartbeat_loop();
-  }
+  // TODO: Check if CLI is active
+  // if (cli_is_active()) {
+  //   cli_shell_loop();
+  // } else {
+  //   Normal operation: Modbus + features
+  //   modbus_server_loop();
+  //   counter_engine_loop();
+  //   timer_engine_loop();
+  //   heartbeat_loop();
+  // }
 
   // Small delay to prevent watchdog timeout
   delay(1);
