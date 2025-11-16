@@ -1,14 +1,13 @@
 /**
  * @file config_struct.h
- * @brief config_struct description
+ * @brief Configuration struct utilities
  */
 
 #ifndef config_struct_H
 #define config_struct_H
 
-#include <stdint.h>
 #include "types.h"
 
-// TODO: Function declarations
+PersistConfig* config_struct_create_default(void);
 
 #endif // config_struct_H

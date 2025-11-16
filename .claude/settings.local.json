@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir C:ProjekterModbus_server_slave_ESP32)",
+      "Bash(dir \"C:\\Projekter\\Modbus_server_slave_ESP32\")",
+      "Bash(dir \"C:\\Projekter\\Modbus_server_slave\")",
+      "Bash(pio run:*)",
+      "Bash(test:*)",
+      "Bash(pio clean:*)",
+      "Bash(timeout 15 pio device monitor:*)",
+      "Bash(pio device list:*)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(powershell:*)",
+      "Bash(timeout 20 pio device monitor:*)",
+      "Bash(timeout 30 pio device monitor:*)",
+      "Bash(timeout 25 pio device monitor:*)",
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

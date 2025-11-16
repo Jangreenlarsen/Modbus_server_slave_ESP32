@@ -1,6 +1,6 @@
 /**
  * @file config_load.h
- * @brief config_load description
+ * @brief Configuration persistence - load from NVS (LAYER 6)
  */
 
 #ifndef config_load_H
@@ -9,6 +9,6 @@
 #include <stdint.h>
 #include "types.h"
 
-// TODO: Function declarations
+bool config_load_from_nvs(PersistConfig* out);
 
 #endif // config_load_H

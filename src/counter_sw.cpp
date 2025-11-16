@@ -1,9 +1,160 @@
 /**
  * @file counter_sw.cpp
- * @brief counter_sw implementation
+ * @brief Software polling mode counter (LAYER 5)
+ *
+ * Ported from: Mega2560 v3.6.5 modbus_counters.cpp
+ * Adapted to: ESP32 modular architecture
+ *
+ * Responsibility:
+ * - Polling discrete inputs for edge detection
+ * - Counting edges (all edges - no prescaler skipping here)
+ * - Debounce filtering
+ * - Overflow detection
  */
 
 #include "counter_sw.h"
+#include "counter_config.h"
+#include "registers.h"
+#include "constants.h"
+#include "types.h"
+#include <string.h>
 
-// TODO: Implement functions
+/* ============================================================================
+ * SW MODE RUNTIME STATE (per counter)
+ * Uses CounterSWState from types.h
+ * ============================================================================ */
 
+static CounterSWState sw_state[COUNTER_COUNT] = {0};
+
+/* ============================================================================
+ * INITIALIZATION
+ * ============================================================================ */
+
+void counter_sw_init(uint8_t id) {
+  if (id < 1 || id > COUNTER_COUNT) return;
+
+  CounterSWState* state = &sw_state[id - 1];
+  state->counter_value = 0;
+  state->last_level = 0;
+  state->debounce_timer = 0;
+  state->is_counting = 0;
+
+  // Get config to initialize last_level
+  CounterConfig cfg;
+  if (counter_config_get(id, &cfg)) {
+    // Read initial level from discrete input
+    if (cfg.input_dis < (DISCRETE_INPUTS_SIZE * 8)) {
+      state->last_level = registers_get_discrete_input(cfg.input_dis) ? 1 : 0;
+    }
+
+    // Set start value
+    state->counter_value = cfg.start_value;
+  }
+}
+
+/* ============================================================================
+ * MAIN LOOP - POLLING & EDGE DETECTION
+ * ============================================================================ */
+
+void counter_sw_loop(uint8_t id) {
+  if (id < 1 || id > COUNTER_COUNT) return;
+
+  CounterConfig cfg;
+  if (!counter_config_get(id, &cfg)) return;
+
+  if (!cfg.enabled || cfg.hw_mode != COUNTER_HW_SW) {
+    return;
+  }
+
+  CounterSWState* state = &sw_state[id - 1];
+
+  // Read current level from discrete input
+  uint8_t current_level = (cfg.input_dis < (DISCRETE_INPUTS_SIZE * 8)) ?
+    registers_get_discrete_input(cfg.input_dis) ? 1 : 0 : 0;
+
+  // Debounce: only count if enough time has passed
+  uint32_t now_ms = registers_get_millis();
+  uint32_t debounce_ms = cfg.debounce_ms > 0 ? cfg.debounce_ms : 10;  // Default 10ms
+
+  if (now_ms - state->debounce_timer < debounce_ms) {
+    return;  // Still in debounce window
+  }
+
+  // Edge detection based on mode
+  uint8_t edge_detected = 0;
+
+  if (cfg.edge_type == COUNTER_EDGE_RISING && state->last_level == 0 && current_level == 1) {
+    edge_detected = 1;
+  } else if (cfg.edge_type == COUNTER_EDGE_FALLING && state->last_level == 1 && current_level == 0) {
+    edge_detected = 1;
+  } else if (cfg.edge_type == COUNTER_EDGE_BOTH && state->last_level != current_level) {
+    edge_detected = 1;
+  }
+
+  // Update last level for next iteration
+  state->last_level = current_level;
+
+  // Count the edge
+  if (edge_detected) {
+    state->counter_value++;
+    state->debounce_timer = now_ms;  // Reset debounce timer
+
+    // Check for overflow based on bit width
+    uint64_t max_val = 0xFFFFFFFFFFFFFFFFULL;
+    switch (cfg.bit_width) {
+      case 8:
+        max_val = 0xFFULL;
+        break;
+      case 16:
+        max_val = 0xFFFFULL;
+        break;
+      case 32:
+        max_val = 0xFFFFFFFFULL;
+        break;
+    }
+
+    if (state->counter_value > max_val) {
+      state->counter_value = cfg.start_value;  // Wrap to start value
+    }
+  }
+}
+
+/* ============================================================================
+ * RESET
+ * ============================================================================ */
+
+void counter_sw_reset(uint8_t id) {
+  if (id < 1 || id > COUNTER_COUNT) return;
+
+  CounterConfig cfg;
+  if (!counter_config_get(id, &cfg)) return;
+
+  CounterSWState* state = &sw_state[id - 1];
+  state->counter_value = cfg.start_value;
+  state->debounce_timer = 0;
+}
+
+/* ============================================================================
+ * VALUE ACCESS
+ * ============================================================================ */
+
+uint64_t counter_sw_get_value(uint8_t id) {
+  if (id < 1 || id > COUNTER_COUNT) return 0;
+  return sw_state[id - 1].counter_value;
+}
+
+void counter_sw_set_value(uint8_t id, uint64_t value) {
+  if (id < 1 || id > COUNTER_COUNT) return;
+  sw_state[id - 1].counter_value = value;
+}
+
+uint8_t counter_sw_get_overflow(uint8_t id) {
+  if (id < 1 || id > COUNTER_COUNT) return 0;
+  // SW mode tracks overflow via reset to start_value, not via flag
+  return 0;
+}
+
+void counter_sw_clear_overflow(uint8_t id) {
+  // SW mode doesn't track overflow flag
+  (void)id;
+}

@@ -13,20 +13,10 @@
 #include "constants.h"
 
 /* ============================================================================
- * MODBUS FRAME
- * ============================================================================ */
-
-typedef struct {
-  uint8_t slave_id;
-  uint8_t function_code;
-  uint8_t data[MODBUS_FRAME_MAX - 4];  // Payload (max 252 bytes)
-  uint16_t data_len;
-  uint16_t crc;
-} ModbusFrame;
-
-/* ============================================================================
  * MODBUS REQUEST STRUCTS
  * ============================================================================ */
+
+/* NOTE: ModbusFrame is defined in modbus_frame.h */
 
 typedef struct {
   uint16_t starting_address;

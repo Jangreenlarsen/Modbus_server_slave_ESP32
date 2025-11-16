@@ -9,6 +9,13 @@
 #include <Arduino.h>
 #include "constants.h"
 #include "types.h"
+#include "cli_shell.h"
+#include "counter_engine.h"
+#include "timer_engine.h"
+#include "gpio_driver.h"
+#include "uart_driver.h"
+#include "modbus_server.h"
+#include "heartbeat.h"
 
 // ============================================================================
 // SETUP
@@ -23,19 +30,22 @@ void setup() {
   Serial.printf("Version: %s\n", PROJECT_VERSION);
 
   // Initialize hardware drivers
-  // TODO: gpio_driver_init()
-  // TODO: uart_driver_init()
-  // TODO: nvs_driver_init()
+  gpio_driver_init();       // GPIO system (RS485 DIR on GPIO15)
+  uart_driver_init();       // UART0/UART1 initialization
 
   // Initialize subsystems
-  // TODO: config_load_from_nvs()
-  // TODO: modbus_server_init()
-  // TODO: counter_engine_init()
-  // TODO: timer_engine_init()
-  // TODO: cli_shell_init()
-  // TODO: heartbeat_init()
+  counter_engine_init();    // Counter feature (SW/SW-ISR/HW modes)
+  timer_engine_init();      // Timer feature (4 modes)
+  modbus_server_init(1);    // Modbus RTU server (UART1, slave ID=1)
+  heartbeat_init();         // LED blink on GPIO2
 
   Serial.println("Setup complete.");
+  Serial.println("Modbus RTU Server ready on UART1 (GPIO4/5, 9600 baud)");
+  Serial.println("RS485 DIR control on GPIO15");
+  Serial.println("Registers: 160 holding, 160 input");
+  Serial.println("Coils: 32 (256 bits), Discrete inputs: 32 (256 bits)\n");
+
+  cli_shell_init();         // CLI system (last, shows prompt)
 }
 
 // ============================================================================
@@ -43,16 +53,18 @@ void setup() {
 // ============================================================================
 
 void loop() {
-  // TODO: Check if CLI is active
-  // if (cli_is_active()) {
-  //   cli_shell_loop();
-  // } else {
-  //   Normal operation: Modbus + features
-  //   modbus_server_loop();
-  //   counter_engine_loop();
-  //   timer_engine_loop();
-  //   heartbeat_loop();
-  // }
+  // Modbus server (primary function - handles FC01-10)
+  modbus_server_loop();
+
+  // CLI interface (responsive while Modbus runs)
+  cli_shell_loop();
+
+  // Background feature engines
+  counter_engine_loop();
+  timer_engine_loop();
+
+  // Heartbeat/watchdog
+  heartbeat_loop();
 
   // Small delay to prevent watchdog timeout
   delay(1);
