@@ -20,7 +20,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(taskkill:*)",
-      "Bash(taskkill /PID 38580 /F)"
+      "Bash(taskkill /PID 38580 /F)",
+      "Bash(timeout 120 pio run:*)",
+      "Bash(timeout 60 pio run:*)"
     ],
     "deny": [],
     "ask": []

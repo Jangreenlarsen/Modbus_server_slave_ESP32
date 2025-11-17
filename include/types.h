@@ -151,15 +151,46 @@ typedef struct {
 } Timer;
 
 /* ============================================================================
- * GPIO MAPPING
+ * REGISTER MAPPING (STATIC & DYNAMIC)
+ * ============================================================================ */
+
+typedef struct {
+  uint16_t register_address;
+  uint16_t static_value;        // STATIC: hardcoded value
+} StaticRegisterMapping;
+
+typedef struct {
+  uint16_t register_address;
+  uint8_t source_type;          // DYNAMIC_SOURCE_COUNTER or DYNAMIC_SOURCE_TIMER
+  uint8_t source_id;            // Counter/Timer ID (1-4)
+  uint8_t source_function;      // CounterFunction or TimerFunction enum
+} DynamicRegisterMapping;
+
+/* ============================================================================
+ * COIL MAPPING (STATIC & DYNAMIC)
+ * ============================================================================ */
+
+typedef struct {
+  uint16_t coil_address;
+  uint8_t static_value;         // STATIC: 0 (OFF) or 1 (ON)
+} StaticCoilMapping;
+
+typedef struct {
+  uint16_t coil_address;
+  uint8_t source_type;          // DYNAMIC_SOURCE_COUNTER or DYNAMIC_SOURCE_TIMER
+  uint8_t source_id;            // Counter/Timer ID (1-4)
+  uint8_t source_function;      // CounterFunction or TimerFunction enum
+} DynamicCoilMapping;
+
+/* ============================================================================
+ * GPIO MAPPING (for input-dis)
  * ============================================================================ */
 
 typedef struct {
   uint8_t gpio_pin;
   uint8_t is_input;
-  uint8_t coil_index;
-  uint8_t associated_counter;  // 0xff if none
-  uint8_t associated_timer;    // 0xff if none
+  uint8_t associated_counter;   // 0xff if none (set via input-dis=<pin>)
+  uint8_t associated_timer;     // 0xff if none
 } GPIOMapping;
 
 /* ============================================================================
@@ -180,12 +211,28 @@ typedef struct {
   // Timers (4 maximum)
   TimerConfig timers[TIMER_COUNT];
 
-  // GPIO mappings (reserved for future)
+  // STATIC Register mappings
+  uint8_t static_reg_count;
+  StaticRegisterMapping static_regs[MAX_DYNAMIC_REGS];
+
+  // DYNAMIC Register mappings
+  uint8_t dynamic_reg_count;
+  DynamicRegisterMapping dynamic_regs[MAX_DYNAMIC_REGS];
+
+  // STATIC Coil mappings
+  uint8_t static_coil_count;
+  StaticCoilMapping static_coils[MAX_DYNAMIC_COILS];
+
+  // DYNAMIC Coil mappings
+  uint8_t dynamic_coil_count;
+  DynamicCoilMapping dynamic_coils[MAX_DYNAMIC_COILS];
+
+  // GPIO mappings (for input-dis pins)
   uint8_t gpio_map_count;
-  GPIOMapping gpio_maps[16];  // Max 16 static mappings
+  GPIOMapping gpio_maps[8];
 
   // Reserved for future features
-  uint8_t reserved[64];
+  uint8_t reserved[32];
 
   // CRC checksum (last)
   uint16_t crc16;

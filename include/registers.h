@@ -129,4 +129,20 @@ void registers_init(void);
  */
 uint32_t registers_get_millis(void);
 
+/* ============================================================================
+ * DYNAMIC REGISTER/COIL UPDATES
+ * ============================================================================ */
+
+/**
+ * @brief Update DYNAMIC registers from counter/timer sources
+ * Called once per loop to sync DYNAMIC register values
+ */
+void registers_update_dynamic_registers(void);
+
+/**
+ * @brief Update DYNAMIC coils from counter/timer sources
+ * Called once per loop to sync DYNAMIC coil values
+ */
+void registers_update_dynamic_coils(void);
+
 #endif // REGISTERS_H

@@ -319,6 +319,317 @@ void cli_cmd_set_coil(uint16_t idx, uint8_t value) {
   debug_println("");
 }
 
+void cli_cmd_set_gpio(uint8_t argc, char* argv[]) {
+  // set gpio <pin> STATIC [coil:<idx>] [reg:<id>] [input:<id>]
+  // set gpio <pin> DYNAMIC [coil:<idx>] [reg:<id>] [coil:<id>] [counter:<id> input-dis=<id> ...]
+  // set gpio <pin> DYNAMIC [coil:<idx>] [reg:<id>] [coil:<id>] [timer:<id> ...]
+
+  if (argc < 2) {
+    debug_println("SET GPIO: missing arguments");
+    debug_println("  Usage: set gpio <pin> STATIC [coil:<idx>] [reg:<id>] [input:<id>]");
+    debug_println("         set gpio <pin> DYNAMIC [coil:<idx>] [reg:<id>] [coil:<id>] [counter:<id> ...] or [timer:<id> ...]");
+    return;
+  }
+
+  uint8_t gpio_pin = atoi(argv[0]);
+
+  // Validate pin (ESP32 has pins 0-39, but some are reserved)
+  if (gpio_pin >= 40) {
+    debug_print("SET GPIO: invalid pin ");
+    debug_print_uint(gpio_pin);
+    debug_println(" (must be 0-39)");
+    return;
+  }
+
+  const char* mode = argv[1];
+
+  // Validate mode
+  if (!strcmp(mode, "STATIC")) {
+    // STATIC mode: set gpio <pin> STATIC [coil:<idx>] [reg:<id>] [input:<id>]
+    uint16_t coil_index = 65535;
+    uint16_t reg_index = 65535;
+    uint16_t input_index = 65535;
+
+    // Parse parameters
+    for (uint8_t i = 2; i < argc; i++) {
+      char* arg = argv[i];
+      char* colon = strchr(arg, ':');
+      if (!colon) {
+        debug_print("SET GPIO STATIC: invalid parameter format: ");
+        debug_println(arg);
+        return;
+      }
+
+      *colon = '\0';
+      const char* key = arg;
+      const char* value = colon + 1;
+
+      if (!strcmp(key, "coil")) {
+        coil_index = atoi(value);
+        if (coil_index >= (COILS_SIZE * 8)) {
+          debug_print("SET GPIO: coil index out of range (max ");
+          debug_print_uint((COILS_SIZE * 8) - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "reg")) {
+        reg_index = atoi(value);
+        if (reg_index >= HOLDING_REGS_SIZE) {
+          debug_print("SET GPIO: register index out of range (max ");
+          debug_print_uint(HOLDING_REGS_SIZE - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "input")) {
+        input_index = atoi(value);
+        if (input_index >= (DISCRETE_INPUTS_SIZE * 8)) {
+          debug_print("SET GPIO: input index out of range (max ");
+          debug_print_uint((DISCRETE_INPUTS_SIZE * 8) - 1);
+          debug_println(")");
+          return;
+        }
+      } else {
+        debug_print("SET GPIO STATIC: unknown parameter key: ");
+        debug_println(key);
+        return;
+      }
+    }
+
+    // TODO: Store GPIO mapping to config
+    debug_print("GPIO ");
+    debug_print_uint(gpio_pin);
+    debug_println(" STATIC mapping:");
+    if (coil_index != 65535) {
+      debug_print("  -> coil ");
+      debug_print_uint(coil_index);
+      debug_println("");
+    }
+    if (reg_index != 65535) {
+      debug_print("  -> register ");
+      debug_print_uint(reg_index);
+      debug_println("");
+    }
+    if (input_index != 65535) {
+      debug_print("  -> input ");
+      debug_print_uint(input_index);
+      debug_println("");
+    }
+
+  } else if (!strcmp(mode, "DYNAMIC")) {
+    // DYNAMIC mode: set gpio <pin> DYNAMIC [coil:<idx>] [reg:<id>] [output-coil:<id>] [counter:<id>] [input-dis=<n>] [index-reg=<n>] ... or [timer:<id>]
+    uint16_t coil_index = 65535;
+    uint16_t reg_index = 65535;
+    uint16_t output_coil = 65535;
+    uint8_t counter_id = 0xff;
+    uint8_t timer_id = 0xff;
+
+    // Counter-specific parameters (for functions)
+    uint16_t counter_input_dis = 65535;
+    uint16_t counter_index_reg = 65535;
+    uint16_t counter_raw_reg = 65535;
+    uint16_t counter_freq_reg = 65535;
+    uint16_t counter_overload_reg = 65535;
+    uint16_t counter_ctrl_reg = 65535;
+
+    // Parse parameters
+    for (uint8_t i = 2; i < argc; i++) {
+      char* arg = argv[i];
+
+      // Look for both ':' (key:value) and '=' (key=value) separators
+      char* sep = strchr(arg, ':');
+      bool has_colon = sep != NULL;
+
+      if (!has_colon) {
+        sep = strchr(arg, '=');
+        if (!sep) {
+          debug_print("SET GPIO DYNAMIC: invalid parameter format: ");
+          debug_println(arg);
+          return;
+        }
+      }
+
+      *sep = '\0';
+      const char* key = arg;
+      const char* value = sep + 1;
+
+      if (!strcmp(key, "coil")) {
+        coil_index = atoi(value);
+        if (coil_index >= (COILS_SIZE * 8)) {
+          debug_print("SET GPIO: coil index out of range (max ");
+          debug_print_uint((COILS_SIZE * 8) - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "reg")) {
+        reg_index = atoi(value);
+        if (reg_index >= HOLDING_REGS_SIZE) {
+          debug_print("SET GPIO: register index out of range (max ");
+          debug_print_uint(HOLDING_REGS_SIZE - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "output-coil")) {
+        output_coil = atoi(value);
+        if (output_coil >= (COILS_SIZE * 8)) {
+          debug_print("SET GPIO: output coil index out of range (max ");
+          debug_print_uint((COILS_SIZE * 8) - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "counter")) {
+        uint8_t id = atoi(value);
+        if (id >= 1 && id <= 4) {
+          counter_id = id;
+        } else {
+          debug_println("SET GPIO: invalid counter ID (1-4)");
+          return;
+        }
+      } else if (!strcmp(key, "input-dis")) {
+        // Counter function parameter
+        counter_input_dis = atoi(value);
+      } else if (!strcmp(key, "index-reg")) {
+        // Counter function parameter
+        counter_index_reg = atoi(value);
+        if (counter_index_reg >= HOLDING_REGS_SIZE) {
+          debug_print("SET GPIO: index-reg out of range (max ");
+          debug_print_uint(HOLDING_REGS_SIZE - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "raw-reg")) {
+        // Counter function parameter
+        counter_raw_reg = atoi(value);
+        if (counter_raw_reg >= HOLDING_REGS_SIZE) {
+          debug_print("SET GPIO: raw-reg out of range (max ");
+          debug_print_uint(HOLDING_REGS_SIZE - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "freq-reg") || !strcmp(key, "frekvens-reg")) {
+        // Counter function parameter (both English and Danish naming)
+        counter_freq_reg = atoi(value);
+        if (counter_freq_reg >= HOLDING_REGS_SIZE) {
+          debug_print("SET GPIO: freq-reg out of range (max ");
+          debug_print_uint(HOLDING_REGS_SIZE - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "overload-reg")) {
+        // Counter function parameter
+        counter_overload_reg = atoi(value);
+        if (counter_overload_reg >= HOLDING_REGS_SIZE) {
+          debug_print("SET GPIO: overload-reg out of range (max ");
+          debug_print_uint(HOLDING_REGS_SIZE - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "ctrl-reg")) {
+        // Counter function parameter
+        counter_ctrl_reg = atoi(value);
+        if (counter_ctrl_reg >= HOLDING_REGS_SIZE) {
+          debug_print("SET GPIO: ctrl-reg out of range (max ");
+          debug_print_uint(HOLDING_REGS_SIZE - 1);
+          debug_println(")");
+          return;
+        }
+      } else if (!strcmp(key, "timer")) {
+        uint8_t id = atoi(value);
+        if (id >= 1 && id <= 4) {
+          timer_id = id;
+        } else {
+          debug_println("SET GPIO: invalid timer ID (1-4)");
+          return;
+        }
+        // NOTE: Timer mode-specific parameters (phase1-dur, pulse-dur, on-dur, input-dis, etc.)
+        // can be parsed and stored similarly to counter parameters if needed in future
+      } else {
+        debug_print("SET GPIO DYNAMIC: unknown parameter key: ");
+        debug_println(key);
+        return;
+      }
+    }
+
+    // Validate that counter or timer is specified
+    if (counter_id == 0xff && timer_id == 0xff) {
+      debug_println("SET GPIO DYNAMIC: must specify either counter:<id> or timer:<id>");
+      return;
+    }
+
+    // TODO: Store GPIO DYNAMIC mapping to config
+    debug_print("GPIO ");
+    debug_print_uint(gpio_pin);
+    debug_println(" DYNAMIC mapping:");
+    if (coil_index != 65535) {
+      debug_print("  -> coil ");
+      debug_print_uint(coil_index);
+      debug_println("");
+    }
+    if (reg_index != 65535) {
+      debug_print("  -> register ");
+      debug_print_uint(reg_index);
+      debug_println("");
+    }
+    if (output_coil != 65535) {
+      debug_print("  -> output-coil ");
+      debug_print_uint(output_coil);
+      debug_println("");
+    }
+    if (counter_id != 0xff) {
+      debug_print("  -> counter ");
+      debug_print_uint(counter_id);
+      if (counter_input_dis != 65535) {
+        debug_print(" (input-dis=");
+        debug_print_uint(counter_input_dis);
+        debug_print(")");
+      }
+      debug_println("");
+
+      // Show counter function parameters if any were set
+      if (counter_index_reg != 65535 || counter_raw_reg != 65535 ||
+          counter_freq_reg != 65535 || counter_overload_reg != 65535 ||
+          counter_ctrl_reg != 65535) {
+        debug_println("    Counter function parameters:");
+        if (counter_index_reg != 65535) {
+          debug_print("      index-reg=");
+          debug_print_uint(counter_index_reg);
+          debug_println("");
+        }
+        if (counter_raw_reg != 65535) {
+          debug_print("      raw-reg=");
+          debug_print_uint(counter_raw_reg);
+          debug_println("");
+        }
+        if (counter_freq_reg != 65535) {
+          debug_print("      freq-reg=");
+          debug_print_uint(counter_freq_reg);
+          debug_println("");
+        }
+        if (counter_overload_reg != 65535) {
+          debug_print("      overload-reg=");
+          debug_print_uint(counter_overload_reg);
+          debug_println("");
+        }
+        if (counter_ctrl_reg != 65535) {
+          debug_print("      ctrl-reg=");
+          debug_print_uint(counter_ctrl_reg);
+          debug_println("");
+        }
+      }
+    }
+    if (timer_id != 0xff) {
+      debug_print("  -> timer ");
+      debug_print_uint(timer_id);
+      debug_println("");
+    }
+
+  } else {
+    debug_print("SET GPIO: unknown mode: ");
+    debug_println(mode);
+    debug_println("  Valid modes: STATIC, DYNAMIC");
+    return;
+  }
+}
+
 void cli_cmd_save(void) {
   // TODO: Save config to NVS
   debug_println("SAVE: config saved to NVS (not yet implemented)");

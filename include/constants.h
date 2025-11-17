@@ -85,10 +85,36 @@ typedef enum {
 } TimerMode;
 
 /* ============================================================================
+ * DYNAMIC REGISTER/COIL CONFIGURATION
+ * ============================================================================ */
+
+#define MAX_DYNAMIC_REGS    16          // Max DYNAMIC register mappings
+#define MAX_DYNAMIC_COILS   16          // Max DYNAMIC coil mappings
+
+typedef enum {
+  DYNAMIC_SOURCE_COUNTER = 0,
+  DYNAMIC_SOURCE_TIMER = 1
+} DynamicSourceType;
+
+// Counter functions
+typedef enum {
+  COUNTER_FUNC_INDEX = 0,       // Scaled value (index-reg)
+  COUNTER_FUNC_RAW = 1,         // Prescaled value (raw-reg)
+  COUNTER_FUNC_FREQ = 2,        // Frequency in Hz (freq-reg)
+  COUNTER_FUNC_OVERFLOW = 3,    // Overflow flag (overload-reg)
+  COUNTER_FUNC_CTRL = 4         // Control register (ctrl-reg)
+} CounterFunction;
+
+// Timer functions
+typedef enum {
+  TIMER_FUNC_OUTPUT = 0          // Output state (phase output, astable state, etc)
+} TimerFunction;
+
+/* ============================================================================
  * EEPROM / NVS CONFIGURATION
  * ============================================================================ */
 
-#define CONFIG_SCHEMA_VERSION   1       // Current config schema version
+#define CONFIG_SCHEMA_VERSION   2       // Current config schema version
 #define CONFIG_CRC_SEED         0xFFFF  // CRC16 initial value
 
 /* ============================================================================

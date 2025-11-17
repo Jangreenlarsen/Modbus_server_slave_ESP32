@@ -18,6 +18,8 @@
 #include "cli_parser.h"
 #include "cli_commands.h"
 #include "cli_show.h"
+#include "cli_config_regs.h"
+#include "cli_config_coils.h"
 #include "debug.h"
 #include <string.h>
 #include <stdlib.h>
@@ -93,6 +95,7 @@ static const char* normalize_alias(const char* s) {
   // System commands (for SET context)
   if (!strcmp(s, "REG") || !strcmp(s, "reg")) return "REG";
   if (!strcmp(s, "COIL") || !strcmp(s, "coil")) return "COIL";
+  if (!strcmp(s, "GPIO") || !strcmp(s, "gpio")) return "GPIO";
   if (!strcmp(s, "ID") || !strcmp(s, "id")) return "ID";
   if (!strcmp(s, "HOSTNAME") || !strcmp(s, "hostname")) return "HOSTNAME";
   if (!strcmp(s, "BAUD") || !strcmp(s, "baud")) return "BAUD";
@@ -154,6 +157,14 @@ bool cli_parser_execute(char* line) {
     } else if (!strcmp(what, "GPIO")) {
       cli_cmd_show_gpio();
       return true;
+    } else if (!strcmp(what, "REG")) {
+      // show reg - Display register configuration
+      cli_cmd_show_regs();
+      return true;
+    } else if (!strcmp(what, "COIL")) {
+      // show coil - Display coil configuration
+      cli_cmd_show_coils();
+      return true;
     } else {
       debug_println("SHOW: unknown argument");
       return false;
@@ -198,22 +209,50 @@ bool cli_parser_execute(char* line) {
       cli_cmd_set_id(id);
       return true;
     } else if (!strcmp(what, "REG")) {
-      if (argc < 4) {
+      if (argc < 3) {
         debug_println("SET REG: missing parameters");
+        debug_println("  Usage: set reg STATIC <address> Value <value>");
+        debug_println("         set reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>");
         return false;
       }
-      uint16_t addr = atoi(argv[2]);
-      uint16_t value = atoi(argv[3]);
-      cli_cmd_set_reg(addr, value);
+
+      const char* mode = normalize_alias(argv[2]);
+
+      if (!strcmp(mode, "STATIC")) {
+        // set reg STATIC <address> Value <value>
+        cli_cmd_set_reg_static(argc - 3, argv + 3);
+      } else if (!strcmp(mode, "DYNAMIC")) {
+        // set reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>
+        cli_cmd_set_reg_dynamic(argc - 3, argv + 3);
+      } else {
+        debug_println("SET REG: invalid mode (must be STATIC or DYNAMIC)");
+        return false;
+      }
       return true;
+
     } else if (!strcmp(what, "COIL")) {
-      if (argc < 4) {
+      if (argc < 3) {
         debug_println("SET COIL: missing parameters");
+        debug_println("  Usage: set coil STATIC <address> Value <ON|OFF>");
+        debug_println("         set coil DYNAMIC <address> counter<id>:<function> or timer<id>:<function>");
         return false;
       }
-      uint16_t idx = atoi(argv[2]);
-      uint8_t value = atoi(argv[3]) ? 1 : 0;
-      cli_cmd_set_coil(idx, value);
+
+      const char* mode = normalize_alias(argv[2]);
+
+      if (!strcmp(mode, "STATIC")) {
+        // set coil STATIC <address> Value <ON|OFF>
+        cli_cmd_set_coil_static(argc - 3, argv + 3);
+      } else if (!strcmp(mode, "DYNAMIC")) {
+        // set coil DYNAMIC <address> counter<id>:<function> or timer<id>:<function>
+        cli_cmd_set_coil_dynamic(argc - 3, argv + 3);
+      } else {
+        debug_println("SET COIL: invalid mode (must be STATIC or DYNAMIC)");
+        return false;
+      }
+      return true;
+    } else if (!strcmp(what, "GPIO")) {
+      cli_cmd_set_gpio(argc - 2, argv + 2);
       return true;
     } else {
       debug_println("SET: unknown argument");
@@ -294,7 +333,21 @@ void cli_parser_print_help(void) {
   debug_println("  show coils          - Display coil states");
   debug_println("  show inputs         - Display discrete inputs");
   debug_println("  show version        - Display firmware version");
+  debug_println("  show reg            - Display register mappings");
+  debug_println("  show coil           - Display coil mappings");
   debug_println("");
+  debug_println("Configuration:");
+  debug_println("  set reg STATIC <address> Value <value>");
+  debug_println("  set reg DYNAMIC <address> counter<id>:<func> or timer<id>:<func>");
+  debug_println("    Counter functions: index, raw, freq, overflow, ctrl");
+  debug_println("    Timer functions: output");
+  debug_println("");
+  debug_println("  set coil STATIC <address> Value <ON|OFF>");
+  debug_println("  set coil DYNAMIC <address> counter<id>:<func> or timer<id>:<func>");
+  debug_println("    Counter functions: overflow");
+  debug_println("    Timer functions: output");
+  debug_println("");
+  debug_println("Counters & Timers:");
   debug_println("  set counter <id> mode 1 parameter ...");
   debug_println("    hw-mode:<sw|sw-isr|hw> edge:<rising|falling|both>");
   debug_println("    prescaler:<1|4|8|16|64|256|1024>");
@@ -307,6 +360,7 @@ void cli_parser_print_help(void) {
   debug_println("  reset counter <id>");
   debug_println("  clear counters");
   debug_println("");
+  debug_println("System:");
   debug_println("  set hostname <name>");
   debug_println("  set baud <rate>");
   debug_println("  set id <slave_id>");

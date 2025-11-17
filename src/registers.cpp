@@ -4,11 +4,20 @@
  *
  * Provides arrays for holding/input registers and coils/discrete inputs
  * All Modbus read/write operations go through these functions
+ *
+ * Also handles DYNAMIC register/coil updates from counter/timer sources
  */
 
 #include "registers.h"
+#include "counter_engine.h"
+#include "counter_config.h"
+#include "timer_engine.h"
+#include "config_struct.h"
+#include "types.h"
+#include "constants.h"
 #include <Arduino.h>
 #include <string.h>
+#include <math.h>
 
 /* ============================================================================
  * STATIC STORAGE (all registers and coils in RAM)
@@ -122,4 +131,170 @@ void registers_init(void) {
 
 uint32_t registers_get_millis(void) {
   return millis();
+}
+
+/* ============================================================================
+ * DYNAMIC REGISTER/COIL UPDATES
+ * ============================================================================ */
+
+/**
+ * @brief Update DYNAMIC registers from counter/timer sources
+ *
+ * Iterates through all DYNAMIC register mappings and:
+ * 1. Gets value from counter or timer
+ * 2. Writes to specified holding register
+ *
+ * Called once per main loop iteration
+ */
+void registers_update_dynamic_registers(void) {
+  for (uint8_t i = 0; i < g_persist_config.dynamic_reg_count; i++) {
+    const DynamicRegisterMapping* dyn = &g_persist_config.dynamic_regs[i];
+    uint16_t reg_addr = dyn->register_address;
+    uint16_t value = 0;
+
+    if (dyn->source_type == DYNAMIC_SOURCE_COUNTER) {
+      uint8_t counter_id = dyn->source_id;
+      CounterConfig cfg = {0};
+
+      if (!counter_engine_get_config(counter_id, &cfg) || !cfg.enabled) {
+        continue;  // Counter not configured or disabled
+      }
+
+      // Get counter value based on function type
+      uint64_t raw_value = counter_engine_get_value(counter_id);
+
+      switch (dyn->source_function) {
+        case COUNTER_FUNC_INDEX:
+          // Scaled value = counterValue × scale_factor
+          value = (uint16_t)(raw_value * cfg.scale_factor);
+          break;
+
+        case COUNTER_FUNC_RAW:
+          // Prescaled value = counterValue / prescaler
+          if (cfg.prescaler > 0) {
+            value = (uint16_t)(raw_value / cfg.prescaler);
+          } else {
+            value = (uint16_t)raw_value;
+          }
+          break;
+
+        case COUNTER_FUNC_FREQ:
+          // Frequency in Hz (updated by counter_frequency_update)
+          // This is already in a register, but we may need to sync it
+          // For now, get measured_frequency from runtime state
+          // TODO: Access measured_frequency from Counter struct
+          value = 0;  // Placeholder
+          break;
+
+        case COUNTER_FUNC_OVERFLOW:
+          // Overflow flag (1 if overflow occurred)
+          // TODO: Get overflow state from counter state
+          value = 0;  // Placeholder
+          break;
+
+        case COUNTER_FUNC_CTRL:
+          // Control register (read-only, used for commands)
+          // Usually contains last command status
+          value = 0;  // Placeholder
+          break;
+
+        default:
+          continue;
+      }
+
+      // Write value to holding register
+      registers_set_holding_register(reg_addr, value);
+
+    } else if (dyn->source_type == DYNAMIC_SOURCE_TIMER) {
+      uint8_t timer_id = dyn->source_id;
+      TimerConfig cfg = {0};
+
+      if (!timer_engine_get_config(timer_id, &cfg) || !cfg.enabled) {
+        continue;  // Timer not configured or disabled
+      }
+
+      // Get timer value based on function type
+      uint16_t value = 0;
+
+      switch (dyn->source_function) {
+        case TIMER_FUNC_OUTPUT:
+          // Timer output state (0 or 1)
+          // TODO: Get output state from Timer struct
+          value = 0;  // Placeholder
+          break;
+
+        default:
+          continue;
+      }
+
+      // Write value to holding register
+      registers_set_holding_register(reg_addr, value);
+    }
+  }
+}
+
+/**
+ * @brief Update DYNAMIC coils from counter/timer sources
+ *
+ * Iterates through all DYNAMIC coil mappings and:
+ * 1. Gets state from counter or timer
+ * 2. Writes to specified coil
+ *
+ * Called once per main loop iteration
+ */
+void registers_update_dynamic_coils(void) {
+  for (uint8_t i = 0; i < g_persist_config.dynamic_coil_count; i++) {
+    const DynamicCoilMapping* dyn = &g_persist_config.dynamic_coils[i];
+    uint16_t coil_addr = dyn->coil_address;
+    uint8_t value = 0;
+
+    if (dyn->source_type == DYNAMIC_SOURCE_COUNTER) {
+      uint8_t counter_id = dyn->source_id;
+      CounterConfig cfg = {0};
+
+      if (!counter_engine_get_config(counter_id, &cfg) || !cfg.enabled) {
+        continue;  // Counter not configured or disabled
+      }
+
+      // Get counter state based on function type
+      switch (dyn->source_function) {
+        case COUNTER_FUNC_OVERFLOW:
+          // Overflow flag
+          // TODO: Get overflow state from counter state
+          value = 0;  // Placeholder
+          break;
+
+        default:
+          continue;
+      }
+
+      // Write value to coil
+      registers_set_coil(coil_addr, value);
+
+    } else if (dyn->source_type == DYNAMIC_SOURCE_TIMER) {
+      uint8_t timer_id = dyn->source_id;
+      TimerConfig cfg = {0};
+
+      if (!timer_engine_get_config(timer_id, &cfg) || !cfg.enabled) {
+        continue;  // Timer not configured or disabled
+      }
+
+      // Get timer state based on function type
+      uint8_t value = 0;
+
+      switch (dyn->source_function) {
+        case TIMER_FUNC_OUTPUT:
+          // Timer output state (0 or 1)
+          // TODO: Get output state from Timer struct
+          value = 0;  // Placeholder
+          break;
+
+        default:
+          continue;
+      }
+
+      // Write value to coil
+      registers_set_coil(coil_addr, value);
+    }
+  }
 }

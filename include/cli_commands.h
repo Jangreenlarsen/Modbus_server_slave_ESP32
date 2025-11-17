@@ -92,6 +92,13 @@ void cli_cmd_set_reg(uint16_t addr, uint16_t value);
 void cli_cmd_set_coil(uint16_t idx, uint8_t value);
 
 /**
+ * @brief Handle "set gpio" command (map GPIO pin to coil/input)
+ * @param argc Argument count
+ * @param argv Argument array
+ */
+void cli_cmd_set_gpio(uint8_t argc, char* argv[]);
+
+/**
  * @brief Handle "save" command (persist config)
  */
 void cli_cmd_save(void);
