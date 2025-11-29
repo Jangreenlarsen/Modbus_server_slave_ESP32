@@ -2,8 +2,8 @@
 ESP32 MODBUS SERVER - UDVIDET TEST RAPPORT
 ======================================================================
 
-Dato: 2025-11-29 10:48:09
-Firmware: v1.0.0 Build #138
+Dato: 2025-11-29 11:22:49
+Firmware: v1.0.0 Build #154
 
 STATISTIK:
   Total: 11, Passed: 10, Failed: 1, Warned: 0
@@ -12,56 +12,56 @@ DETALJEREDE RESULTATER:
 ----------------------------------------------------------------------
 [CNT-HW-05] Prescaler 4 test
   Status: PASS
-  Note: Scaled=5490, Raw=1372, Ratio=4.00
-  Time: 10:47:22
+  Note: Scaled=5497, Raw=1374, Ratio=4.00
+  Time: 11:22:02
 
 [CNT-HW-06] Scale 2.5 test
   Status: PASS
-  Note: Scaled=13733, Raw=5493, Scale=2.50
-  Time: 10:47:30
+  Note: Scaled=13725, Raw=5490, Scale=2.50
+  Time: 11:22:10
 
 [CNT-HW-07] Direction DOWN test
   Status: PASS
-  Note: Initial=8021, Final=4521, Decreased=True
-  Time: 10:47:36
+  Note: Initial=8025, Final=4524, Decreased=True
+  Time: 11:22:16
 
 [CNT-HW-08] Start value 5000
   Status: PASS
-  Note: Value=5997 (expected ~5000, ±1000 tolerance)
-  Time: 10:47:39
+  Note: Value=5994 (expected ~5000, ±1000 tolerance)
+  Time: 11:22:20
 
 [CTL-01] Counter reset via ctrl-reg
   Status: PASS
-  Note: Before=3980, After=992
-  Time: 10:47:45
+  Note: Before=3977, After=988
+  Time: 11:22:26
 
 [CTL-06] Counter stop via ctrl-reg
   Status: PASS
-  Note: At stop=1492, After 2s=1492
-  Time: 10:47:49
+  Note: At stop=1498, After 2s=1498
+  Time: 11:22:30
 
 [TIM-03-01] Timer Mode 3 astable toggle
   Status: FAIL
   Note: States=[0, 0, 0, 0, 0]
-  Time: 10:47:59
+  Time: 11:22:39
 
 [REG-ST-01] STATIC register set value
   Status: PASS
   Note: Value=12345 (expected 12345)
-  Time: 10:48:00
+  Time: 11:22:41
 
 [SYS-06] Save config to NVS
   Status: PASS
   Note: Config saved
-  Time: 10:48:03
+  Time: 11:22:43
 
 [SYS-07] Load config from NVS
   Status: PASS
   Note: Value after load=54321 (expected 54321)
-  Time: 10:48:06
+  Time: 11:22:46
 
 [SYS-03] Set slave ID to 42
   Status: PASS
   Note: ID changed
-  Time: 10:48:08
+  Time: 11:22:49
 
