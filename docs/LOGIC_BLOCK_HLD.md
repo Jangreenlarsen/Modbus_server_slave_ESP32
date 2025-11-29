@@ -408,81 +408,289 @@ typedef struct {
 
 ---
 
-## 7. CLI COMMANDS
+## 7. GLOBAL CLI ARCHITECTURE (3 MODES)
 
-### **Configuration**
-```bash
-# Set up a block
-set logic <id> type:<type> \
-  input:<source1> [input:<source2>] \
-  [input2:<source2>] [input3:<source3>] [input4:<source4>] \
-  output:<dest> [output2:<dest2>] \
-  [param1:<value>] [param2:<value>] \
-  enabled:<0|1>
+### **CLI Mode Overview**
 
-# Examples:
-set logic 1 type:threshold input:reg:100 output:coil:200 \
-  threshold:500 hysteresis:50 enabled:1
-
-set logic 2 type:and input:coil:50 input2:coil:60 \
-  output:coil:201 enabled:1
-
-set logic 3 type:delay input:block:2 output:coil:202 \
-  delay-ms:1000 enabled:1
-
-set logic 4 type:compare input:reg:110 input2:const:1000 \
-  operator:> output:coil:300 enabled:1
 ```
-
-### **Viewing**
-```bash
-# Show all blocks
-show logic
-
-# Show specific block with live values
-show logic 1
-
-# Show all 32 variables
-show logic-vars
-
-# Show blocks in evaluation order
-show logic-order
-
-# Monitor in real-time (live updates)
-show logic-monitor
-```
-
-### **Variable Management**
-```bash
-# Set variable manually
-set logic-var <id> <value>
-
-# Example:
-set logic-var 10 1000
-
-# Reset all variables
-set logic-vars reset
-```
-
-### **Persistence**
-```bash
-# Save logic configuration
-save
-
-# Load from NVS
-load
+┌────────────────────────────────────────────────────────────────┐
+│                      GLOBAL CLI SYSTEM                         │
+├────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  MONITORING MODE (>)        CONFIG MODE (.)      LOGIC MODE (#) │
+│  ┌──────────────────┐       ┌──────────────────┐  ┌──────────┐ │
+│  │ show config      │       │ set timer        │  │ set block│ │
+│  │ show timers      │       │ set counter      │  │ set var  │ │
+│  │ show counters    │       │ set gpio         │  │ show blk │ │
+│  │ show registers   │       │ set register     │  │ show var │ │
+│  │ show coils       │       │ set baudrate     │  │ delete   │ │
+│  │ show logic       │       │ delete timer     │  │ verify   │ │
+│  │ read reg         │       │ load defaults    │  │ exit     │ │
+│  │ read coil        │       └──────────────────┘  └──────────┘ │
+│  │ monitor          │                                            │
+│  │ config-mode ────┼─────────────────┐                          │
+│  │ logic-mode ─────┼─────────────────┼──────────┐              │
+│  │ system-mode     │                 │          │              │
+│  └──────────────────┘                 │          │              │
+│                                       │          │              │
+│  SYSTEM MODE ($)                      │          │              │
+│  ┌──────────────────┐                 │          │              │
+│  │ save             │←────────────────┘          │              │
+│  │ load             │←─────────────────────────────              │
+│  │ reset            │                                            │
+│  │ reboot           │                                            │
+│  │ version          │                                            │
+│  │ help             │                                            │
+│  │ exit (app)       │                                            │
+│  └──────────────────┘                                            │
+│                                                                  │
+│  Default Mode: MONITORING (>)                                   │
+│  Shared: help, exit (to previous mode)                          │
+│                                                                  │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 8. IMPLEMENTATION STRATEGY
+### **MONITORING MODE (>)** - Default, Read-Only
+
+**Purpose:** View system state, monitor values, diagnostics
+
+```bash
+> show config
+> show timers
+> show counters
+> show logic
+> show logic 1
+> show logic-vars
+> read reg 0 10
+> read coil 0 16
+> monitor          # Live update mode
+> help
+> config-mode     # Enter config mode
+> logic-mode      # Enter logic mode
+> system-mode     # Enter system mode
+> exit             # Exit app
+```
+
+---
+
+### **CONFIG MODE (.)** - Configuration, Hardware Setup
+
+**Purpose:** Configure Modbus, timers, counters, GPIO, register/coil mappings
+
+```bash
+. set timer 1 mode 3 on-dur:500 off-dur:500 output-coil:100
+. set counter 1 mode:hw input-dis:16 index-reg:0 prescaler:1
+. set gpio 140 static map input:10
+. set register 0 static value 1000
+. set coil 200 static value 1
+. set baudrate 115200
+. set slave-id 1
+. delete timer 1
+. delete counter 2
+. load defaults    # Load factory defaults
+. help
+. exit             # Back to monitoring (>)
+. save             # Goes to system mode and saves
+. load             # Goes to system mode and loads
+```
+
+---
+
+### **LOGIC MODE (#)** - Logic Programming, FBD
+
+**Purpose:** Program logic blocks, state machines, automation
+
+```bash
+# Enter logic mode from monitoring
+> logic-mode
+Entering Logic Programming Mode...
+
+# Now in logic mode
+# set block 1 type:threshold input:reg:100 output:coil:200 threshold:500
+
+# Examples:
+# set block 1 type:and input:coil:50 input2:coil:60 output:coil:200
+# set block 2 type:compare input:reg:110 input2:const:1000 operator:> output:coil:201
+# set block 3 type:delay input:block:2 output:coil:202 delay-ms:1000
+# set var 10 1000
+# show blocks
+# show blocks 1
+# show vars
+# show order       # Evaluation order (topological)
+# delete block 1
+# delete var 10
+# verify           # Check for circular dependencies
+# help
+# exit             # Back to monitoring (>)
+# save             # (via system mode)
+# load             # (via system mode)
+```
+
+---
+
+### **SYSTEM MODE ($)** - Persistence, System Operations
+
+**Purpose:** Save/load configuration, system control, metadata
+
+```bash
+$ save              # Save entire config (timers + counters + logic + GPIO)
+$ load              # Load config from NVS
+$ reset             # Reset config to factory defaults
+$ reboot            # Reboot ESP32
+$ version           # Show firmware version
+$ help
+$ exit              # Back to previous mode (usually monitoring)
+```
+
+---
+
+### **Mode Transitions (Visual)**
+
+```
+Start
+  │
+  ├─→ MONITORING MODE (>) [Default]
+  │   ├─→ "config-mode" → CONFIG MODE (.)
+  │   │                    └─→ "exit" → MONITORING (>)
+  │   │
+  │   ├─→ "logic-mode" → LOGIC MODE (#)
+  │   │                   └─→ "exit" → MONITORING (>)
+  │   │
+  │   ├─→ "system-mode" → SYSTEM MODE ($)
+  │   │                    └─→ "exit" → MONITORING (>)
+  │   │
+  │   └─→ "exit" → Shutdown
+  │
+  └─→ (Any mode) "save" or "load" → SYSTEM MODE ($) → (back to previous mode)
+```
+
+---
+
+### **CLI Command Distribution**
+
+| Command | > Monitoring | . Config | # Logic | $ System |
+|---------|---|---|---|---|
+| show config | ✅ | - | - | - |
+| show timers | ✅ | - | - | - |
+| show counters | ✅ | - | - | - |
+| show logic | ✅ | - | ✅ | - |
+| show vars | ✅ | - | ✅ | - |
+| read reg/coil | ✅ | - | - | - |
+| monitor | ✅ | - | - | - |
+| set timer | - | ✅ | - | - |
+| set counter | - | ✅ | - | - |
+| set gpio | - | ✅ | - | - |
+| set register | - | ✅ | - | - |
+| set coil | - | ✅ | - | - |
+| set baudrate | - | ✅ | - | - |
+| set block | - | - | ✅ | - |
+| set var | - | - | ✅ | - |
+| delete block | - | - | ✅ | - |
+| delete timer | - | ✅ | - | - |
+| verify | - | - | ✅ | - |
+| save | - | - | - | ✅ |
+| load | - | - | - | ✅ |
+| reboot | - | - | - | ✅ |
+| version | ✅ | ✅ | ✅ | ✅ |
+| help | ✅ | ✅ | ✅ | ✅ |
+| exit | ✅ | ✅ | ✅ | ✅ |
+
+---
+
+---
+
+## 8. DATA STRUCTURES (Reworked)
+
+### **Logic Block Configuration**
+```c
+typedef struct {
+  uint8_t id;                          // 1-16
+  uint8_t enabled;                     // 0=disabled, 1=enabled
+  LogicBlockType type;                 // AND, OR, THRESHOLD, etc
+
+  // Input configuration (up to 4 inputs)
+  struct {
+    uint8_t source_type;               // REG|COIL|INPUT|VAR|BLOCK|CONST
+    uint16_t source_id;                // Address or ID
+    uint16_t const_value;              // If CONST type
+  } inputs[4];
+  uint8_t input_count;                 // Actual # of inputs used
+
+  // Output configuration (up to 2 outputs)
+  struct {
+    uint8_t dest_type;                 // COIL|REG|VAR|BLOCK
+    uint16_t dest_id;
+  } outputs[2];
+  uint8_t output_count;                // Actual # of outputs used
+
+  // Block-specific parameters
+  union {
+    struct {
+      uint16_t threshold;
+      uint16_t hysteresis;
+      uint8_t logic;                   // ABOVE|BELOW|BETWEEN
+    } threshold;
+
+    struct {
+      uint32_t delay_ms;
+      uint32_t start_time;             // When delay started
+    } delay;
+
+    struct {
+      uint8_t operator;                // ==|!=|<|>|<=|>=
+    } compare;
+
+    struct {
+      uint8_t operator;                // +|-|*|/|min|max|abs
+    } arithmetic;
+
+    struct {
+      uint8_t logic;                   // SET_DOMINANT|RESET_DOMINANT
+    } latch;
+
+    struct {
+      uint32_t debounce_ms;
+      uint32_t last_change_time;
+      uint32_t last_value;
+    } ratelimit;
+  } params;
+
+  // Runtime state
+  uint32_t last_output;                // Last computed output value
+  uint32_t state;                      // Internal state (if needed)
+
+} LogicBlock;
+
+typedef struct {
+  LogicBlock blocks[16];               // Blocks 1-16
+  uint32_t variables[32];              // Shared variables
+  uint8_t var_changed[32];             // Change flags
+
+  // Time sources
+  uint32_t time_source;                // Current millis()
+  uint8_t tick_1s;                     // Pulse every 1 second
+  uint8_t tick_100ms;                  // Pulse every 100ms
+
+  // Dependency tracking
+  uint8_t eval_order[16];              // Block evaluation order
+  uint8_t eval_count;                  // How many blocks enabled
+
+} LogicEngine;
+```
+
+---
+
+## 9. IMPLEMENTATION STRATEGY
 
 ### **Phase 1: Core (MVP)**
 - [ ] Logic block structure & storage
 - [ ] AND, OR, NOT, THRESHOLD blocks
 - [ ] Input source reading
 - [ ] Output sink writing
-- [ ] CLI set/show commands
+- [ ] CLI mode infrastructure (> . # $ prompts)
+- [ ] Logic mode commands (set block, set var, show blocks, show vars)
 - [ ] Main loop integration
 
 ### **Phase 2: Enhanced**
@@ -490,16 +698,19 @@ load
 - [ ] Topological sort (dependency ordering)
 - [ ] ARITHMETIC blocks
 - [ ] NVS persistence
+- [ ] Verify logic command (check circular dependencies)
 
 ### **Phase 3: Advanced (Future)**
 - [ ] RATELIMIT, HYSTERESIS
-- [ ] Timer integration
-- [ ] Counter integration
+- [ ] Timer integration (logic blocks can start/stop timers)
+- [ ] Counter integration (logic blocks can read counter values)
+- [ ] SEQUENCE block (execute Modbus command sequences)
+- [ ] STATE_MACHINE block (multi-state process control)
 - [ ] LUT, MUX blocks
 
 ---
 
-## 9. OPEN QUESTIONS FOR BRAINSTORM
+## 10. OPEN QUESTIONS FOR BRAINSTORM
 
 ### **Architecture**
 - [ ] Should blocks evaluate in parallel or sequential order?
@@ -530,7 +741,7 @@ load
 
 ---
 
-## 10. RESOURCE ESTIMATES
+## 11. RESOURCE ESTIMATES
 
 ### **Memory (Approximate)**
 ```
@@ -551,33 +762,36 @@ All 16 blocks:            ~160-320 μs per loop
 
 ---
 
-## 11. FILE STRUCTURE
+## 12. FILE STRUCTURE
 
 ```
 src/
+  cli_shell.cpp/h           - Main CLI shell with mode handling (>, ., #, $)
+  cli_monitoring.cpp/h      - Monitoring mode commands (show, read, monitor)
+  cli_config.cpp/h          - Config mode commands (set timer, set counter, set gpio)
   logic_block.cpp/h         - Block struct, enums, types
   logic_engine.cpp/h        - Main engine, eval loop
   logic_evaluator.cpp/h     - Block type implementations
   logic_source.cpp/h        - Read inputs (reg/coil/var/etc)
   logic_sink.cpp/h          - Write outputs
-  logic_parser.cpp          - Parse CLI commands
-  cli_logic.cpp             - CLI show/set logic
-  logic_config.cpp/h        - Load/save NVS
+  cli_logic.cpp/h           - Logic mode commands (set block, set var, show blocks)
+  logic_config.cpp/h        - Load/save logic config to NVS
 
 include/
   logic_block.h             - Public API
+  cli_modes.h               - Mode definitions and state
 ```
 
 ---
 
-## 12. INTEGRATION POINTS
+## 13. INTEGRATION POINTS
 
 ### **In main loop:**
 ```cpp
 void loop() {
-  // ... existing code ...
+  // ... existing Modbus, timers, counters ...
 
-  // Update time sources
+  // Update time sources for logic engine
   logic_engine_update_time();
 
   // Evaluate all logic blocks
@@ -590,29 +804,41 @@ void loop() {
 ### **With existing systems:**
 - **Registers:** Read from holding/input registers directly
 - **Coils:** Read/write to coil array
-- **Timers:** Could trigger timers from blocks (future)
-- **Counters:** Could read counter values (future)
-- **GPIO:** Could use GPIO mappings as inputs (future)
+- **Timers:** Could trigger timers from blocks (Phase 3)
+- **Counters:** Could read counter values (Phase 3)
+- **GPIO:** Could use GPIO mappings as inputs (Phase 3)
+
+### **CLI Integration:**
+- **cli_shell.cpp:** Dispatches to correct mode handler based on current prompt
+- **Monitoring mode (>):** Existing show/read commands
+- **Config mode (.):** Existing set timer/counter/gpio commands (reorganized)
+- **Logic mode (#):** New logic-specific commands
+- **System mode ($):** Save/load/reboot commands
 
 ---
 
-## 13. SUCCESS CRITERIA
+## 14. SUCCESS CRITERIA
 
-- [ ] System can handle 16 blocks with 4 inputs each
+- [ ] CLI mode system working (4 prompts: > . # $)
+- [ ] Logic block structure defined in types.h
+- [ ] AND, OR, NOT, THRESHOLD blocks implemented
+- [ ] Input source reading working (REG, COIL, VAR, CONST)
+- [ ] Output sink writing working (COIL, REG, VAR)
 - [ ] All block types evaluate in < 1ms total
-- [ ] CLI commands are intuitive and documented
+- [ ] CLI commands for set block, set var, show blocks, show vars
 - [ ] Configuration persists across reboot
-- [ ] No circular dependency crashes
 - [ ] 32 variables available for inter-block communication
 
 ---
 
-## 14. NEXT STEPS
+## 15. NEXT STEPS
 
-1. **Review & Feedback:** Comments on design above?
-2. **Clarify Questions:** Any open questions need answering?
-3. **Finalize Spec:** Lock down block types and parameters
-4. **Start Coding:** Phase 1 implementation
+1. **Update types.h:** Add LogicBlock and LogicEngine structs + enums
+2. **Update constants.h:** Add logic-specific enums and constants
+3. **Create logic_block.h:** Public API header
+4. **Implement Phase 1 core:** AND, OR, NOT, THRESHOLD
+5. **Update CLI architecture:** 4-mode system
+6. **Integration testing:** Test with real Modbus scenarios
 
 ---
 
