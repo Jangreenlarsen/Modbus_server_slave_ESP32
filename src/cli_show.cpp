@@ -17,6 +17,8 @@
 #include "counter_engine.h"
 #include "counter_config.h"
 #include "counter_frequency.h"
+#include "timer_engine.h"
+#include "timer_config.h"
 #include "registers.h"
 #include "version.h"
 #include "cli_shell.h"
@@ -417,18 +419,98 @@ void cli_cmd_show_counters(void) {
  * ============================================================================ */
 
 void cli_cmd_show_timers(void) {
-  debug_println("\n=== TIMER STATUS ===\n");
+  debug_println("\n=== TIMER STATUS (Timer 1-4) ===\n");
 
-  bool any = false;
   for (uint8_t id = 1; id <= 4; id++) {
-    // TODO: Implement when timer engine is ported
-    // For now, show basic placeholder
-  }
+    TimerConfig cfg;
+    if (!timer_engine_get_config(id, &cfg)) {
+      continue;
+    }
 
-  if (!any) {
-    debug_println("(Timer functionality not yet fully ported)");
+    debug_print("Timer ");
+    debug_print_uint(id);
+    debug_print(": ");
+
+    if (!cfg.enabled) {
+      debug_println("DISABLED");
+      continue;
+    }
+
+    // Show mode and status
+    switch (cfg.mode) {
+      case TIMER_MODE_1_ONESHOT:
+        debug_println("ONE-SHOT (Mode 1)");
+        debug_print("  P1: ");
+        debug_print_uint(cfg.phase1_duration_ms);
+        debug_print("ms → ");
+        debug_print_uint(cfg.phase1_output_state);
+        debug_println("");
+        debug_print("  P2: ");
+        debug_print_uint(cfg.phase2_duration_ms);
+        debug_print("ms → ");
+        debug_print_uint(cfg.phase2_output_state);
+        debug_println("");
+        debug_print("  P3: ");
+        debug_print_uint(cfg.phase3_duration_ms);
+        debug_print("ms → ");
+        debug_print_uint(cfg.phase3_output_state);
+        debug_println("");
+        break;
+
+      case TIMER_MODE_2_MONOSTABLE:
+        debug_println("MONOSTABLE (Mode 2)");
+        debug_print("  Pulse: ");
+        debug_print_uint(cfg.pulse_duration_ms);
+        debug_println("ms");
+        debug_print("  P1 (rest): ");
+        debug_print_uint(cfg.phase1_output_state);
+        debug_println("");
+        debug_print("  P2 (pulse): ");
+        debug_print_uint(cfg.phase2_output_state);
+        debug_println("");
+        break;
+
+      case TIMER_MODE_3_ASTABLE:
+        debug_println("ASTABLE (Mode 3)");
+        debug_print("  ON: ");
+        debug_print_uint(cfg.on_duration_ms);
+        debug_println("ms");
+        debug_print("  OFF: ");
+        debug_print_uint(cfg.off_duration_ms);
+        debug_println("ms");
+        debug_print("  P1 (ON): ");
+        debug_print_uint(cfg.phase1_output_state);
+        debug_println("");
+        debug_print("  P2 (OFF): ");
+        debug_print_uint(cfg.phase2_output_state);
+        debug_println("");
+        break;
+
+      case TIMER_MODE_4_INPUT_TRIGGERED:
+        debug_println("INPUT-TRIGGERED (Mode 4)");
+        debug_print("  Input COIL: ");
+        debug_print_uint(cfg.input_dis);
+        debug_println("");
+        debug_print("  Trigger edge: ");
+        debug_println(cfg.trigger_edge == 1 ? "RISING (0→1)" : "FALLING (1→0)");
+        debug_print("  Delay: ");
+        debug_print_uint(cfg.delay_ms);
+        debug_println("ms");
+        debug_print("  Output level: ");
+        debug_print_uint(cfg.phase1_output_state);
+        debug_println("");
+        break;
+
+      default:
+        debug_println("UNKNOWN MODE");
+        break;
+    }
+
+    debug_print("  Output COIL: ");
+    debug_print_uint(cfg.output_coil);
+    debug_println("");
+    debug_println("");
   }
-  debug_println("");
 }
 
 /* ============================================================================
