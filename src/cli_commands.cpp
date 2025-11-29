@@ -735,6 +735,22 @@ void cli_cmd_save(void) {
 
   if (success) {
     debug_println("SAVE: Configuration saved successfully");
+
+    // Count enabled counters and timers
+    uint8_t enabled_counters = 0, enabled_timers = 0;
+    for (uint8_t i = 0; i < COUNTER_COUNT; i++) {
+      if (g_persist_config.counters[i].enabled) enabled_counters++;
+    }
+    for (uint8_t i = 0; i < TIMER_COUNT; i++) {
+      if (g_persist_config.timers[i].enabled) enabled_timers++;
+    }
+
+    debug_print("  - ");
+    debug_print_uint(enabled_counters);
+    debug_println(" counters");
+    debug_print("  - ");
+    debug_print_uint(enabled_timers);
+    debug_println(" timers");
     debug_print("  - ");
     debug_print_uint(g_persist_config.static_reg_count);
     debug_println(" static registers");

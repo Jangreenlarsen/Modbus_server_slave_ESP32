@@ -133,8 +133,8 @@ bool config_apply(const PersistConfig* cfg) {
     if (cfg->timers[i].enabled) {
       debug_print("    Timer ");
       debug_print_uint(i + 1);
-      debug_println(" enabled - stored (TODO: activate in timer_engine)");
-      // TODO: timer_engine_configure(i + 1, &cfg->timers[i]);
+      debug_println(" enabled - configured");
+      timer_engine_configure(i + 1, &cfg->timers[i]);
     }
   }
 
