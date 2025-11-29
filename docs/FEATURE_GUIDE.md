@@ -237,12 +237,68 @@ p1-output: 1  # Output HIGH når triggered
 
 **Test resultat:** Mode 4 [PASS] - Både rising og falling edge detection fungerer
 
-**Defaults:**
+---
+
+### Timer Control Register (ctrl_reg)
+
+Kontroller alle timer-modes (1-4) via Modbus holding register uden CLI.
+
+**Funktionalitet:**
+- **Bit 0 (0x0001):** START command - Starter timer execution
+- **Bit 1 (0x0002):** STOP command - Stopper timer, slukker output
+- **Bit 2 (0x0004):** RESET command - Nulstiller timer state helt
+- Bits auto-cleares efter eksekvering (host læser altid 0)
+
+**Konfiguration:**
 ```
-input-dis: 0
-trigger-edge: 1
-delay-ms: 0
+set timer <id> mode <1-4> ... ctrl-reg:<holding_register> ...
 ```
+
+**Eksempler:**
+
+Mode 1 (One-shot) med ctrl_reg:
+```
+set timer 1 mode 1 \
+  p1-dur:500 p1-out:1 \
+  p2-dur:300 p2-out:0 \
+  p3-dur:200 p3-out:0 \
+  output-coil:100 \
+  ctrl-reg:50
+
+# Start timer via register
+write reg 50 value 1   # Bit 0 = START
+# Timer 1 executes 3-phase sequence
+
+# Stop timer mid-sequence
+write reg 50 value 2   # Bit 1 = STOP
+
+# Reset timer
+write reg 50 value 4   # Bit 2 = RESET
+```
+
+Mode 3 (Astable) med ctrl_reg:
+```
+set timer 3 mode 3 \
+  on-ms:500 off-ms:500 \
+  output-coil:150 \
+  ctrl-reg:60 \
+  enabled:0   # Don't auto-start
+
+# Start via ctrl_reg instead of auto-start
+write reg 60 value 1   # START
+
+# Stop blinking
+write reg 60 value 2   # STOP
+
+# Reset state
+write reg 60 value 4   # RESET
+```
+
+**Use Cases:**
+- Start/stop timers fra Modbus master uden CLI adgang
+- Synchronisere timer-execution med Modbus polling
+- Implementere timer-sekvenser fra SCADA-systemer
+- Trigger timers baseret på eksterne events (læst fra input-registre)
 
 ---
 
