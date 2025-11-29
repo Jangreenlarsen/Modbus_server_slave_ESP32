@@ -22,6 +22,7 @@
 #include "config_load.h"
 #include "config_apply.h"
 #include "config_struct.h"
+#include "registers.h"
 
 // ============================================================================
 // SETUP
@@ -88,6 +89,10 @@ void loop() {
   // Background feature engines
   counter_engine_loop();
   timer_engine_loop();
+
+  // Update DYNAMIC register/coil mappings (counter/timer → registers/coils)
+  registers_update_dynamic_registers();
+  registers_update_dynamic_coils();
 
   // GPIO STATIC mapping sync (GPIO ↔ registers/coils)
   gpio_mapping_update();

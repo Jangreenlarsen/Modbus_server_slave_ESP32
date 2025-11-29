@@ -215,6 +215,12 @@ bool timer_engine_configure(uint8_t id, const TimerConfig* cfg) {
     timer_state[id - 1].is_active = 0;
     timer_state[id - 1].current_phase = 0;
     timer_state[id - 1].phase_start_ms = 0;
+
+    // Auto-start astable mode when enabled (continuous oscillation)
+    if (cfg->mode == TIMER_MODE_3_ASTABLE && cfg->enabled) {
+      timer_state[id - 1].is_active = 1;
+      timer_state[id - 1].phase_start_ms = registers_get_millis();
+    }
   }
 
   return true;

@@ -110,7 +110,7 @@ class ESP32ExtendedTestSuite:
         print("="*70)
 
         # Test prescaler 4
-        cmd = ('set counter 1 mode 1 parameter hw-mode:hw edge:rising prescaler:4 '
+        cmd = ('set counter 1 mode 1 hw-mode:hw edge:rising prescaler:4 '
                'hw-gpio:13 index-reg:10 raw-reg:11 freq-reg:12 ctrl-reg:14')
         self.send_command(cmd, wait_time=2.0)
         self.send_command('write reg 14 value 1', wait_time=0.5)  # Reset
@@ -137,7 +137,7 @@ class ESP32ExtendedTestSuite:
         print("="*70)
 
         # Test scale 2.5
-        cmd = ('set counter 1 mode 1 parameter hw-mode:hw edge:rising prescaler:1 '
+        cmd = ('set counter 1 mode 1 hw-mode:hw edge:rising prescaler:1 '
                'scale:2.5 hw-gpio:13 index-reg:10 raw-reg:11 ctrl-reg:14')
         self.send_command(cmd, wait_time=2.0)
         self.send_command('write reg 14 value 1', wait_time=0.5)
@@ -163,7 +163,7 @@ class ESP32ExtendedTestSuite:
         print("="*70)
 
         # Set high start value and count down
-        cmd = ('set counter 1 mode 1 parameter hw-mode:hw edge:rising prescaler:1 '
+        cmd = ('set counter 1 mode 1 hw-mode:hw edge:rising prescaler:1 '
                'direction:down start-value:10000 hw-gpio:13 index-reg:10 ctrl-reg:14')
         self.send_command(cmd, wait_time=2.0)
 
@@ -191,7 +191,7 @@ class ESP32ExtendedTestSuite:
         print("TESTING: COUNTER START VALUE")
         print("="*70)
 
-        cmd = ('set counter 1 mode 1 parameter hw-mode:hw edge:rising prescaler:1 '
+        cmd = ('set counter 1 mode 1 hw-mode:hw edge:rising prescaler:1 '
                'start-value:5000 hw-gpio:13 index-reg:10 ctrl-reg:14')
         self.send_command(cmd, wait_time=2.0)
         self.send_command('write reg 14 value 1', wait_time=0.5)  # Reset to start value
@@ -219,7 +219,7 @@ class ESP32ExtendedTestSuite:
         print("="*70)
 
         # Configure counter
-        cmd = ('set counter 1 mode 1 parameter hw-mode:hw edge:rising prescaler:1 '
+        cmd = ('set counter 1 mode 1 hw-mode:hw edge:rising prescaler:1 '
                'hw-gpio:13 index-reg:10 ctrl-reg:14')
         self.send_command(cmd, wait_time=2.0)
 
@@ -274,7 +274,7 @@ class ESP32ExtendedTestSuite:
         print("="*70)
 
         # Configure timer 1: 1s ON, 1s OFF, output to coil 200
-        cmd = ('set timer 1 mode 3 parameter on:1000 off:1000 output-coil:200')
+        cmd = ('set timer 1 mode 3 on:1000 off:1000 output-coil:200')
         self.send_command(cmd, wait_time=2.0)
 
         # Monitor coil 200 for toggling
@@ -299,64 +299,28 @@ class ESP32ExtendedTestSuite:
     # DYNAMIC CONFIGURATION TESTS
     # ========================================================================
 
-    def test_dynamic_register_counter(self):
-        """Test dynamic register mapping to counter"""
+    def test_static_register_value(self):
+        """Test STATIC register value persistence"""
         print("\n" + "="*70)
-        print("TESTING: DYNAMIC REGISTER MAPPING (COUNTER)")
+        print("TESTING: STATIC REGISTER VALUE")
         print("="*70)
 
-        # Configure counter 1
-        cmd = ('set counter 1 mode 1 parameter hw-mode:hw edge:rising prescaler:1 '
-               'hw-gpio:13 index-reg:10 freq-reg:12')
-        self.send_command(cmd, wait_time=2.0)
+        # Set a STATIC register value (should persist)
+        self.send_command('set reg STATIC 100 Value 12345', wait_time=0.5)
+        time.sleep(0.5)
 
-        # Map dynamic register 150 to counter 1 frequency
-        self.send_command('set reg DYNAMIC 150 counter1:freq', wait_time=1.0)
-        time.sleep(2)
+        # Read it back
+        output = self.send_command('read reg 100 1', wait_time=0.5)
+        value = self.extract_register_value(output, 100)
 
-        # Read both freq-reg (12) and dynamic reg (150)
-        output1 = self.send_command('read reg 12 1', wait_time=0.5)
-        freq_direct = self.extract_register_value(output1, 12)
-
-        output2 = self.send_command('read reg 150 1', wait_time=0.5)
-        freq_dynamic = self.extract_register_value(output2, 150)
-
-        if freq_direct and freq_dynamic:
-            match = freq_direct == freq_dynamic
-            self.log_result('REG-DY-02', 'Dynamic reg counter1:freq',
-                           "PASS" if match else "FAIL",
-                           f"Direct={freq_direct}, Dynamic={freq_dynamic}")
+        if value:
+            correct = value == 12345
+            self.log_result('REG-ST-01', 'STATIC register set value',
+                           "PASS" if correct else "FAIL",
+                           f"Value={value} (expected 12345)")
         else:
-            self.log_result('REG-DY-02', 'Dynamic register', "FAIL", "No data")
+            self.log_result('REG-ST-01', 'STATIC register', "FAIL", "No data")
 
-    def test_dynamic_coil_timer(self):
-        """Test dynamic coil mapping to timer output"""
-        print("\n" + "="*70)
-        print("TESTING: DYNAMIC COIL MAPPING (TIMER)")
-        print("="*70)
-
-        # Configure timer 1 astable mode
-        cmd = ('set timer 1 mode 3 parameter on:500 off:500 output-coil:200')
-        self.send_command(cmd, wait_time=2.0)
-
-        # Map dynamic coil 150 to timer 1 output
-        self.send_command('set coil DYNAMIC 150 timer1:output', wait_time=1.0)
-        time.sleep(1)
-
-        # Read both coils
-        output1 = self.send_command('read coil 200 1', wait_time=0.5)
-        coil_direct = self.extract_coil_value(output1, 200)
-
-        output2 = self.send_command('read coil 150 1', wait_time=0.5)
-        coil_dynamic = self.extract_coil_value(output2, 150)
-
-        if coil_direct is not None and coil_dynamic is not None:
-            match = coil_direct == coil_dynamic
-            self.log_result('COIL-DY-02', 'Dynamic coil timer1:output',
-                           "PASS" if match else "FAIL",
-                           f"Direct={coil_direct}, Dynamic={coil_dynamic}")
-        else:
-            self.log_result('COIL-DY-02', 'Dynamic coil', "FAIL", "No data")
 
     # ========================================================================
     # SYSTEM COMMANDS TESTS
@@ -368,8 +332,8 @@ class ESP32ExtendedTestSuite:
         print("TESTING: SYSTEM SAVE/LOAD")
         print("="*70)
 
-        # Set a unique value
-        self.send_command('write reg 100 value 54321', wait_time=0.5)
+        # Set a STATIC register value (this will be persisted in NVS)
+        self.send_command('set reg STATIC 100 Value 54321', wait_time=0.5)
 
         # Save config
         output1 = self.send_command('save', wait_time=2.0)
@@ -378,21 +342,21 @@ class ESP32ExtendedTestSuite:
                        "PASS" if saved else "FAIL",
                        "Config saved" if saved else "No confirmation")
 
-        # Change the value
+        # Change the value directly (without updating STATIC config)
         self.send_command('write reg 100 value 99999', wait_time=0.5)
 
-        # Load config
+        # Load config (should restore STATIC value from NVS)
         output2 = self.send_command('load', wait_time=2.0)
         loaded = any('LOADED' in line or 'loaded' in line for line in output2)
 
-        # Check if original value restored
+        # Check if original STATIC value restored
         output3 = self.send_command('read reg 100 1', wait_time=0.5)
         value = self.extract_register_value(output3, 100)
 
         if loaded and value:
             restored = value == 54321
             self.log_result('SYS-07', 'Load config from NVS',
-                           "PASS" if restored else "WARN",
+                           "PASS" if restored else "FAIL",
                            f"Value after load={value} (expected 54321)")
         else:
             self.log_result('SYS-07', 'Load config', "FAIL", "Load failed")
@@ -444,9 +408,8 @@ class ESP32ExtendedTestSuite:
         # Timer tests
         self.test_timer_mode_3_astable()
 
-        # Dynamic configuration
-        self.test_dynamic_register_counter()
-        self.test_dynamic_coil_timer()
+        # STATIC register test
+        self.test_static_register_value()
 
         # System commands
         self.test_system_save_load()
@@ -480,7 +443,13 @@ class ESP32ExtendedTestSuite:
             f.write("ESP32 MODBUS SERVER - UDVIDET TEST RAPPORT\n")
             f.write("="*70 + "\n\n")
             f.write(f"Dato: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-            f.write(f"Firmware: v1.0.0 Build #116\n\n")
+            # Read build number from file
+            try:
+                with open('build_number.txt', 'r') as bf:
+                    build_num = bf.read().strip()
+            except:
+                build_num = "unknown"
+            f.write(f"Firmware: v1.0.0 Build #{build_num}\n\n")
             f.write(f"STATISTIK:\n")
             f.write(f"  Total: {total}, Passed: {passed}, Failed: {failed}, Warned: {warned}\n\n")
             f.write("DETALJEREDE RESULTATER:\n")

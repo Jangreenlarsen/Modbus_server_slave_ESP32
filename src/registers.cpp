@@ -179,23 +179,32 @@ void registers_update_dynamic_registers(void) {
           break;
 
         case COUNTER_FUNC_FREQ:
-          // Frequency in Hz (updated by counter_frequency_update)
-          // This is already in a register, but we may need to sync it
-          // For now, get measured_frequency from runtime state
-          // TODO: Access measured_frequency from Counter struct
-          value = 0;  // Placeholder
+          // Frequency in Hz (already updated by counter_frequency_update)
+          // Read from freq_reg if configured
+          if (cfg.freq_reg < HOLDING_REGS_SIZE) {
+            value = registers_get_holding_register(cfg.freq_reg);
+          } else {
+            value = 0;
+          }
           break;
 
         case COUNTER_FUNC_OVERFLOW:
           // Overflow flag (1 if overflow occurred)
-          // TODO: Get overflow state from counter state
-          value = 0;  // Placeholder
+          // Read from overload_reg if configured
+          if (cfg.overload_reg < HOLDING_REGS_SIZE) {
+            value = registers_get_holding_register(cfg.overload_reg);
+          } else {
+            value = 0;
+          }
           break;
 
         case COUNTER_FUNC_CTRL:
-          // Control register (read-only, used for commands)
-          // Usually contains last command status
-          value = 0;  // Placeholder
+          // Control register (read current value)
+          if (cfg.ctrl_reg < HOLDING_REGS_SIZE) {
+            value = registers_get_holding_register(cfg.ctrl_reg);
+          } else {
+            value = 0;
+          }
           break;
 
         default:
@@ -219,8 +228,8 @@ void registers_update_dynamic_registers(void) {
       switch (dyn->source_function) {
         case TIMER_FUNC_OUTPUT:
           // Timer output state (0 or 1)
-          // TODO: Get output state from Timer struct
-          value = 0;  // Placeholder
+          // Read current coil state (timer writes to output_coil via set_coil_level)
+          value = registers_get_coil(cfg.output_coil) ? 1 : 0;
           break;
 
         default:
@@ -285,8 +294,8 @@ void registers_update_dynamic_coils(void) {
       switch (dyn->source_function) {
         case TIMER_FUNC_OUTPUT:
           // Timer output state (0 or 1)
-          // TODO: Get output state from Timer struct
-          value = 0;  // Placeholder
+          // Read current coil state (timer writes to output_coil via set_coil_level)
+          value = registers_get_coil(cfg.output_coil) ? 1 : 0;
           break;
 
         default:

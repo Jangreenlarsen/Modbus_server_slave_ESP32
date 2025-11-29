@@ -1,0 +1,235 @@
+===========================================
+ESP32 COUNTER TEST - QUICK REFERENCE
+===========================================
+
+HARDWARE SETUP:
+- 5 kHz signal på GPIO 13
+- 5 kHz signal på GPIO 19
+
+===========================================
+TEST 1: HW MODE (PCNT) - GPIO 19
+===========================================
+
+# Konfigurer Counter 1 (HW mode, GPIO 19)
+set counter 1 mode 1 hw-mode:hw edge:rising direction:up hw-gpio:19 prescaler:1 bit-width:32 index-reg:100 raw-reg:110 freq-reg:120 overload-reg:130 ctrl-reg:140
+
+# Start counter
+set register 140 value:2
+
+# Vent 10 sekunder, læs derefter:
+show register 100
+show register 110
+show register 120
+show register 130
+
+# Forventet: reg 100≈50k, reg 110≈50k, reg 120≈5000, reg 130=0
+
+# Test STOP
+set register 140 value:4
+
+# Vent 5 sek, verificer ingen ændring:
+show register 100
+
+# Test START igen
+set register 140 value:2
+
+# Vent 5 sek, verificer ændring:
+show register 100
+
+# Test RESET
+set register 140 value:1
+show register 100
+# Forventet: reg 100=0
+
+===========================================
+TEST 2: SW-ISR MODE - GPIO 13
+===========================================
+
+# Konfigurer Counter 2 (SW-ISR mode, GPIO 13)
+set counter 2 mode 1 hw-mode:sw-isr edge:rising direction:up interrupt-pin:13 prescaler:1 bit-width:32 index-reg:200 raw-reg:210 freq-reg:220 overload-reg:230 ctrl-reg:240
+
+# Start counter
+set register 240 value:2
+
+# Vent 10 sekunder, læs:
+show register 200
+show register 220
+
+# Forventet: reg 200≈50k, reg 220≈5000
+
+===========================================
+TEST 3: DIRECTION DOWN
+===========================================
+
+# Rekonfigurer Counter 1 med DOWN direction
+set counter 1 mode 1 hw-mode:hw edge:rising direction:down hw-gpio:19 prescaler:1 bit-width:32 start-value:100000 index-reg:100 raw-reg:110 freq-reg:120 overload-reg:130 ctrl-reg:140
+
+# Start
+set register 140 value:2
+
+# Vent 10 sek, læs:
+show register 100
+
+# Forventet: reg 100≈75k (100k - 25k)
+
+===========================================
+TEST 4: PRESCALER
+===========================================
+
+# Rekonfigurer med prescaler=10
+set counter 1 mode 1 hw-mode:hw edge:rising direction:up hw-gpio:19 prescaler:10 bit-width:32 index-reg:100 raw-reg:110 freq-reg:120 overload-reg:130 ctrl-reg:140
+
+# Reset og start
+set register 140 value:1
+set register 140 value:2
+
+# Vent 10 sek, læs:
+show register 100
+show register 110
+
+# Forventet: reg 100≈50k (index), reg 110≈5k (raw divideret)
+
+===========================================
+TEST 5: OVERFLOW (16-bit)
+===========================================
+
+# Rekonfigurer med 16-bit width
+set counter 1 mode 1 hw-mode:hw edge:rising direction:up hw-gpio:19 prescaler:1 bit-width:16 index-reg:100 raw-reg:110 freq-reg:120 overload-reg:130 ctrl-reg:140
+
+# Reset og start
+set register 140 value:1
+set register 140 value:2
+
+# Vent 15 sek (75k pulser > 65535), læs:
+show register 100
+show register 130
+
+# Forventet: reg 100≈9464 (75k mod 65536), reg 130=1 (overflow)
+
+===========================================
+TEST 6: FREQUENCY MEASUREMENT
+===========================================
+
+# Konfigurer Counter 1
+set counter 1 mode 1 hw-mode:hw edge:rising direction:up hw-gpio:19 prescaler:1 bit-width:32 index-reg:100 raw-reg:110 freq-reg:120 overload-reg:130 ctrl-reg:140
+
+# Reset og start
+set register 140 value:1
+set register 140 value:2
+
+# Vent 5 sek, læs frequency:
+show register 120
+
+# Forventet: reg 120≈5000 Hz (±2%)
+
+===========================================
+TEST 7: START VALUE
+===========================================
+
+# Konfigurer med start_value=12345
+set counter 1 mode 1 hw-mode:hw edge:rising direction:up hw-gpio:19 prescaler:1 bit-width:32 start-value:12345 index-reg:100 raw-reg:110 freq-reg:120 overload-reg:130 ctrl-reg:140
+
+# Reset
+set register 140 value:1
+
+# Læs straks:
+show register 100
+
+# Forventet: reg 100=12345
+
+===========================================
+TEST 8: BIT WIDTH VALIDATION
+===========================================
+
+# Test invalid bit-width (24 skal blive 32)
+set counter 1 mode 1 hw-mode:hw edge:rising direction:up hw-gpio:19 prescaler:1 bit-width:24 index-reg:100 raw-reg:110 freq-reg:120 overload-reg:130 ctrl-reg:140
+
+# Verificer:
+show counters
+# Se om bit-width er 32, ikke 24
+
+# Test upper bound (100 skal blive 64)
+set counter 1 mode 1 hw-mode:hw edge:rising direction:up hw-gpio:19 prescaler:1 bit-width:100 index-reg:100 raw-reg:110 freq-reg:120 overload-reg:130 ctrl-reg:140
+
+# Verificer:
+show counters
+# Se om bit-width er 64, ikke 100
+
+===========================================
+TEST 9: BOTH EDGES (dobbelt counting)
+===========================================
+
+# Rekonfigurer Counter 2 med BOTH edges
+set counter 2 mode 1 hw-mode:sw-isr edge:both direction:up interrupt-pin:13 prescaler:1 bit-width:32 index-reg:200 raw-reg:210 freq-reg:220 overload-reg:230 ctrl-reg:240
+
+# Reset og start
+set register 240 value:1
+set register 240 value:2
+
+# Vent 10 sek, læs:
+show register 200
+
+# Forventet: reg 200≈100k (2× edges)
+
+===========================================
+SYSTEM COMMANDS
+===========================================
+
+# Se version
+show version
+
+# Se alle counters
+show counters
+
+# Se configuration
+show config
+
+# Gem configuration
+save config
+
+# Se registers (range)
+show registers 100 150
+
+# Reset system
+reset
+
+===========================================
+REGISTER MAPPINGS
+===========================================
+
+Counter 1:
+- Index:    100
+- Raw:      110
+- Freq:     120
+- Overflow: 130
+- Control:  140
+
+Counter 2:
+- Index:    200
+- Raw:      210
+- Freq:     220
+- Overflow: 230
+- Control:  240
+
+Counter 3:
+- Index:    300
+- Raw:      310
+- Freq:     320
+- Overflow: 330
+- Control:  340
+
+===========================================
+CONTROL REGISTER BITS
+===========================================
+
+Bit 0 (value:1) = RESET counter
+Bit 1 (value:2) = START counter
+Bit 2 (value:4) = STOP counter
+
+Eksempler:
+- Reset:      set register 140 value:1
+- Start:      set register 140 value:2
+- Stop:       set register 140 value:4
+- Reset+Start: set register 140 value:3
+
+===========================================

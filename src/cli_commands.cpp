@@ -16,6 +16,8 @@
 #include "cli_commands.h"
 #include "counter_engine.h"
 #include "counter_config.h"
+#include "timer_engine.h"
+#include "timer_config.h"
 #include "registers.h"
 #include "cli_shell.h"
 #include "config_struct.h"
@@ -381,6 +383,13 @@ void cli_cmd_set_timer(uint8_t argc, char* argv[]) {
   cfg.mode = (TimerMode)mode;
   cfg.output_coil = 65535;  // No output by default
 
+  // Set mode-specific defaults
+  if (mode == TIMER_MODE_3_ASTABLE) {
+    // Astable mode: toggle between HIGH (1) and LOW (0)
+    cfg.phase1_output_state = 1;  // Phase 1 = HIGH
+    cfg.phase2_output_state = 0;  // Phase 2 = LOW
+  }
+
   // Parse key:value parameters
   for (uint8_t i = 3; i < argc; i++) {
     char* arg = argv[i];
@@ -417,9 +426,9 @@ void cli_cmd_set_timer(uint8_t argc, char* argv[]) {
       cfg.trigger_level = atoi(value);
     }
     // Mode 3 parameters (astable)
-    else if (!strcmp(key, "on-ms")) {
+    else if (!strcmp(key, "on-ms") || !strcmp(key, "on")) {
       cfg.on_duration_ms = atol(value);
-    } else if (!strcmp(key, "off-ms")) {
+    } else if (!strcmp(key, "off-ms") || !strcmp(key, "off")) {
       cfg.off_duration_ms = atol(value);
     }
     // Mode 4 parameters (input-triggered)
@@ -441,9 +450,11 @@ void cli_cmd_set_timer(uint8_t argc, char* argv[]) {
   // Store in persistent config
   if (id >= 1 && id <= TIMER_COUNT) {
     g_persist_config.timers[id - 1] = cfg;
+
+    // Activate timer in timer_engine immediately
+    timer_engine_configure(id, &cfg);
   }
 
-  // TODO: Activate timer in timer_engine (når timer_engine_configure() er implementeret)
   debug_print("Timer ");
   debug_print_uint(id);
   debug_print(" configured (mode ");

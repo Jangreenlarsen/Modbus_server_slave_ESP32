@@ -1,0 +1,78 @@
+[OK] Tilsluttet til COM11 @ 115200
+
+======================================================================
+ESP32 MODBUS SERVER - UDVIDET TEST SUITE
+Kører ALLE tests inkl. Counter variants, Timers, Dynamic config
+======================================================================
+
+[INFO] Antager 1 kHz signal er tilsluttet GPIO 13
+
+======================================================================
+TESTING: COUNTER PRESCALER
+======================================================================
+[PASS] [CNT-HW-05] Prescaler 4 test: Scaled=5496, Raw=1374, Ratio=4.00
+
+======================================================================
+TESTING: COUNTER SCALE FACTOR
+======================================================================
+[PASS] [CNT-HW-06] Scale 2.5 test: Scaled=13755, Raw=5502, Scale=2.50
+
+======================================================================
+TESTING: COUNTER DIRECTION
+======================================================================
+[PASS] [CNT-HW-07] Direction DOWN test: Initial=8038, Final=4526, Decreased=True
+
+======================================================================
+TESTING: COUNTER START VALUE
+======================================================================
+[FAIL] [CNT-HW-08] Start value 5000: Value=5990 (expected ~5000)
+
+======================================================================
+TESTING: COUNTER CONTROL REGISTER
+======================================================================
+[PASS] [CTL-01] Counter reset via ctrl-reg: Before=3973, After=991
+[PASS] [CTL-06] Counter stop via ctrl-reg: At stop=1493, After 2s=1493
+
+======================================================================
+TESTING: TIMER MODE 3 (ASTABLE/BLINK)
+======================================================================
+[FAIL] [TIM-03-01] Timer Mode 3 astable toggle: States=[0, 0, 0, 0, 0]
+
+======================================================================
+TESTING: DYNAMIC REGISTER MAPPING (COUNTER)
+======================================================================
+[FAIL] [REG-DY-02] Dynamic register: No data
+
+======================================================================
+TESTING: DYNAMIC COIL MAPPING (TIMER)
+======================================================================
+[FAIL] [COIL-DY-02] Dynamic coil timer1:output: Direct=0, Dynamic=1
+
+======================================================================
+TESTING: SYSTEM SAVE/LOAD
+======================================================================
+[PASS] [SYS-06] Save config to NVS: Config saved
+[FAIL] [SYS-07] Load config from NVS: Value after load=34463 (expected 54321)
+
+======================================================================
+TESTING: SYSTEM SET ID
+======================================================================
+[PASS] [SYS-03] Set slave ID to 42: ID changed
+
+======================================================================
+UDVIDET TEST RAPPORT
+======================================================================
+
+Total tests: 12
+  Passed: 7 (58.3%)
+  Failed: 5 (41.7%)
+  Warned: 0
+
+Failed tests:
+  - [CNT-HW-08] Start value 5000: Value=5990 (expected ~5000)
+  - [TIM-03-01] Timer Mode 3 astable toggle: States=[0, 0, 0, 0, 0]
+  - [REG-DY-02] Dynamic register: No data
+  - [COIL-DY-02] Dynamic coil timer1:output: Direct=0, Dynamic=1
+  - [SYS-07] Load config from NVS: Value after load=34463 (expected 54321)
+
+[OK] Rapport gemt til: TEST_RAPPORT_EXTENDED.txt

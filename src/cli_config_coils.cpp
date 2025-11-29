@@ -10,6 +10,7 @@
 
 #include "cli_config_coils.h"
 #include "config_struct.h"
+#include "registers.h"
 #include "debug.h"
 #include <string.h>
 #include <stdlib.h>
@@ -58,7 +59,10 @@ void cli_cmd_set_coil_static(uint8_t argc, char* argv[]) {
     return;
   }
 
-  // Add or update STATIC coil mapping
+  // IMPORTANT: Write directly to coil (immediate effect)
+  registers_set_coil(address, value);
+
+  // Also store in config for persistence
   uint8_t found = 0;
   for (uint8_t i = 0; i < g_persist_config.static_coil_count; i++) {
     if (g_persist_config.static_coils[i].coil_address == address) {

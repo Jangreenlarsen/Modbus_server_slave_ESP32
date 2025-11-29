@@ -10,6 +10,7 @@
 
 #include "cli_config_regs.h"
 #include "config_struct.h"
+#include "registers.h"
 #include "debug.h"
 #include <string.h>
 #include <stdlib.h>
@@ -25,7 +26,7 @@
 void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
   // set reg STATIC <address> Value <value>
 
-  if (argc < 4) {
+  if (argc < 3) {
     debug_println("SET REG STATIC: missing arguments");
     debug_println("  Usage: set reg STATIC <address> Value <value>");
     return;
@@ -50,7 +51,10 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
   // Parse value
   uint16_t value = atoi(argv[2]);
 
-  // Add or update STATIC register mapping
+  // IMPORTANT: Write directly to holding register (immediate effect)
+  registers_set_holding_register(address, value);
+
+  // Also store in config for persistence
   uint8_t found = 0;
   for (uint8_t i = 0; i < g_persist_config.static_reg_count; i++) {
     if (g_persist_config.static_regs[i].register_address == address) {
