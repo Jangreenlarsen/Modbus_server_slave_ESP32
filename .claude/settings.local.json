@@ -1,8 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir:*)",
-      "Bash(git push)"
+      "Bash(chmod +x C:ProjekterModbus_server_slave_ESP32test_timer_ctrl_reg.py)",
+      "WebFetch(domain:www.plcacademy.com)",
+      "WebSearch",
+      "WebFetch(domain:www.fernhillsoftware.com)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "Bash(dir \"C:\\Projekter\\Modbus_server_slave_ESP32\\include\")",
+      "Bash(g++:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

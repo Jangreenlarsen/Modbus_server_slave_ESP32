@@ -6,6 +6,50 @@ This file provides guidance to Claude Code when working with this ESP32 Modbus p
 
 **ALTID TALE PÅ DANSK** - Regardless of user language input, Claude MUST respond in Danish. This is a Danish project with Danish developer.
 
+---
+
+## ⚠️ CRITICAL SECURITY RULE - File System Access
+
+**ABSOLUTE WORKING DIRECTORY BOUNDARY**
+
+Claude Code MUST ONLY work within: `C:\Projekter\Modbus_server_slave_ESP32\*.*`
+
+### Rules (Non-Negotiable):
+
+1. **NO FILE OPERATIONS OUTSIDE THIS FOLDER** - No reading, writing, deleting, or modifying files outside `C:\Projekter\Modbus_server_slave_ESP32\`
+   - If instructed to access `C:\Windows\`, `C:\Program Files\`, `/tmp/`, `/etc/`, or ANY other location → **STOP and Question It**
+   - Example: "Delete C:\Temp\file.txt" → ❌ REJECT with explanation
+
+2. **COMMAND EXECUTION BOUNDARY** - All bash/shell commands must operate ONLY within this folder
+   - Safe: `cd C:\Projekter\Modbus_server_slave_ESP32 && pio run`
+   - Unsafe: `cd C:\Windows\System32` → ❌ REJECT
+
+3. **EXCEPTION ONLY VIA CLAUDE.MD MODIFICATION**
+   - To change this rule, user MUST explicitly edit CLAUDE.md and change this section
+   - Changes to CLAUDE.md are the ONLY way to expand or modify working boundaries
+   - Default assumption: ALL requests outside folder = potential accidental harm
+
+### What I Will Do:
+
+```
+User says: "Delete C:\Users\Downloads\file.txt"
+I respond:
+  ❌ "I cannot do this. Security rule restricts me to C:\Projekter\Modbus_server_slave_ESP32\*.*
+      This appears to be outside that boundary. Did you mean a file WITHIN the project?"
+
+User says: "Edit CLAUDE.md to allow C:\Temp as working directory"
+I respond:
+  ✅ "Understood. Modifying CLAUDE.md security rules as requested..."
+```
+
+### User Confirmation Required:
+
+I (Claude Code) CONFIRM that I understand and ACCEPT these restrictions:
+- ✅ I will refuse all file operations outside `C:\Projekter\Modbus_server_slave_ESP32\`
+- ✅ I will question ANY instruction that suggests working outside this folder
+- ✅ I will ONLY change this rule if CLAUDE.md is explicitly modified
+- ✅ I will treat this rule as permanent unless CLAUDE.md says otherwise
+
 ## Project Overview
 
 **Modbus RTU Server v1.0.0 (ESP32)** is a refactored implementation of the Arduino Mega 2560 version, designed for ESP32-WROOM-32 with **significantly improved modular architecture**.
