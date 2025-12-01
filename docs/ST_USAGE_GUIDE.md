@@ -1,6 +1,6 @@
 # Structured Text Logic Mode - Usage Guide
 
-**ESP32 Modbus RTU Server v2.0.0+**
+**ESP32 Modbus RTU Server v2.1.0+** (with unified VariableMapping system)
 
 ---
 
@@ -244,6 +244,17 @@ END_IF;
 
 ## Variable Bindings (Modbus I/O)
 
+**[V2.1.0+]** Variable bindings use the unified **VariableMapping system** which also handles GPIO pins. Both GPIO and ST variables use the same I/O engine.
+
+**3-Phase Execution Model (every 10ms):**
+```
+Phase 1: Read all INPUTs (GPIO + ST variables from Modbus)
+Phase 2: Execute enabled ST programs
+Phase 3: Write all OUTPUTs (GPIO + ST variables to Modbus)
+```
+
+This means ST variables and GPIO pins are treated identically - they both sync with Modbus through the same unified mapping system.
+
 ### Input Variables (Read from Registers)
 
 Variables marked as `input` read from Modbus holding registers **before** program execution:
@@ -303,26 +314,48 @@ dword_from_int := INT_TO_DWORD(42);
 
 ---
 
-## Execution Flow
+## Execution Flow (Unified Mapping Model)
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ Modbus Server Main Loop (every 10ms)                │
-├─────────────────────────────────────────────────────┤
-│                                                     │
-│  For each enabled Logic program:                    │
-│  ┌──────────────────────────────────────────┐      │
-│  │ 1. Read VAR_INPUT from Modbus registers  │      │
-│  │ 2. Execute compiled bytecode             │      │
-│  │ 3. Write VAR_OUTPUT to Modbus registers  │      │
-│  └──────────────────────────────────────────┘      │
-│                                                     │
-│  Continue Modbus RTU service...                     │
-│                                                     │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────┐
+│ Modbus Server Main Loop (every 10ms)                     │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│  PHASE 1: Sync INPUTs                                   │
+│  ┌─────────────────────────────────────┐                │
+│  │ gpio_mapping_update()                │                │
+│  │  - Read GPIO pins → Discrete inputs  │                │
+│  │  - Read HR# → ST variables (input)   │                │
+│  └─────────────────────────────────────┘                │
+│                                                          │
+│  PHASE 2: Execute Programs                              │
+│  ┌─────────────────────────────────────┐                │
+│  │ st_logic_engine_loop()                │                │
+│  │  - For each enabled Logic program:    │                │
+│  │    * Execute compiled bytecode        │                │
+│  │    * Programs run independently       │                │
+│  │    * Non-blocking (< 1ms)             │                │
+│  └─────────────────────────────────────┘                │
+│                                                          │
+│  PHASE 3: Sync OUTPUTs                                  │
+│  ┌─────────────────────────────────────┐                │
+│  │ gpio_mapping_update()                │                │
+│  │  - Read Coils → GPIO pins            │                │
+│  │  - Read ST variables (output) → HR# │                │
+│  └─────────────────────────────────────┘                │
+│                                                          │
+│  Continue Modbus RTU service...                          │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
 ```
 
-Each program executes **non-blocking** and **independently**. Programs don't interfere with each other or the Modbus server.
+**Key Points:**
+- Each program executes **non-blocking** and **independently**
+- GPIO mapping and ST variables use the same **unified VariableMapping** engine
+- **Both** read inputs before program execution
+- **Both** write outputs after program execution
+- ST variables and GPIO pins are treated identically
+- Programs don't interfere with each other or the Modbus RTU service
 
 ---
 
