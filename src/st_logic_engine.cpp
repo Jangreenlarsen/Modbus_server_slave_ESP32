@@ -9,6 +9,8 @@
 #include "st_compiler.h"
 #include "st_parser.h"
 #include "st_vm.h"
+#include "config_struct.h"
+#include "constants.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -141,8 +143,38 @@ void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) 
   }
 
   printf("\nVariable Bindings:\n");
-  printf("  (Managed by unified VariableMapping system in gpio_mapping.cpp)\n");
-  printf("  Use 'set logic %d bind <var> <reg> [input|output|both]' to configure\n", prog->name[5] - '0');
+
+  // Find and display all ST bindings for this program from g_persist_config
+  extern PersistConfig g_persist_config;
+  uint8_t binding_count = 0;
+
+  for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+    VariableMapping *map = &g_persist_config.var_maps[i];
+
+    // Check if this is an ST variable binding for this program
+    if (map->source_type == MAPPING_SOURCE_ST_VAR &&
+        map->st_program_id == program_id &&
+        map->st_var_index < prog->bytecode.var_count) {
+
+      binding_count++;
+      const char *var_name = prog->bytecode.var_names[map->st_var_index];
+
+      if (map->is_input) {
+        printf("  [%d] %s ← HR#%d (input)\n",
+               map->st_var_index, var_name, map->input_reg);
+      } else {
+        printf("  [%d] %s → Coil#%d (output)\n",
+               map->st_var_index, var_name, map->coil_reg);
+      }
+    }
+  }
+
+  if (binding_count == 0) {
+    printf("  (No bindings configured)\n");
+    printf("  Syntax: set logic %d bind <var_name> reg:100|coil:10|input-dis:5\n", program_id + 1);
+  } else {
+    printf("  Total: %d binding%s\n", binding_count, binding_count != 1 ? "s" : "");
+  }
 
   printf("\nStatistics:\n");
   printf("  Executions: %u\n", prog->execution_count);

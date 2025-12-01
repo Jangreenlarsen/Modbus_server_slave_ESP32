@@ -28,6 +28,9 @@
 extern void debug_println(const char *msg);
 extern void debug_printf(const char *fmt, ...);
 
+/* Forward declarations - config persistence */
+extern bool config_save_to_nvs(const PersistConfig* cfg);
+
 /* Forward declaration for bind function */
 int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program_id,
                            uint8_t var_index, uint16_t modbus_reg, const char *direction);
@@ -294,10 +297,22 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     map->coil_reg = modbus_reg;
   }
 
-  debug_printf("[OK] Logic%d: var[%d] %s Modbus HR#%d\n",
-               program_id + 1, var_index,
-               (is_input && is_output) ? "<->" : (is_input) ? "<-" : "->",
-               modbus_reg);
+  debug_printf("[OK] Logic%d: var[%d] (%s) %s Modbus ",
+               program_id + 1, var_index, prog->bytecode.var_names[var_index],
+               (is_input && is_output) ? "<->" : (is_input) ? "<-" : "->");
+
+  if (is_input && !is_output) {
+    debug_printf("HR#%d (input)\n", modbus_reg);
+  } else if (is_output && !is_input) {
+    debug_printf("Coil#%d (output)\n", modbus_reg);
+  } else {
+    debug_printf("HR#%d (bidirectional)\n", modbus_reg);
+  }
+
+  // Save config to NVS to make binding persistent
+  if (!config_save_to_nvs(&g_persist_config)) {
+    debug_println("WARNING: Failed to save config to NVS (binding still active in runtime)");
+  }
 
   return 0;
 }
