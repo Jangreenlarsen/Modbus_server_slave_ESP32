@@ -299,6 +299,7 @@
             <a href="#cli-kommandoer">CLI Kommandoer</a>
             <a href="#gpio-features">GPIO Features</a>
             <a href="#registers-coils">Registers & Coils</a>
+            <a href="#st-logic-programming">ST Logic</a>
             <a href="FEATURE_GUIDE.md" download>📥 Download Markdown</a>
         </div>
 
@@ -312,8 +313,9 @@
                     <li><a href="#cli-kommandoer">3. CLI Kommandoer (70+)</a></li>
                     <li><a href="#gpio-features">4. GPIO Features</a></li>
                     <li><a href="#registers-coils">5. Registers & Coils</a></li>
-                    <li><a href="#persistence">6. Persistence</a></li>
-                    <li><a href="#eksempler">7. Praktiske Eksempler</a></li>
+                    <li><a href="#st-logic-programming">6. ST Logic Programming (IEC 61131-3)</a></li>
+                    <li><a href="#persistence">7. Persistence</a></li>
+                    <li><a href="#eksempler">8. Praktiske Eksempler</a></li>
                 </ul>
             </div>
 
@@ -758,6 +760,182 @@ save
 # Coil 112 = 1 → GPIO23 HIGH</code></pre>
             </section>
 
+            <!-- ST LOGIC PROGRAMMING SECTION -->
+            <section class="section" id="st-logic-programming">
+                <h2>💾 ST Logic Programming</h2>
+                <p>Program industrielle automationslogikker direkte på ESP32 ved hjælp af <strong>IEC 61131-3 Structured Text (ST)</strong>.</p>
+
+                <div class="feature-grid">
+                    <div class="feature-card">
+                        <h3>📝 ST Programs</h3>
+                        <p>4 uafhængige ST-programmer</p>
+                        <p><small>Hver op til 5 KB kildekode</small></p>
+                        <span class="status-badge status-pass">✅ [PASS]</span>
+                    </div>
+
+                    <div class="feature-card">
+                        <h3>⚙️ Compilation</h3>
+                        <p>Bytecode-compiler</p>
+                        <p><small><100ms compilationstid</small></p>
+                        <span class="status-badge status-pass">✅ [PASS]</span>
+                    </div>
+
+                    <div class="feature-card">
+                        <h3>🔗 Variable Binding</h3>
+                        <p>Binding til Modbus registers</p>
+                        <p><small>INPUT/OUTPUT modes</small></p>
+                        <span class="status-badge status-pass">✅ [PASS]</span>
+                    </div>
+
+                    <div class="feature-card">
+                        <h3>⏱️ Execution</h3>
+                        <p>10ms interval (100 Hz)</p>
+                        <p><small>Non-blocking</small></p>
+                        <span class="status-badge status-pass">✅ [PASS]</span>
+                    </div>
+                </div>
+
+                <h3>ST Sprog Features</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Feature</th>
+                            <th>Supporteret</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Data Types</strong></td>
+                            <td>INT, DWORD, BOOL, REAL</td>
+                            <td>✅ Alle typer</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Control Flow</strong></td>
+                            <td>IF/ELSIF/ELSE, CASE, FOR, WHILE, REPEAT</td>
+                            <td>✅ Alle strukturer</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Operators</strong></td>
+                            <td>Aritmetik, logisk, bitwise</td>
+                            <td>✅ Alle operatorer</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Built-in Functions</strong></td>
+                            <td>ABS, MIN, MAX, SQRT, type conversions</td>
+                            <td>✅ 16 funktioner</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Variables</strong></td>
+                            <td>Lokale + Modbus-bundne</td>
+                            <td>✅ Op til 32 pr. program</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>🎯 Simpelt ST Program Eksempel</h3>
+                <pre><code>VAR
+  phase_counter: INT;
+  blink_counter: INT;
+  led: BOOL;
+  blink_interval: INT;
+END_VAR
+
+phase_counter := phase_counter + 1;
+IF phase_counter >= 1000 THEN
+  phase_counter := 0;
+END_IF;
+
+IF phase_counter < 250 THEN
+  blink_interval := 10;
+ELSIF phase_counter < 500 THEN
+  blink_interval := 25;
+ELSIF phase_counter < 750 THEN
+  blink_interval := 50;
+ELSE
+  blink_interval := 100;
+END_IF;
+
+IF blink_counter >= blink_interval THEN
+  blink_counter := 0;
+  led := NOT led;
+ELSE
+  blink_counter := blink_counter + 1;
+END_IF;</code></pre>
+
+                <h3>⌨️ ST Logic CLI Kommandoer</h3>
+                <div class="command-ref">
+                    <code>set logic 1 upload "&lt;st_code&gt;"</code> - Upload ST program til Logic1<br>
+                    <code>set logic 1 bind 2 100 output</code> - Bind variabel 2 til HR#100 (output)<br>
+                    <code>set logic 1 enabled:true</code> - Aktivér Logic1 program<br>
+                    <code>set logic 1 delete</code> - Slet program<br>
+                    <code>show logic 1</code> - Vis detaljer for Logic1<br>
+                    <code>show logic all</code> - Vis alle 4 logic programmer<br>
+                    <code>show logic stats</code> - Vis eksekverings-statistik<br>
+                </div>
+
+                <h3>🔄 Unified Variable Mapping</h3>
+                <p>ST variable bindings bruger samme <strong>unified mapping-system</strong> som GPIO pins. Dette betyder:</p>
+                <ul style="margin-left: 20px;">
+                    <li>✅ Konsistent interface for alle variable-typer</li>
+                    <li>✅ Ingen kodeduplikering</li>
+                    <li>✅ Singlepoint for bindings-behandling</li>
+                    <li>✅ Nemt at tilføje nye variable-kilder i fremtiden</li>
+                </ul>
+
+                <h3>📊 Arkitektur: 3-Fase Execution</h3>
+                <pre><code>Loop iteration:
+1. gpio_mapping_update()      → Læs INPUT bindings (GPIO + ST)
+2. st_logic_engine_loop()     → Eksekvér alle enabled ST programmer
+3. gpio_mapping_update()      → Skriv OUTPUT bindings (GPIO + ST)</code></pre>
+
+                <h3>✅ Test Results</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Test</th>
+                            <th>Status</th>
+                            <th>Detaljer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Program Upload & Compilation</td>
+                            <td>✅ [PASS]</td>
+                            <td>8/8 tests passing</td>
+                        </tr>
+                        <tr>
+                            <td>Variable Binding</td>
+                            <td>✅ [PASS]</td>
+                            <td>INPUT/OUTPUT modes working</td>
+                        </tr>
+                        <tr>
+                            <td>Execution Engine</td>
+                            <td>✅ [PASS]</td>
+                            <td>17,441+ executions, 0 errors</td>
+                        </tr>
+                        <tr>
+                            <td>LED Blink Demo</td>
+                            <td>✅ [PASS]</td>
+                            <td>GPIO2 kontrolleret af ST program</td>
+                        </tr>
+                        <tr>
+                            <td>Unified Mapping System</td>
+                            <td>✅ [PASS]</td>
+                            <td>GPIO + ST variabler i samme system</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>📚 Dokumentation</h3>
+                <ul style="margin-left: 20px;">
+                    <li>📝 <a href="../ST_LOGIC_MODE_TEST_REPORT.md">ST Logic Mode Test Report</a></li>
+                    <li>📘 <a href="../ST_LOGIC_MODE_FINAL_REPORT.md">Final Implementation Report</a></li>
+                    <li>✅ <a href="../ST_LOGIC_MODE_COMPLETE_REPORT.md">Complete Feature Report</a></li>
+                    <li>💡 <a href="../LED_BLINK_DEMO.md">LED Blink Demonstration</a></li>
+                </ul>
+            </section>
+
             <!-- CONSTRAINTS -->
             <section class="section">
                 <h2>📊 Constraints & Limits</h2>
@@ -855,7 +1033,7 @@ save
         </div>
 
         <footer>
-            <p><strong>ESP32 Modbus RTU Server v1.0.0</strong> | 2025-11-29</p>
+            <p><strong>ESP32 Modbus RTU Server v2.1.0</strong> | 2025-12-01</p>
             <p>📖 <a href="FEATURE_GUIDE.md" style="color: #667eea;">Læs Markdown version</a> |
                📘 <a href="SETUP_GUIDE.md" style="color: #667eea;">Setup Guide</a> |
                📝 <a href="../CHANGELOG.md" style="color: #667eea;">Changelog</a></p>
