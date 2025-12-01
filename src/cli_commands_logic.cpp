@@ -28,6 +28,10 @@
 extern void debug_println(const char *msg);
 extern void debug_printf(const char *fmt, ...);
 
+/* Forward declaration for bind function */
+int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program_id,
+                           uint8_t var_index, uint16_t modbus_reg, const char *direction);
+
 /* ============================================================================
  * COMMAND HANDLERS
  * ============================================================================ */
@@ -125,9 +129,84 @@ int cli_cmd_set_logic_delete(st_logic_engine_state_t *logic_state, uint8_t progr
 }
 
 /**
+ * @brief Parse new bind syntax: set logic <id> bind <var_name> reg:100|coil:10|input-dis:5
+ *
+ * Finds variable by name and calls cli_cmd_set_logic_bind_by_index
+ *
+ * Example:
+ *   set logic 1 bind sensor reg:100      # sensor reads from HR#100
+ *   set logic 1 bind led coil:10         # led writes to coil
+ *   set logic 1 bind switch input-dis:5  # switch reads from discrete input
+ */
+int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t program_id,
+                                    const char *var_name, const char *binding_spec) {
+  if (program_id >= 4) {
+    debug_println("ERROR: Invalid program ID (0-3)");
+    return -1;
+  }
+
+  st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
+  if (!prog || !prog->compiled) {
+    debug_println("ERROR: Program not compiled. Upload source code first.");
+    return -1;
+  }
+
+  // Find variable by name
+  uint8_t var_index = 0xff;
+  for (uint8_t i = 0; i < prog->bytecode.var_count; i++) {
+    if (strcmp(prog->bytecode.var_names[i], var_name) == 0) {
+      var_index = i;
+      break;
+    }
+  }
+
+  if (var_index == 0xff) {
+    debug_printf("ERROR: Variable '%s' not found in Logic%d\n", var_name, program_id + 1);
+    debug_printf("Available variables: ");
+    for (uint8_t i = 0; i < prog->bytecode.var_count; i++) {
+      if (i > 0) debug_printf(", ");
+      debug_printf(prog->bytecode.var_names[i]);
+    }
+    debug_println("");
+    return -1;
+  }
+
+  // Parse binding spec: reg:100, coil:10, or input-dis:5
+  uint16_t register_addr = 0;
+  const char *direction = "both";  // default
+
+  if (strncmp(binding_spec, "reg:", 4) == 0) {
+    // Holding register (16-bit integer)
+    register_addr = atoi(binding_spec + 4);
+    direction = "both";  // INT variables work as input/output
+  } else if (strncmp(binding_spec, "coil:", 5) == 0) {
+    // Coil output (BOOL write)
+    register_addr = atoi(binding_spec + 5);
+    direction = "output";
+  } else if (strncmp(binding_spec, "input-dis:", 10) == 0) {
+    // Discrete input (BOOL read)
+    register_addr = atoi(binding_spec + 10);
+    direction = "input";
+  } else {
+    debug_printf("ERROR: Invalid binding spec '%s' (use reg:, coil:, or input-dis:)\n", binding_spec);
+    return -1;
+  }
+
+  // Validate register address
+  if (register_addr >= 160) {  // HOLDING_REGS_SIZE
+    debug_printf("ERROR: Invalid Modbus register %d (0-159)\n", register_addr);
+    return -1;
+  }
+
+  // Call original bind function
+  return cli_cmd_set_logic_bind(logic_state, program_id, var_index, register_addr, direction);
+}
+
+/**
  * @brief set logic <id> bind <var_idx> <register> [input|output|both]
  *
  * Bind ST variable to Modbus register (unified VariableMapping system)
+ * LEGACY: Use cli_cmd_set_logic_bind_by_name for new syntax
  *
  * Example:
  *   set logic 1 bind 0 100 input   # ST var[0] reads from HR#100

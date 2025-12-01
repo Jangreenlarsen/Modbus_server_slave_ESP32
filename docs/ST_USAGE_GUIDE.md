@@ -29,17 +29,21 @@ set logic 1 upload "VAR counter: INT; relay: BOOL; END_VAR IF counter > 100 THEN
 ### 2. Bind Variables to Modbus Registers
 
 ```bash
-# Bind counter to read from HR#100
-set logic 1 bind 0 100 input
-
-# Bind relay to write to HR#101
-set logic 1 bind 1 101 output
+# NEW SYNTAX: Bind by variable name
+set logic 1 bind counter reg:100      # counter reads from holding register #100
+set logic 1 bind relay coil:101       # relay writes to coil #101
 ```
 
 ✓ Output:
 ```
-✓ Logic1: var[0] ← Modbus HR#100
-✓ Logic1: var[1] → Modbus HR#101
+✓ Logic1: var[0] (counter) ← Modbus HR#100
+✓ Logic1: var[1] (relay) → Modbus Coil#101
+```
+
+**Alternative (legacy) syntax:**
+```bash
+set logic 1 bind 0 100 input          # Variable index 0, register 100, input mode
+set logic 1 bind 1 101 output         # Variable index 1, register 101, output mode
 ```
 
 ### 3. Enable the Program
@@ -91,7 +95,12 @@ set logic <id> enabled:false
 # Delete program
 set logic <id> delete
 
-# Bind variable to Modbus register
+# Bind variable to Modbus register (NEW SYNTAX - recommended)
+set logic <id> bind <var_name> reg:<register>      # Holding register (INT/DWORD)
+set logic <id> bind <var_name> coil:<register>     # Coil output (BOOL write)
+set logic <id> bind <var_name> input-dis:<input>   # Discrete input (BOOL read)
+
+# Legacy syntax (still supported for backward compatibility)
 set logic <id> bind <var_idx> <register> [input|output|both]
 ```
 
@@ -136,9 +145,9 @@ END_IF;
 **CLI:**
 ```bash
 set logic 1 upload "VAR temperature: INT; heating: BOOL; cooling: BOOL; END_VAR IF temperature < 18 THEN heating := TRUE; cooling := FALSE; ELSIF temperature > 25 THEN heating := FALSE; cooling := TRUE; ELSE heating := FALSE; cooling := FALSE; END_IF;"
-set logic 1 bind 0 10 input    # temperature reads from HR#10
-set logic 1 bind 1 11 output   # heating writes to HR#11
-set logic 1 bind 2 12 output   # cooling writes to HR#12
+set logic 1 bind temperature reg:10  # temperature reads from HR#10
+set logic 1 bind heating coil:11     # heating writes to coil #11
+set logic 1 bind cooling coil:12     # cooling writes to coil #12
 set logic 1 enabled:true
 ```
 
@@ -163,8 +172,8 @@ END_FOR;
 **CLI:**
 ```bash
 set logic 1 upload "VAR count: INT; total: INT; END_VAR count := 0; total := 0; FOR count := 1 TO 10 DO total := total + count; END_FOR;"
-set logic 1 bind 0 20 output   # count writes to HR#20
-set logic 1 bind 1 21 output   # total writes to HR#21
+set logic 1 bind count reg:20   # count writes to HR#20
+set logic 1 bind total reg:21   # total writes to HR#21
 set logic 1 enabled:true
 ```
 
@@ -210,11 +219,11 @@ abs_value := ABS(value1);
 **CLI:**
 ```bash
 set logic 1 upload "VAR value1: INT; value2: INT; min_value: INT; max_value: INT; abs_value: INT; END_VAR min_value := MIN(value1, value2); max_value := MAX(value1, value2); abs_value := ABS(value1);"
-set logic 1 bind 0 30 input    # value1 reads from HR#30
-set logic 1 bind 1 31 input    # value2 reads from HR#31
-set logic 1 bind 2 32 output   # min_value writes to HR#32
-set logic 1 bind 3 33 output   # max_value writes to HR#33
-set logic 1 bind 4 34 output   # abs_value writes to HR#34
+set logic 1 bind value1 reg:30      # value1 reads from HR#30
+set logic 1 bind value2 reg:31      # value2 reads from HR#31
+set logic 1 bind min_value reg:32   # min_value writes to HR#32
+set logic 1 bind max_value reg:33   # max_value writes to HR#33
+set logic 1 bind abs_value reg:34   # abs_value writes to HR#34
 set logic 1 enabled:true
 ```
 
@@ -257,31 +266,41 @@ This means ST variables and GPIO pins are treated identically - they both sync w
 
 ### Input Variables (Read from Registers)
 
-Variables marked as `input` read from Modbus holding registers **before** program execution:
+Variables read from Modbus holding registers **before** program execution:
 
 ```bash
-set logic 1 bind 0 100 input   # var[0] ← HR#100
+# NEW SYNTAX: Use reg: for holding registers (automatic input/output based on variable)
+set logic 1 bind counter reg:100   # counter ← HR#100 before execution
 ```
 
-When the program runs, `var[0]` will contain the value from `HR#100`.
+When the program runs, `counter` will contain the value from `HR#100`.
 
 ### Output Variables (Write to Registers)
 
-Variables marked as `output` write to Modbus holding registers **after** program execution:
+Variables write to Modbus registers **after** program execution:
 
 ```bash
-set logic 1 bind 1 101 output  # var[1] → HR#101
+# Write to coil (BOOL output)
+set logic 1 bind relay coil:10     # relay → Coil#10 after execution
+
+# Write to holding register (INT output)
+set logic 1 bind result reg:101    # result → HR#101 after execution
 ```
 
-When the program completes, the value of `var[1]` is written to `HR#101`.
+When the program completes, the value is written to the register.
 
-### Bidirectional Variables
+### Input-Only BOOL Variables
 
-Variables marked as `both` read before AND write after:
+For discrete inputs (read-only boolean):
 
 ```bash
-set logic 1 bind 0 100 both    # var[0] ↔ HR#100
+set logic 1 bind button input-dis:5   # button ← Discrete Input#5 before execution
 ```
+
+**Legend:**
+- `reg:` → Holding Register (INT/DWORD, can be input or output)
+- `coil:` → Coil (BOOL, write-only)
+- `input-dis:` → Discrete Input (BOOL, read-only)
 
 ---
 
@@ -391,7 +410,7 @@ VAR x: INT; END_VAR IF x > 10 THEN x := 1; END_IF;
 ```bash
 show logic 1   # Check if compiled and enabled
 set logic 1 enabled:true
-set logic 1 bind 0 100 input   # Configure bindings first!
+set logic 1 bind myvar reg:100   # Configure bindings first! (replace myvar with actual variable name)
 ```
 
 ---
@@ -402,7 +421,7 @@ set logic 1 bind 0 100 input   # Configure bindings first!
 
 **Solution:**
 ```bash
-set logic 1 bind 1 101 output   # Bind output variables
+set logic 1 bind myoutput reg:101   # Bind output variable (replace myoutput with actual variable name)
 ```
 
 Then check Modbus register #101 after executing the program.

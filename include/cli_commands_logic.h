@@ -35,8 +35,15 @@ int cli_cmd_set_logic_enabled(st_logic_engine_state_t *logic_state, uint8_t prog
 int cli_cmd_set_logic_delete(st_logic_engine_state_t *logic_state, uint8_t program_id);
 
 /**
+ * @brief set logic <id> bind <var_name> reg:100|coil:10|input-dis:5
+ * Bind ST variable to Modbus register using variable name and binding spec
+ */
+int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t program_id,
+                                    const char *var_name, const char *binding_spec);
+
+/**
  * @brief set logic <id> bind <var_index> <register> [input|output|both]
- * Bind ST variable to Modbus register
+ * Bind ST variable to Modbus register (LEGACY - use bind_by_name for new syntax)
  */
 int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program_id,
                            uint8_t var_idx, uint16_t register_address,

@@ -505,7 +505,9 @@ st_bytecode_program_t *st_compiler_compile(st_compiler_t *compiler, st_program_t
   for (int i = 0; i < compiler->symbol_table.count; i++) {
     st_symbol_t *sym = &compiler->symbol_table.symbols[i];
     bytecode->variables[i].int_val = 0;  // Initialize all to 0
-    // Could set initial values from st_variable_decl_t here
+    // Save variable name for CLI binding by name
+    strncpy(bytecode->var_names[i], sym->name, sizeof(bytecode->var_names[i]) - 1);
+    bytecode->var_names[i][sizeof(bytecode->var_names[i]) - 1] = '\0';
   }
 
   if (compiler->error_count > 0) {
