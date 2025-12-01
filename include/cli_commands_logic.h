@@ -67,4 +67,16 @@ int cli_cmd_show_logic_all(st_logic_engine_state_t *logic_state);
  */
 int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state);
 
+/**
+ * @brief show logic programs
+ * Show overview of all programs with status summary
+ */
+int cli_cmd_show_logic_programs(st_logic_engine_state_t *logic_state);
+
+/**
+ * @brief show logic errors
+ * Show only programs with compilation or runtime errors
+ */
+int cli_cmd_show_logic_errors(st_logic_engine_state_t *logic_state);
+
 #endif /* CLI_COMMANDS_LOGIC_H */

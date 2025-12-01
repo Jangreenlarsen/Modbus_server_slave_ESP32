@@ -68,12 +68,30 @@ int cli_cmd_set_logic_upload(st_logic_engine_state_t *logic_state, uint8_t progr
   // Try to compile immediately
   if (!st_logic_compile(logic_state, program_id)) {
     st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
-    debug_printf("INFO: Compile error: %s\n", prog->last_error);
+
+    // Better error output
+    debug_println("");
+    debug_println("╔════════════════════════════════════════════════════════╗");
+    debug_println("║            COMPILATION ERROR - Logic Program          ║");
+    debug_println("╚════════════════════════════════════════════════════════╝");
+    debug_printf("Program ID: Logic%d\n", program_id + 1);
+    debug_printf("Error: %s\n", prog->last_error);
+    debug_printf("Source size: %d bytes\n", prog->source_size);
+    debug_println("");
+
     return -1;
   }
 
-  debug_printf("[OK] Logic%d compiled successfully (%d bytes, %d instructions)\n",
-               program_id + 1, strlen(source_code), logic_state->programs[program_id].bytecode.instr_count);
+  st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
+
+  // Success output
+  debug_println("");
+  debug_println("✓ COMPILATION SUCCESSFUL");
+  debug_printf("  Program: Logic%d\n", program_id + 1);
+  debug_printf("  Source: %d bytes\n", strlen(source_code));
+  debug_printf("  Bytecode: %d instructions\n", prog->bytecode.instr_count);
+  debug_printf("  Variables: %d\n", prog->bytecode.var_count);
+  debug_println("");
 
   return 0;
 }
@@ -378,5 +396,92 @@ int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
   }
 
   printf("\n");
+  return 0;
+}
+
+/**
+ * @brief show logic program
+ *
+ * Show overview of all programs with status summary
+ */
+int cli_cmd_show_logic_programs(st_logic_engine_state_t *logic_state) {
+  printf("\n=== All Logic Programs ===\n\n");
+
+  for (int i = 0; i < 4; i++) {
+    st_logic_program_config_t *prog = &logic_state->programs[i];
+
+    // Program header with status indicator
+    const char *status = "";
+    if (!prog->source_size) {
+      status = "⚪ EMPTY";
+    } else if (!prog->compiled) {
+      status = "🔴 FAILED";
+    } else if (!prog->enabled) {
+      status = "🟡 DISABLED";
+    } else {
+      status = "🟢 ACTIVE";
+    }
+
+    printf("  [%d] %s %s\n", i + 1, prog->name, status);
+
+    if (prog->source_size > 0) {
+      printf("      Source: %d bytes | Variables: %d\n", prog->source_size, prog->bytecode.var_count);
+      printf("      Executions: %u | Errors: %u\n", prog->execution_count, prog->error_count);
+
+      if (prog->error_count > 0 && prog->last_error[0] != '\0') {
+        printf("      Last error: %s\n", prog->last_error);
+      }
+    }
+  }
+
+  printf("\n");
+  return 0;
+}
+
+/**
+ * @brief show logic errors
+ *
+ * Show only programs with compilation or runtime errors
+ */
+int cli_cmd_show_logic_errors(st_logic_engine_state_t *logic_state) {
+  printf("\n=== Logic Program Errors ===\n\n");
+
+  int error_count = 0;
+
+  for (int i = 0; i < 4; i++) {
+    st_logic_program_config_t *prog = &logic_state->programs[i];
+
+    // Show if: has compilation error OR has runtime errors
+    bool has_compilation_error = (prog->source_size > 0 && !prog->compiled);
+    bool has_runtime_errors = (prog->error_count > 0);
+
+    if (has_compilation_error || has_runtime_errors) {
+      error_count++;
+
+      printf("  [Logic%d] %s\n", i + 1, prog->name);
+      printf("    Status: %s\n", prog->compiled ? "COMPILED" : "NOT COMPILED");
+
+      if (has_compilation_error || (has_runtime_errors && prog->last_error[0] != '\0')) {
+        printf("    Error: %s\n", prog->last_error);
+      }
+
+      if (has_runtime_errors) {
+        printf("    Runtime Errors: %u\n", prog->error_count);
+        float error_rate = prog->execution_count > 0 ?
+          (float)prog->error_count / prog->execution_count * 100.0f : 0.0f;
+        printf("    Error Rate: %.2f%% (%u/%u executions)\n",
+               error_rate, prog->error_count, prog->execution_count);
+      }
+
+      printf("\n");
+    }
+  }
+
+  if (error_count == 0) {
+    printf("  ✓ No errors found!\n\n");
+  } else {
+    printf("  Total programs with errors: %d/4\n\n", error_count);
+  }
+
   return 0;
 }

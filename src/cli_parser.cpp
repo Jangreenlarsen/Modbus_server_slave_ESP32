@@ -185,25 +185,42 @@ bool cli_parser_execute(char* line) {
       cli_cmd_show_coils();
       return true;
     } else if (!strcmp(what, "LOGIC")) {
-      // show logic <id|all|stats>
+      // show logic <id|all|stats|program|errors>
       if (argc < 3) {
-        debug_println("SHOW LOGIC: missing argument (expected <id|all|stats>)");
+        debug_println("SHOW LOGIC: missing argument");
+        debug_println("  Usage: show logic <id>        (show specific program)");
+        debug_println("         show logic all        (show all programs)");
+        debug_println("         show logic program    (show overview of all programs)");
+        debug_println("         show logic errors     (show only programs with errors)");
+        debug_println("         show logic stats      (show statistics)");
         return false;
       }
 
       const char* subcommand = argv[2];
+      const char* subcommand_norm = normalize_alias(subcommand);
 
-      if (!strcmp(subcommand, "all")) {
+      if (!strcmp(subcommand_norm, "ALL")) {
         cli_cmd_show_logic_all(st_logic_get_state());
         return true;
-      } else if (!strcmp(subcommand, "stats")) {
+      } else if (!strcmp(subcommand_norm, "STATS")) {
         cli_cmd_show_logic_stats(st_logic_get_state());
         return true;
-      } else {
-        // show logic <id>
-        uint8_t program_id = atoi(subcommand);
-        cli_cmd_show_logic_program(st_logic_get_state(), program_id);
+      } else if (!strcmp(subcommand_norm, "PROGRAM")) {
+        cli_cmd_show_logic_programs(st_logic_get_state());
         return true;
+      } else if (!strcmp(subcommand_norm, "ERRORS")) {
+        cli_cmd_show_logic_errors(st_logic_get_state());
+        return true;
+      } else {
+        // show logic <id> - specific program
+        uint8_t program_id = atoi(subcommand);
+        if (program_id > 0 && program_id <= 4) {
+          cli_cmd_show_logic_program(st_logic_get_state(), program_id - 1);
+          return true;
+        } else {
+          debug_printf("ERROR: Invalid program ID '%s' (expected 1-4 or all|stats|program|errors)\n", subcommand);
+          return false;
+        }
       }
     } else {
       debug_println("SHOW: unknown argument");
