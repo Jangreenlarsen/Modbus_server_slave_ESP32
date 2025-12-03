@@ -18,11 +18,52 @@
 #include <Arduino.h>
 #include <string.h>
 
+/* Forward declarations */
+extern void cli_parser_execute_st_upload(uint8_t program_id, const char* source_code);
+
+/* ============================================================================
+ * UTILITY FUNCTIONS
+ * ============================================================================ */
+
+/**
+ * Trim whitespace from both ends of a string (in-place)
+ * @param str Null-terminated string to trim
+ * @param len Pointer to string length (will be updated)
+ */
+static void cli_trim_string(char* str, uint16_t* len) {
+  if (!str || !len || *len == 0) return;
+
+  // Trim from end
+  while (*len > 0 && (str[*len - 1] == ' ' || str[*len - 1] == '\t')) {
+    str[*len - 1] = '\0';
+    (*len)--;
+  }
+
+  // Trim from start
+  uint16_t start = 0;
+  while (start < *len && (str[start] == ' ' || str[start] == '\t')) {
+    start++;
+  }
+
+  if (start > 0) {
+    // Shift remaining string to the beginning
+    for (uint16_t i = start; i < *len; i++) {
+      str[i - start] = str[i];
+    }
+    *len -= start;
+    str[*len] = '\0';
+  }
+}
+
 /* ============================================================================
  * INPUT BUFFER & STATE
  * ============================================================================ */
 
 #define CLI_INPUT_BUFFER_SIZE 256
+#define CLI_UPLOAD_BUFFER_SIZE 5000
+
+#define CLI_MODE_NORMAL 0
+#define CLI_MODE_ST_UPLOAD 1
 
 static char cli_input_buffer[CLI_INPUT_BUFFER_SIZE];
 static uint16_t cli_input_pos = 0;          // Length of input
@@ -30,6 +71,12 @@ static uint16_t cli_cursor_pos = 0;         // Cursor position (0 = start)
 static uint8_t cli_initialized = 0;
 static uint8_t cli_remote_echo_enabled = 1;  // Default: echo enabled
 static uint8_t cli_escape_seq_state = 0;    // For parsing arrow keys
+
+// Multi-line ST Logic Upload Mode
+static uint8_t cli_mode = CLI_MODE_NORMAL;
+static uint8_t cli_upload_program_id = 0xFF;
+static char cli_upload_buffer[CLI_UPLOAD_BUFFER_SIZE];
+static uint16_t cli_upload_buffer_pos = 0;
 
 /* ============================================================================
  * INITIALIZATION
@@ -50,6 +97,38 @@ void cli_shell_init(void) {
 }
 
 /* ============================================================================
+ * MULTI-LINE ST UPLOAD MODE CONTROL
+ * ============================================================================ */
+
+void cli_shell_start_st_upload(uint8_t program_id) {
+  cli_mode = CLI_MODE_ST_UPLOAD;
+  cli_upload_program_id = program_id;
+  cli_upload_buffer_pos = 0;
+  memset(cli_upload_buffer, 0, CLI_UPLOAD_BUFFER_SIZE);
+
+  // Clear input buffer for next command entry
+  cli_input_pos = 0;
+  cli_cursor_pos = 0;
+  memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
+
+  debug_println("Entering ST Logic upload mode. Type code and end with 'END_UPLOAD':");
+  debug_print(">>> ");
+}
+
+void cli_shell_reset_upload_mode(void) {
+  cli_mode = CLI_MODE_NORMAL;
+  cli_upload_program_id = 0xFF;
+  cli_upload_buffer_pos = 0;
+  memset(cli_upload_buffer, 0, CLI_UPLOAD_BUFFER_SIZE);
+
+  debug_print("> ");
+}
+
+uint8_t cli_shell_is_in_upload_mode(void) {
+  return (cli_mode == CLI_MODE_ST_UPLOAD);
+}
+
+/* ============================================================================
  * REMOTE ECHO CONTROL
  * ============================================================================ */
 
@@ -66,9 +145,12 @@ uint8_t cli_shell_get_remote_echo(void) {
  * ============================================================================ */
 
 static void cli_redraw_line(void) {
+  // Choose prompt based on mode
+  const char* prompt = (cli_mode == CLI_MODE_ST_UPLOAD) ? ">>> " : "> ";
+
   // Move to start of line after prompt
   Serial.write('\r');  // Carriage return
-  Serial.print("> ");
+  Serial.print(prompt);
 
   // Clear rest of line with spaces
   for (uint16_t i = 0; i < CLI_INPUT_BUFFER_SIZE - 10; i++) {
@@ -77,7 +159,7 @@ static void cli_redraw_line(void) {
 
   // Go back to start of input area
   Serial.write('\r');
-  Serial.print("> ");
+  Serial.print(prompt);
 
   // Display buffer content
   if (cli_input_pos > 0) {
@@ -241,7 +323,7 @@ void cli_shell_loop(void) {
     // ========================================================================
 
     if (c == '\r' || c == '\n') {
-      // End of line - execute command
+      // End of line
       cli_input_buffer[cli_input_pos] = '\0';
 
       if (cli_remote_echo_enabled) {
@@ -250,18 +332,78 @@ void cli_shell_loop(void) {
         Serial.write('\n');  // Just newline, no echo
       }
 
-      if (cli_input_pos > 0) {
-        // Store in history and execute
-        cli_history_add(cli_input_buffer);
-        cli_history_reset_nav();
-        cli_parser_execute(cli_input_buffer);
-      }
+      // ====================================================================
+      // ST LOGIC UPLOAD MODE
+      // ====================================================================
+      if (cli_mode == CLI_MODE_ST_UPLOAD) {
+        // Trim whitespace from input in upload mode
+        cli_trim_string(cli_input_buffer, &cli_input_pos);
 
-      // Reset buffer and show new prompt
-      cli_input_pos = 0;
-      cli_cursor_pos = 0;
-      memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
-      debug_print("> ");
+        // Check for END_UPLOAD command (case-insensitive)
+        if (strcasecmp(cli_input_buffer, "END_UPLOAD") == 0) {
+          // End of upload - compile and return to normal mode
+          debug_println("Compiling ST Logic program...");
+
+          // Null-terminate the upload buffer (CRITICAL!)
+          if (cli_upload_buffer_pos < CLI_UPLOAD_BUFFER_SIZE) {
+            cli_upload_buffer[cli_upload_buffer_pos] = '\0';
+          }
+
+          // Execute upload with collected code
+          cli_parser_execute_st_upload(cli_upload_program_id, cli_upload_buffer);
+
+          // Reset to normal mode
+          cli_shell_reset_upload_mode();
+        } else if (cli_input_pos > 0) {
+          // Add line to upload buffer (with newline)
+          if (cli_upload_buffer_pos + cli_input_pos + 1 < CLI_UPLOAD_BUFFER_SIZE) {
+            // Copy line
+            strncpy(&cli_upload_buffer[cli_upload_buffer_pos],
+                    cli_input_buffer,
+                    cli_input_pos);
+            cli_upload_buffer_pos += cli_input_pos;
+
+            // Add newline
+            cli_upload_buffer[cli_upload_buffer_pos] = '\n';
+            cli_upload_buffer_pos++;
+
+            debug_print(">>> ");  // Show upload prompt for next line
+          } else {
+            debug_println("ERROR: Upload buffer full!");
+            cli_shell_reset_upload_mode();
+          }
+        } else {
+          // Empty line in upload mode - just show prompt again
+          debug_print(">>> ");
+        }
+
+        // Reset input buffer for next line
+        cli_input_pos = 0;
+        cli_cursor_pos = 0;
+        memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
+      }
+      // ====================================================================
+      // NORMAL COMMAND MODE
+      // ====================================================================
+      else {
+        if (cli_input_pos > 0) {
+          // Trim whitespace from input
+          cli_trim_string(cli_input_buffer, &cli_input_pos);
+
+          // Store in history and execute (if not empty after trim)
+          if (cli_input_pos > 0) {
+            cli_history_add(cli_input_buffer);
+            cli_history_reset_nav();
+            cli_parser_execute(cli_input_buffer);
+          }
+        }
+
+        // Reset buffer and show new prompt
+        cli_input_pos = 0;
+        cli_cursor_pos = 0;
+        memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
+        debug_print("> ");
+      }
     }
     else if (c == 0x08 || c == 0x7F) {
       // Backspace - delete character before cursor
