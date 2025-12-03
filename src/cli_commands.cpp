@@ -689,8 +689,8 @@ void cli_cmd_set_gpio(uint8_t argc, char* argv[]) {
 
   if (found_idx == 0xff) {
     // Create new mapping
-    if (g_persist_config.var_map_count >= 8) {
-      debug_println("SET GPIO: max GPIO mappings reached (8)");
+    if (g_persist_config.var_map_count >= 32) {
+      debug_println("SET GPIO: max GPIO mappings reached (32)");
       return;
     }
     found_idx = g_persist_config.var_map_count;

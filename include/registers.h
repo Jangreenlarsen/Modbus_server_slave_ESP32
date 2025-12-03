@@ -145,4 +145,18 @@ void registers_update_dynamic_registers(void);
  */
 void registers_update_dynamic_coils(void);
 
+/**
+ * @brief Update ST Logic status input registers
+ * Called once per loop to sync ST Logic program status to input registers 200-251
+ */
+void registers_update_st_logic_status(void);
+
+/**
+ * @brief Process ST Logic control register writes
+ * Called when a holding register in the ST Logic control range (200-235) is written
+ * @param addr Register address (200-235)
+ * @param value Written value
+ */
+void registers_process_st_logic_control(uint16_t addr, uint16_t value);
+
 #endif // REGISTERS_H

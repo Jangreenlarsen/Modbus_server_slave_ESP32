@@ -1,20 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(chmod +x C:ProjekterModbus_server_slave_ESP32test_timer_ctrl_reg.py)",
-      "WebFetch(domain:www.plcacademy.com)",
-      "WebSearch",
-      "WebFetch(domain:www.fernhillsoftware.com)",
-      "WebFetch(domain:en.wikipedia.org)",
-      "Bash(dir \"C:\\Projekter\\Modbus_server_slave_ESP32\\include\")",
-      "Bash(g++:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Bash(find:*)",
+      "Bash(pio device monitor:*)",
+      "Bash(python3:*)",
+      "Bash(python setup_blink_program.py:*)",
+      "Bash(powershell -Command \"(Get-Content setup_blink_program.py) -replace ''✓'', ''[OK]'' -replace ''✗'', ''[FAIL]'' | Set-Content setup_blink_program.py\")",
+      "Bash(powershell -Command \"(Get-Content setup_blink_program.py) -replace ''→'', ''->'' | Set-Content setup_blink_program.py\":*)",
+      "Bash(python setup_blink_simple.py:*)",
       "Bash(pio run:*)",
-      "Bash(pio clean:*)",
-      "Bash(timeout 60 pio run:*)"
+      "Bash(python:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

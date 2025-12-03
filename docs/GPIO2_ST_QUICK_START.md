@@ -6,20 +6,23 @@
 
 ```bash
 # Step 1: Enable GPIO 2 for user control
-set gpio2_user_mode 1
+set gpio 2 enable
 save
 
-# Step 2: Upload ST program (LED control based on sensor)
+# Step 2: Map GPIO2 to Coil #0
+set gpio 2 static map coil:0
+
+# Step 3: Upload ST program (LED control based on sensor)
 set logic 1 upload "VAR sensor: INT; led: BOOL; END_VAR IF sensor > 50 THEN led := TRUE; ELSE led := FALSE; END_IF;"
 
-# Step 3: Bind sensor input (HR#100) and LED output (HR#101)
-set logic 1 bind 0 100 input
-set logic 1 bind 1 101 output
+# Step 4: Bind sensor input and LED output using variable names
+set logic 1 bind sensor reg:100
+set logic 1 bind led coil:0
 
-# Step 4: Start the program
+# Step 5: Start the program
 set logic 1 enabled:true
 
-# Step 5: Verify it works
+# Step 6: Verify it works
 show logic 1
 ```
 
@@ -108,10 +111,10 @@ show logic stats   # Run repeatedly
 
 | Issue | Fix |
 |-------|-----|
-| "GPIO2 user mode not enabled" | Run: `set gpio2_user_mode 1` then `save` |
+| "GPIO2 user mode not enabled" | Run: `set gpio 2 enable` then `save` |
 | "Program not compiled" | Make sure ST syntax is correct (check `docs/ST_USAGE_GUIDE.md`) |
-| LED doesn't change | Check HR#101: `read_holding_register(101)` |
-| HR#101 shows 0 but LED on | GPIO mapping may need config (see `docs/TEST_GPIO2_ST_LOGIC.md`) |
+| LED doesn't change | Check coil binding: `show logic 1` and verify `set gpio 2 static map coil:0` was set |
+| LED not responding to coil changes | Ensure GPIO2 is enabled with `set gpio 2 enable` and mapped with `set gpio 2 static map coil:0` |
 
 ---
 

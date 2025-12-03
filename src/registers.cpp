@@ -13,6 +13,8 @@
 #include "counter_config.h"
 #include "timer_engine.h"
 #include "config_struct.h"
+#include "st_logic_config.h"
+#include "debug.h"
 #include "types.h"
 #include "constants.h"
 #include <Arduino.h>
@@ -40,6 +42,11 @@ uint16_t registers_get_holding_register(uint16_t addr) {
 void registers_set_holding_register(uint16_t addr, uint16_t value) {
   if (addr >= HOLDING_REGS_SIZE) return;
   holding_regs[addr] = value;
+
+  // Process ST Logic control registers
+  if (addr >= ST_LOGIC_CONTROL_REG_BASE && addr < ST_LOGIC_CONTROL_REG_BASE + 4) {
+    registers_process_st_logic_control(addr, value);
+  }
 }
 
 uint16_t* registers_get_holding_regs(void) {
@@ -304,6 +311,144 @@ void registers_update_dynamic_coils(void) {
 
       // Write value to coil
       registers_set_coil(coil_addr, value);
+    }
+  }
+}
+
+/* ============================================================================
+ * ST LOGIC STATUS REGISTERS (200-251)
+ * ============================================================================ */
+
+void registers_update_st_logic_status(void) {
+  st_logic_engine_state_t *st_state = st_logic_get_state();
+
+  // Update status for each of 4 logic programs
+  for (uint8_t prog_id = 0; prog_id < 4; prog_id++) {
+    st_logic_program_config_t *prog = st_logic_get_program(st_state, prog_id);
+
+    if (!prog) continue;
+
+    // =========================================================================
+    // INPUT REGISTERS (Status - Read Only)
+    // =========================================================================
+
+    // 200-203: Status Register (Status of Logic1-4)
+    uint16_t status_reg = 0;
+    if (prog->enabled)    status_reg |= ST_LOGIC_STATUS_ENABLED;   // Bit 0
+    if (prog->compiled)   status_reg |= ST_LOGIC_STATUS_COMPILED;  // Bit 1
+    // Bit 2: Running - will be set during execution (not persistent)
+    if (prog->error_count > 0) status_reg |= ST_LOGIC_STATUS_ERROR; // Bit 3
+    registers_set_input_register(ST_LOGIC_STATUS_REG_BASE + prog_id, status_reg);
+
+    // 204-207: Execution Count (16-bit)
+    registers_set_input_register(ST_LOGIC_EXEC_COUNT_REG_BASE + prog_id,
+                                   (uint16_t)(prog->execution_count & 0xFFFF));
+
+    // 208-211: Error Count (16-bit)
+    registers_set_input_register(ST_LOGIC_ERROR_COUNT_REG_BASE + prog_id,
+                                   (uint16_t)(prog->error_count & 0xFFFF));
+
+    // 212-215: Last Error Code (simple encoding of error string)
+    // For now: 0 = no error, 1-255 = error present
+    uint16_t error_code = (prog->last_error[0] != '\0') ? 1 : 0;
+    registers_set_input_register(ST_LOGIC_ERROR_CODE_REG_BASE + prog_id, error_code);
+
+    // 216-219: Variable Count
+    // Count non-zero variable bindings for this program
+    uint16_t var_count = 0;
+    for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+      const VariableMapping *map = &g_persist_config.var_maps[i];
+      if (map->source_type == MAPPING_SOURCE_ST_VAR &&
+          map->st_program_id == prog_id) {
+        var_count++;
+      }
+    }
+    registers_set_input_register(ST_LOGIC_VAR_COUNT_REG_BASE + prog_id, var_count);
+
+    // 220-251: Variable Values (32 registers total for 4 programs * 8 vars each)
+    // Map ST Logic variables to registers
+    for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+      const VariableMapping *map = &g_persist_config.var_maps[i];
+      if (map->source_type == MAPPING_SOURCE_ST_VAR &&
+          map->st_program_id == prog_id) {
+
+        // Get variable value from program bytecode
+        // Note: This requires access to the bytecode variables
+        // For now, we'll store variable values in the ST Logic program context
+        // This is a placeholder - the actual variable storage will be handled
+        // by the ST Logic VM during execution
+
+        uint16_t var_reg_offset = ST_LOGIC_VAR_VALUES_REG_BASE +
+                                  (prog_id * 8) +
+                                  map->st_var_index;
+
+        if (var_reg_offset < INPUT_REGS_SIZE) {
+          // Variable values should be updated by ST Logic engine during execution
+          // Here we just read/preserve them
+          // (actual update happens in st_logic_engine.cpp)
+        }
+      }
+    }
+
+    // =========================================================================
+    // HOLDING REGISTERS (Control - Read/Write)
+    // =========================================================================
+
+    // 200-203: Control Register (Control of Logic1-4)
+    // This register is read-write and interpreted by the holding_reg write handler
+    // Bit 0: Enable/Disable
+    // Bit 1: Start/Stop
+    // Bit 2: Reset Error
+    // The actual control logic should be handled when these registers are written
+
+  }
+}
+
+/* ============================================================================
+ * ST LOGIC CONTROL REGISTER HANDLER
+ * ============================================================================ */
+
+void registers_process_st_logic_control(uint16_t addr, uint16_t value) {
+  // Determine which program this control register is for
+  if (addr < ST_LOGIC_CONTROL_REG_BASE || addr >= ST_LOGIC_CONTROL_REG_BASE + 4) {
+    return;  // Not a control register
+  }
+
+  uint8_t prog_id = addr - ST_LOGIC_CONTROL_REG_BASE;  // 0-3 for Logic1-4
+  st_logic_engine_state_t *st_state = st_logic_get_state();
+  st_logic_program_config_t *prog = st_logic_get_program(st_state, prog_id);
+
+  if (!prog) return;
+
+  // Bit 0: Enable/Disable program
+  if (value & ST_LOGIC_CONTROL_ENABLE) {
+    if (!prog->enabled) {
+      st_logic_set_enabled(st_state, prog_id, 1);
+      debug_print("[ST_LOGIC] Logic");
+      debug_print_uint(prog_id + 1);
+      debug_println(" ENABLED via Modbus");
+    }
+  } else {
+    if (prog->enabled) {
+      st_logic_set_enabled(st_state, prog_id, 0);
+      debug_print("[ST_LOGIC] Logic");
+      debug_print_uint(prog_id + 1);
+      debug_println(" DISABLED via Modbus");
+    }
+  }
+
+  // Bit 1: Start/Stop (note: this is for future use)
+  // Currently, programs run continuously if enabled
+  // This bit could control a "pause" state
+
+  // Bit 2: Reset Error flag
+  if (value & ST_LOGIC_CONTROL_RESET_ERROR) {
+    if (prog->error_count > 0) {
+      prog->error_count = 0;
+      prog->last_error[0] = '\0';
+      debug_print("[ST_LOGIC] Logic");
+      debug_print_uint(prog_id + 1);
+      debug_println(" error cleared via Modbus");
     }
   }
 }

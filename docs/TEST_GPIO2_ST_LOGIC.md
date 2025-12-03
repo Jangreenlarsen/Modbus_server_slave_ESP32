@@ -22,13 +22,13 @@ Vi vil lave et simpelt ST-program der **styr GPIO 2** (LED eller relais) baseret
 GPIO 2 er normalt reserveret til heartbeat LED. Vi skal aktivere user mode:
 
 ```bash
-set gpio2_user_mode 1
+set gpio 2 enable
 save
 ```
 
 **Output:**
 ```
-✓ GPIO2 user mode enabled
+✓ GPIO2 enabled (heartbeat disabled)
 ✓ Configuration saved
 ```
 
@@ -66,44 +66,44 @@ set logic 1 upload "VAR sensor: INT; led_out: BOOL; END_VAR IF sensor > 50 THEN 
 
 ```bash
 # Læs sensor-værdi fra HR#100
-set logic 1 bind 0 100 input
+set logic 1 bind sensor reg:100
 
-# Skriv LED-status til HR#101
-set logic 1 bind 1 101 output
+# Skriv LED-status til Coil#0
+set logic 1 bind led_out coil:0
 ```
 
 **Output:**
 ```
-✓ Logic1: var[0] ← Modbus HR#100
-✓ Logic1: var[1] → Modbus HR#101
+✓ Logic1: var[sensor] ← Modbus HR#100
+✓ Logic1: var[led_out] → Modbus Coil#0
 ```
 
 ---
 
-## Trin 4: Map HR#101 til GPIO 2
+## Trin 4: Map GPIO 2 til Coil #0
 
-Nu skal vi map HR#101 (holding register) til GPIO 2 fysisk pin.
-
-Først, tjek nuværende GPIO mappings:
+Nu skal vi map GPIO 2 til Coil#0, som ST-programmet skriver til.
 
 ```bash
-show gpio config
+# Map GPIO 2 til Coil #0
+set gpio 2 static map coil:0
 ```
 
-Derefter, opret mapping (kommando varierer, se din CLI):
-
-```bash
-# Eksempel (assume din CLI har denne kommando):
-set gpio 2 mode output register 101
+**Output:**
+```
+✓ GPIO 2 mapped to coil 0
 ```
 
-**Alternativ:** Du kan edite config direkte hvis du har adgang:
-
+**Verifiering:**
 ```bash
-# I persistence system:
-GPIO2 → Output coil mode
-Pin: 2
-Source: Holding Register 101
+show gpio
+```
+
+Skulle vise:
+```
+GPIO 2 Status: USER MODE
+  Mappings:
+    - Coil 0 (output)
 ```
 
 ---
@@ -138,8 +138,8 @@ Source:
 VAR sensor: INT; led_out: BOOL; END_VAR IF sensor > 50 THEN led_out := TRUE...
 
 Variable Bindings: 2
-  [0] ST var[0] ← Modbus HR#100
-  [1] ST var[1] → Modbus HR#101
+  [0] sensor ← Modbus HR#100
+  [1] led_out → Modbus Coil#0
 
 Statistics:
   Executions: 0
@@ -255,10 +255,10 @@ set logic 2 enabled:true
 
 | Problem | Årsag | Løsning |
 |---------|-------|---------|
-| LED tænder ikke | GPIO 2 brugt af heartbeat | Kør `set gpio2_user_mode 1` og `save` |
+| LED tænder ikke | GPIO 2 brugt af heartbeat | Kør `set gpio 2 enable` og `save` |
 | LED blinker uventet | Logic program disabled | Tjek `show logic 1` - skal være "Enabled: YES" |
-| HR#101 skriver ikke | Binding ikke oprettet | Tjek `show logic 1` - skal vise 2 bindings |
-| GPIO 2 ændrer ikke | Register-mapping mangler | Tjek at HR#101 er maplet til GPIO 2 |
+| Coil#0 skriver ikke | Binding ikke oprettet | Tjek `show logic 1` - skal vise 2 bindings med `led_out → Coil#0` |
+| GPIO 2 ændrer ikke | GPIO mapping mangler | Tjek at `set gpio 2 static map coil:0` blev kørt |
 
 ---
 
@@ -268,32 +268,35 @@ Copy-paste hele sekvensen:
 
 ```bash
 # 1. Enable GPIO 2 user mode
-set gpio2_user_mode 1
+set gpio 2 enable
 save
 
-# 2. Upload ST program
+# 2. Map GPIO 2 to Coil 0
+set gpio 2 static map coil:0
+
+# 3. Upload ST program
 set logic 1 upload "VAR sensor: INT; led_out: BOOL; END_VAR IF sensor > 50 THEN led_out := TRUE; ELSE led_out := FALSE; END_IF;"
 
-# 3. Bind variables
-set logic 1 bind 0 100 input
-set logic 1 bind 1 101 output
+# 4. Bind variables using variable names
+set logic 1 bind sensor reg:100
+set logic 1 bind led_out coil:0
 
-# 4. Enable logic program
+# 5. Enable logic program
 set logic 1 enabled:true
 
-# 5. Verify
+# 6. Verify
 show logic 1
-show gpio config
+show gpio
 
-# 6. Test - turn ON
-write_holding_register(100, 75)
-read_holding_register(101)
+# 7. Test - turn ON
+set holding_register 100 75
+show logic 1
 
-# 7. Test - turn OFF
-write_holding_register(100, 30)
-read_holding_register(101)
+# 8. Test - turn OFF
+set holding_register 100 30
+show logic 1
 
-# 8. See stats
+# 9. See stats
 show logic stats
 ```
 

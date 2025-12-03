@@ -79,4 +79,16 @@ int cli_cmd_show_logic_programs(st_logic_engine_state_t *logic_state);
  */
 int cli_cmd_show_logic_errors(st_logic_engine_state_t *logic_state);
 
+/**
+ * @brief show logic <id> code
+ * Show source code for a specific logic program with line breaks
+ */
+int cli_cmd_show_logic_code(st_logic_engine_state_t *logic_state, uint8_t program_id);
+
+/**
+ * @brief show logic all code
+ * Show source code for all logic programs
+ */
+int cli_cmd_show_logic_code_all(st_logic_engine_state_t *logic_state);
+
 #endif /* CLI_COMMANDS_LOGIC_H */

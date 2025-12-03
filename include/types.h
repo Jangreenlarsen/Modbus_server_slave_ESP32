@@ -248,7 +248,7 @@ typedef struct {
 
   // Variable mappings (GPIO pins + ST variables)
   uint8_t var_map_count;
-  VariableMapping var_maps[16];  // 8 GPIO + 8 ST variable bindings
+  VariableMapping var_maps[64];  // 32 GPIO + ST variable bindings
 
   // GPIO2 configuration (heartbeat control)
   uint8_t gpio2_user_mode;  // 0 = heartbeat mode (default), 1 = user mode (GPIO2 available)

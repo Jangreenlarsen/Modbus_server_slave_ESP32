@@ -117,6 +117,7 @@ static bool st_vm_exec_push_bool(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
 static bool st_vm_exec_push_int(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t val;
+  memset(&val, 0, sizeof(val));  // Initialize union to all zeros
   val.int_val = instr->arg.int_arg;
   return st_vm_push(vm, val);
 }
@@ -145,6 +146,23 @@ static bool st_vm_exec_store_var(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &val)) return false;
   st_vm_set_variable(vm, instr->arg.var_index, val);
   return !vm->error;
+}
+
+static bool st_vm_exec_dup(st_vm_t *vm, st_bytecode_instr_t *instr) {
+  // Duplicate the top stack value
+  if (vm->sp == 0) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg), "Stack underflow (DUP)");
+    vm->error = 1;
+    return false;
+  }
+  st_value_t top = vm->stack[vm->sp - 1];
+  return st_vm_push(vm, top);
+}
+
+static bool st_vm_exec_pop(st_vm_t *vm, st_bytecode_instr_t *instr) {
+  // Pop and discard top stack value
+  st_value_t discard;
+  return st_vm_pop(vm, &discard);
 }
 
 /* ============================================================================
@@ -366,7 +384,9 @@ static bool st_vm_exec_jmp_if_false(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &cond)) return false;
 
   if (cond.bool_val == 0) {
-    vm->pc = (uint16_t)instr->arg.int_arg;
+    vm->pc = (uint16_t)instr->arg.int_arg;  // Jump to target
+  } else {
+    vm->pc = vm->pc + 1;  // Continue to next instruction
   }
   return true;
 }
@@ -376,7 +396,9 @@ static bool st_vm_exec_jmp_if_true(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &cond)) return false;
 
   if (cond.bool_val != 0) {
-    vm->pc = (uint16_t)instr->arg.int_arg;
+    vm->pc = (uint16_t)instr->arg.int_arg;  // Jump to target
+  } else {
+    vm->pc = vm->pc + 1;  // Continue to next instruction
   }
   return true;
 }
@@ -409,6 +431,8 @@ bool st_vm_step(st_vm_t *vm) {
     case ST_OP_PUSH_REAL:       result = st_vm_exec_push_real(vm, instr); break;
     case ST_OP_LOAD_VAR:        result = st_vm_exec_load_var(vm, instr); break;
     case ST_OP_STORE_VAR:       result = st_vm_exec_store_var(vm, instr); break;
+    case ST_OP_DUP:             result = st_vm_exec_dup(vm, instr); break;
+    case ST_OP_POP:             result = st_vm_exec_pop(vm, instr); break;
     case ST_OP_ADD:             result = st_vm_exec_add(vm, instr); break;
     case ST_OP_SUB:             result = st_vm_exec_sub(vm, instr); break;
     case ST_OP_MUL:             result = st_vm_exec_mul(vm, instr); break;

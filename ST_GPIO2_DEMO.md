@@ -12,12 +12,19 @@ GPIO2 har en blåt LED forbundet (heartbeat). Vi kan styre det via ST Logic!
 
 ```bash
 # Deaktivér heartbeat (gør GPIO2 tilgængelig)
-set gpio2 user_mode:true
+set gpio 2 enable
+
+# Gem konfiguration
+save
+
+# Map GPIO2 til Coil #0
+set gpio 2 static map coil:0
 ```
 
 **Output:**
 ```
-[OK] GPIO2 user mode enabled (heartbeat disabled)
+[OK] GPIO2 enabled (heartbeat disabled)
+[OK] GPIO2 mapped to coil 0
 ```
 
 ### 2. Opret ST Logic program
@@ -186,7 +193,9 @@ Når `led_on := TRUE` → Coil#0 = 1 → GPIO2 LED tændes 🔵
 
 ```bash
 # Setup
-set gpio2 user_mode:true                                          # Enable GPIO2 user mode
+set gpio 2 enable                                                # Enable GPIO2 user mode
+save                                                             # Save config
+set gpio 2 static map coil:0                                     # Map GPIO2 to coil 0
 set logic 1 upload "VAR led: BOOL; counter: INT; END_VAR ..."   # Upload program
 
 # Binding
@@ -209,28 +218,32 @@ show logic errors                                                # Check errors
 
 ```bash
 # 1. Enable GPIO2
-set gpio2 user_mode:true
+set gpio 2 enable
+save
 
-# 2. Upload program (LED on when counter > 50)
+# 2. Map GPIO2 to coil 0
+set gpio 2 static map coil:0
+
+# 3. Upload program (LED on when counter > 50)
 set logic 1 upload "VAR led: BOOL; counter: INT; END_VAR IF counter > 50 THEN led := TRUE; ELSE led := FALSE; END_IF;"
 
-# 3. Bind variables
+# 4. Bind variables
 set logic 1 bind counter reg:10
 set logic 1 bind led coil:0
 
-# 4. Enable
+# 5. Enable
 set logic 1 enabled:true
 
-# 5. Test - LED should turn ON
+# 6. Test - LED should turn ON
 set holding_register 10 75
 
-# 6. Verify
+# 7. Verify
 show logic 1
 
-# 7. Test - LED should turn OFF
+# 8. Test - LED should turn OFF
 set holding_register 10 25
 
-# 8. Check status
+# 9. Check status
 show logic program
 ```
 
@@ -266,7 +279,14 @@ After following the demo:
 # Check if GPIO2 is in user mode
 show gpio
 
-# Should show: GPIO2 user_mode: YES
+# Should show: GPIO 2 Status: USER MODE
+
+# If not, enable it:
+set gpio 2 enable
+save
+
+# And map it to coil 0:
+set gpio 2 static map coil:0
 ```
 
 **Problem:** Program shows error

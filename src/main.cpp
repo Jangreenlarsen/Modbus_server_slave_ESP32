@@ -72,7 +72,9 @@ void setup() {
   Serial.println("\nSetup complete.");
   Serial.println("Modbus RTU Server ready on UART1 (GPIO4/5, 9600 baud)");
   Serial.println("RS485 DIR control on GPIO15");
-  Serial.println("Registers: 160 holding, 160 input");
+  Serial.println("Registers: 256 holding (0-255), 256 input (0-255)");
+  Serial.println("  ST Logic status: Input registers 200-251");
+  Serial.println("  ST Logic control: Holding registers 200-235");
   Serial.println("Coils: 32 (256 bits), Discrete inputs: 32 (256 bits)\n");
 
   cli_shell_init();         // CLI system (last, shows prompt)
@@ -96,6 +98,9 @@ void loop() {
   // Update DYNAMIC register/coil mappings (counter/timer → registers/coils)
   registers_update_dynamic_registers();
   registers_update_dynamic_coils();
+
+  // Update ST Logic status registers (200-251)
+  registers_update_st_logic_status();
 
   // UNIFIED VARIABLE MAPPING: Read INPUT bindings (GPIO + ST variables)
   // This must happen BEFORE st_logic_engine_loop() to provide fresh inputs

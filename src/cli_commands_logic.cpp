@@ -19,6 +19,7 @@
 /* ST Logic Engine includes */
 #include "st_logic_config.h"
 #include "st_logic_engine.h"
+#include "st_compiler.h"
 
 /* Config & Mapping includes */
 #include "config_struct.h"

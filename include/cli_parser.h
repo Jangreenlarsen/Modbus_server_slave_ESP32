@@ -35,6 +35,13 @@
 bool cli_parser_execute(char* line);
 
 /**
+ * @brief Execute ST Logic upload from multi-line CLI mode
+ * @param program_id Program ID (0-3) for Logic1-Logic4
+ * @param source_code Complete source code with newlines
+ */
+void cli_parser_execute_st_upload(uint8_t program_id, const char* source_code);
+
+/**
  * @brief Print command help
  */
 void cli_parser_print_help(void);

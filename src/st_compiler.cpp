@@ -257,6 +257,93 @@ static bool st_compiler_compile_assignment(st_compiler_t *compiler, st_ast_node_
   return st_compiler_emit_var(compiler, ST_OP_STORE_VAR, var_index);
 }
 
+static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *node) {
+  // Compile the expression being tested
+  if (!st_compiler_compile_expr(compiler, node->data.case_stmt.expr)) {
+    return false;
+  }
+
+  // Store expression result temporarily in a temp register
+  // (Stack: expr_result on top)
+
+  uint16_t *jump_end = (uint16_t *)malloc(sizeof(uint16_t) * (node->data.case_stmt.branch_count + 1));
+  if (!jump_end) {
+    st_compiler_error(compiler, "Memory allocation failed for CASE jumps");
+    return false;
+  }
+  uint8_t jump_count = 0;
+
+  // Compile each case branch
+  for (uint8_t i = 0; i < node->data.case_stmt.branch_count; i++) {
+    st_case_branch_t *branch = &node->data.case_stmt.branches[i];
+
+    // Duplicate the expression value on stack for comparison
+    if (!st_compiler_emit(compiler, ST_OP_DUP)) {
+      free(jump_end);
+      return false;
+    }
+
+    // Push case value and compare
+    if (!st_compiler_emit_int(compiler, ST_OP_PUSH_INT, branch->value)) {
+      free(jump_end);
+      return false;
+    }
+
+    if (!st_compiler_emit(compiler, ST_OP_EQ)) {
+      free(jump_end);
+      return false;
+    }
+
+    // Jump to next case if not equal
+    // JMP_IF_FALSE will pop the comparison result
+    uint16_t jump_next = st_compiler_emit_jump(compiler, ST_OP_JMP_IF_FALSE);
+
+    // We matched this case - pop the duplicate expression value before executing branch
+    if (!st_compiler_emit(compiler, ST_OP_POP)) {
+      free(jump_end);
+      return false;
+    }
+
+    // Compile branch body
+    if (branch->body) {
+      if (!st_compiler_compile_node(compiler, branch->body)) {
+        free(jump_end);
+        return false;
+      }
+    }
+
+    // Jump to end of CASE
+    jump_end[jump_count++] = st_compiler_emit_jump(compiler, ST_OP_JMP);
+
+    // Patch next case jump to right after comparison (before duplicate pop)
+    // This way, if we don't match, we skip the POP and go straight to next DUP
+    st_compiler_patch_jump(compiler, jump_next, st_compiler_current_addr(compiler));
+  }
+
+  // Pop the expression value
+  if (!st_compiler_emit(compiler, ST_OP_POP)) {
+    free(jump_end);
+    return false;
+  }
+
+  // Compile ELSE block if present
+  if (node->data.case_stmt.else_body) {
+    if (!st_compiler_compile_node(compiler, node->data.case_stmt.else_body)) {
+      free(jump_end);
+      return false;
+    }
+  }
+
+  // Patch all end jumps
+  uint16_t end_addr = st_compiler_current_addr(compiler);
+  for (uint8_t i = 0; i < jump_count; i++) {
+    st_compiler_patch_jump(compiler, jump_end[i], end_addr);
+  }
+
+  free(jump_end);
+  return true;
+}
+
 static bool st_compiler_compile_if(st_compiler_t *compiler, st_ast_node_t *node) {
   // Compile condition (result on stack)
   if (!st_compiler_compile_expr(compiler, node->data.if_stmt.condition_expr)) {
@@ -422,6 +509,10 @@ bool st_compiler_compile_node(st_compiler_t *compiler, st_ast_node_t *node) {
 
     case ST_AST_IF:
       if (!st_compiler_compile_if(compiler, node)) return false;
+      break;
+
+    case ST_AST_CASE:
+      if (!st_compiler_compile_case(compiler, node)) return false;
       break;
 
     case ST_AST_FOR:

@@ -23,6 +23,7 @@
 #include "version.h"
 #include "cli_shell.h"
 #include "config_struct.h"
+#include "st_logic_config.h"
 #include "debug.h"
 #include <stdio.h>
 #include <string.h>
@@ -312,6 +313,58 @@ void cli_cmd_show_config(void) {
   } else {
     debug_println("(No user-configured GPIO mappings)");
     debug_println("  Brug: 'set gpio <pin> static map input:<idx>' eller 'coil:<idx>'");
+  }
+  debug_println("");
+
+  // ST Logic Programs section
+  debug_println("=== ST LOGIC PROGRAMS ===\n");
+
+  st_logic_engine_state_t *st_state = st_logic_get_state();
+  bool any_program = false;
+
+  for (uint8_t id = 0; id < 4; id++) {
+    st_logic_program_config_t *prog = st_logic_get_program(st_state, id);
+    if (prog && prog->source_size > 0) {
+      any_program = true;
+      debug_print("  Logic");
+      debug_print_uint(id + 1);
+      debug_print(" - ");
+
+      // Status indicator
+      if (!prog->compiled) {
+        debug_print("[NOT COMPILED] ");
+      } else if (!prog->enabled) {
+        debug_print("[DISABLED] ");
+      } else {
+        debug_print("[ENABLED] ");
+      }
+
+      // Source code size
+      debug_print("Source: ");
+      debug_print_uint(prog->source_size);
+      debug_print(" bytes");
+
+      // Execution stats
+      debug_print(" | Executions: ");
+      debug_print_uint(prog->execution_count);
+
+      if (prog->error_count > 0) {
+        debug_print(" | Errors: ");
+        debug_print_uint(prog->error_count);
+        if (prog->last_error[0] != '\0') {
+          debug_print(" (Last: ");
+          debug_print(prog->last_error);
+          debug_print(")");
+        }
+      }
+
+      debug_println("");
+    }
+  }
+
+  if (!any_program) {
+    debug_println("  (No ST Logic programs configured)");
+    debug_println("  Use: 'set logic <1-4> upload' to upload a program");
   }
   debug_println("");
 }
