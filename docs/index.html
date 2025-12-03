@@ -613,9 +613,94 @@ set gpio 2 enable   # GPIO2 til brugerkode</code></pre>
 
             <!-- REGISTERS & COILS -->
             <section class="section" id="registers-coils">
-                <h2>💾 Registers & Coils</h2>
+                <h2>💾 Registers & Coils (0-255) - NY LAYOUT v2.2.0+</h2>
 
-                <h3>Holding Registers (0-159)</h3>
+                <h3>🆕 ST Logic Registers (200-251) - NHEDIN!</h3>
+                <p>Register arrays er nu <strong>256 addresses (0-255)</strong> i stedet for 160. Registers 200-251 er dedikeret til ST Logic status og kontrol:</p>
+
+                <p><strong>INPUT REGISTERS (Read-only Status):</strong></p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Register</th>
+                            <th>Formål</th>
+                            <th>Detaljer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>200-203</strong></td>
+                            <td>ST Logic Status (Logic1-4)</td>
+                            <td>Bit 0=Enabled, Bit 1=Compiled, Bit 2=Running, Bit 3=Error</td>
+                        </tr>
+                        <tr>
+                            <td><strong>204-207</strong></td>
+                            <td>Execution Count</td>
+                            <td>Antal exekveringer pr. program</td>
+                        </tr>
+                        <tr>
+                            <td><strong>208-211</strong></td>
+                            <td>Error Count</td>
+                            <td>Antal fejl under eksekvering</td>
+                        </tr>
+                        <tr>
+                            <td><strong>212-215</strong></td>
+                            <td>Last Error Code</td>
+                            <td>0=ok, 1=fejl</td>
+                        </tr>
+                        <tr>
+                            <td><strong>216-219</strong></td>
+                            <td>Variable Count</td>
+                            <td>Antal bundne variable pr. program</td>
+                        </tr>
+                        <tr>
+                            <td><strong>220-251</strong></td>
+                            <td>Variable Output Values</td>
+                            <td>Output værdier fra ST Logic programs</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <p><strong>HOLDING REGISTERS (Read/Write Control):</strong></p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Register</th>
+                            <th>Formål</th>
+                            <th>Detaljer</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>200-203</strong></td>
+                            <td>ST Logic Control (Logic1-4)</td>
+                            <td>Bit 0=Enable, Bit 1=Start, Bit 2=Reset Error</td>
+                        </tr>
+                        <tr>
+                            <td><strong>204-235</strong></td>
+                            <td>Variable Input Values</td>
+                            <td>Remote master kan skrive værdier til ST programmer</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <h3>📡 Remote Control Eksempel (SCADA/PLC)</h3>
+                <pre><code># Læs status på Logic1
+status = read_input_register(200)
+if status & 0x0001:  # Bit 0
+    print("Logic1 er aktiveret")
+
+# Læs variable værdier
+counter = read_input_register(220)  # Logic1 var[0]
+led = read_input_register(221)      # Logic1 var[1]
+
+# Kontroller Logic1 fra Modbus
+write_single_register(200, 0x0001)  # Enable Logic1
+write_single_register(204, 100)     # Sæt input variabel til 100</code></pre>
+
+                <hr style="margin: 30px 0; border: none; border-top: 2px solid #ddd;">
+
+                <h3>Holding Registers (0-199)</h3>
                 <table>
                     <thead>
                         <tr>
@@ -1000,8 +1085,12 @@ END_IF;</code></pre>
                     </tbody>
                 </table>
 
-                <h3>✨ Latest Features (v2.1.0)</h3>
+                <h3>✨ Latest Features (v2.2.0)</h3>
                 <ul style="margin-left: 20px;">
+                    <li>🆕 <strong>Modbus Registers 200-251:</strong> Dedicated ST Logic status & control registers</li>
+                    <li>🆕 <strong>Remote Control via Modbus:</strong> Enable/disable programs and read status from SCADA/PLC</li>
+                    <li>🆕 <strong>Register Array Expanded:</strong> 0-255 (from 160) - 52 new registers for ST Logic integration</li>
+                    <li>🆕 <strong>GPIO Mapping Limit Increased:</strong> 32 mappings (from 8) - support for more simultaneous bindings</li>
                     <li>✅ <strong>Multi-line Upload Mode:</strong> Easy copy-paste of ST programs from editors</li>
                     <li>✅ <strong>Unified Variable Mapping:</strong> GPIO + ST variables in same system</li>
                     <li>✅ <strong>Intuitive Bind Syntax:</strong> Variable-name based bindings (e.g., `set logic 1 bind counter reg:100`)</li>
@@ -1037,15 +1126,39 @@ END_IF;</code></pre>
                             <td>-</td>
                         </tr>
                         <tr>
-                            <td>Registers</td>
+                            <td><strong>Holding Registers (v2.2.0+)</strong></td>
                             <td>0</td>
-                            <td>159</td>
+                            <td><strong>255</strong> (updated from 159)</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Input Registers (v2.2.0+)</strong></td>
+                            <td>0</td>
+                            <td><strong>255</strong> (updated from 159)</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ST Logic Registers</strong></td>
+                            <td>200</td>
+                            <td>251</td>
                             <td>-</td>
                         </tr>
                         <tr>
                             <td>Coils</td>
                             <td>0</td>
                             <td>255</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>GPIO Mappings (v2.2.0+)</strong></td>
+                            <td>1</td>
+                            <td><strong>32</strong> (updated from 8)</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td><strong>ST Logic Programs</strong></td>
+                            <td>1</td>
+                            <td>4</td>
                             <td>-</td>
                         </tr>
                         <tr>
@@ -1108,7 +1221,7 @@ END_IF;</code></pre>
         </div>
 
         <footer>
-            <p><strong>ESP32 Modbus RTU Server v2.1.0</strong> | 2025-12-01</p>
+            <p><strong>ESP32 Modbus RTU Server v2.2.0</strong> | 2025-12-03</p>
             <p>📖 <a href="FEATURE_GUIDE.md" style="color: #667eea;">Læs Markdown version</a> |
                📘 <a href="SETUP_GUIDE.md" style="color: #667eea;">Setup Guide</a> |
                📝 <a href="../CHANGELOG.md" style="color: #667eea;">Changelog</a></p>

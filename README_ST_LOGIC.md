@@ -874,14 +874,74 @@ show logic errors
 
 ---
 
+## Modbus Integration - Remote Control via Registers 200-251
+
+### Register Layout (Nyhedin v2.2.0+)
+
+Register arrays are now **256 addresses** (0-255) instead of 160, providing dedicated space for ST Logic integration.
+
+#### INPUT REGISTERS (Status - Read-only)
+
+```
+Register 200-203: ST Logic Status (Logic1-4)
+  Bit 0: Enabled (1=yes, 0=no)
+  Bit 1: Compiled (1=yes, 0=no)
+  Bit 2: Running (1=executing, 0=idle)
+  Bit 3: Has Error (1=yes, 0=no)
+
+Register 204-207: Execution Count per program
+Register 208-211: Error Count per program
+Register 212-215: Last Error Code (0=ok, 1=error occurred)
+Register 216-219: Variable Count per program (number of bound variables)
+Register 220-251: Variable Values (32 registers for all variable I/O)
+```
+
+#### HOLDING REGISTERS (Control - Read/Write)
+
+```
+Register 200-203: ST Logic Control (Logic1-4)
+  Bit 0: Enable/Disable program (1=enable, 0=disable)
+  Bit 1: Start/Stop (reserved for future use)
+  Bit 2: Reset Error (write 1 to clear error flag)
+
+Register 204-235: Variable Input Values (can be written by remote Modbus master)
+```
+
+### Example: Remote Control via Modbus
+
+A SCADA/PLC can control ST Logic programs remotely:
+
+```python
+# Read status of Logic1
+status = read_input_register(200)
+if status & 0x0001:  # Bit 0
+    print("Logic1 is enabled")
+if status & 0x0008:  # Bit 3
+    print("Logic1 has error!")
+
+# Read variable values
+counter_value = read_input_register(220)  # Logic1 var[0]
+led_state = read_input_register(221)      # Logic1 var[1]
+
+# Control Logic1 via holding registers
+write_single_register(200, 0x0001)  # Enable Logic1
+write_single_register(200, 0x0004)  # Clear error on Logic1
+
+# Write variable values from Modbus master
+write_single_register(204, 100)     # Set Logic1 var[0] to 100
+```
+
+---
+
 ## Performance Notes
 
 - **Compilation Time:** <100ms per program
 - **Execution Time:** ~1-5ms per cycle (10ms default interval)
 - **Cycle Frequency:** 100 Hz (every 10ms)
 - **Memory:** ~50KB for 4 programs with source + bytecode
-- **Register Limit:** 160 holding registers (0-159)
+- **Register Limit:** 256 holding registers (0-255) - registers 200-251 reserved for ST Logic
 - **Coil Limit:** 256 coils (0-255)
+- **Max GPIO Mappings:** 32 (increased from 8)
 - **Max Variables:** 32 per program
 - **Max Instructions:** 512 per program
 - **Execution Steps:** 10,000 step limit (prevents infinite loops)
@@ -945,7 +1005,7 @@ ST Logic Mode provides:
 
 ---
 
-## 📊 ST Programming Status (v2.1.0)
+## 📊 ST Programming Status (v2.2.0)
 
 ### Overall Status: ✅ **PRODUCTION READY**
 
@@ -1087,8 +1147,146 @@ show logic 1
 
 ---
 
+---
+
+## 📊 ST Programming - Precise Current State (v2.2.0)
+
+### What ST Logic Programming IS
+
+**ST Logic** is a complete programming environment for industrial logic automation on the ESP32 Modbus server. It consists of:
+
+1. **Compiler**: Converts IEC 61131-3 Structured Text syntax to bytecode (~<100ms)
+2. **Virtual Machine (VM)**: Executes bytecode non-blocking at 100 Hz (10ms cycles)
+3. **Variable Mapper**: Binds ST variables to Modbus registers/coils and GPIO pins
+4. **Config Persistence**: Programs and bindings auto-save to NVS (survives power loss)
+5. **Modbus Integration**: Programs read/write registers and coils via standard FC01-10
+
+### What You Can Do
+
+**Upload & Run ST Programs:**
+```bash
+set logic 1 upload "VAR counter: INT; END_VAR counter := counter + 1;"
+set logic 1 enabled:true
+show logic 1
+```
+
+**Bind Variables to I/O:**
+```bash
+# Bind to Modbus registers (read/write)
+set logic 1 bind counter reg:100    # Input binding - read from HR#100
+set logic 2 bind output coil:0      # Output binding - write to Coil#0
+
+# Or via intuitive multi-mapping
+set gpio 2 static map coil:0        # Map GPIO2 to Coil#0
+```
+
+**Control Programs via Modbus (NHEDIN v2.2.0+):**
+```bash
+# From SCADA/PLC, enable/disable programs
+write_single_register(200, 0x0001)  # Enable Logic1
+write_single_register(200, 0x0000)  # Disable Logic1
+
+# Read program status
+status = read_input_register(200)   # Get Logic1 status
+if status & 0x0002:                 # Check compiled flag
+    print("Logic1 is compiled")
+```
+
+### System Architecture
+
+```
+┌─────────────────────────────────────────┐
+│ User: set logic 1 upload [program]      │  ← CLI
+├─────────────────────────────────────────┤
+│ ST Compiler: Parse & validate syntax    │
+│ Bytecode Generator: Create instructions │
+│ Store in NVS: Programs persist          │
+├─────────────────────────────────────────┤
+│ Main Loop (100 Hz / 10 ms):             │
+│ 1. Read INPUT bindings                  │
+│ 2. Execute enabled ST programs          │
+│ 3. Write OUTPUT bindings                │
+├─────────────────────────────────────────┤
+│ Modbus Server: FC01-10 read/write regs  │  ← Remote control
+│ Status Registers 200-251: Real-time info│
+└─────────────────────────────────────────┘
+```
+
+### Key Characteristics
+
+| Aspect | Detail |
+|--------|--------|
+| **Programs** | 4 independent logic programs (Logic1-Logic4) |
+| **Language** | IEC 61131-3 Structured Text (ST-Light Profile) |
+| **Compilation** | <100ms per program, bytecode VM |
+| **Execution** | Non-blocking, 100 Hz cycle, 10ms intervals |
+| **Variable Limit** | 32 per program |
+| **Program Size** | Max 5 KB source code, 512 bytecode instructions |
+| **Safety** | 10,000 step limit prevents infinite loops |
+| **Integration** | Seamless with Modbus registers/coils |
+| **Remote Control** | Registers 200-251 for status & enable/disable |
+| **Persistence** | Auto-save programs & bindings to NVS |
+| **Error Handling** | Compile errors, runtime errors, execution stats |
+
+### Data Flow During Execution
+
+```
+Every 10 milliseconds:
+┌─────────────────────────────────────────┐
+│ Phase 1: SYNC INPUTS                    │
+│ GPIO pins → Discrete inputs             │
+│ Modbus registers → ST variable bindings │
+│ Holding registers → ST variable inputs  │
+└────────────┬────────────────────────────┘
+             ↓
+┌─────────────────────────────────────────┐
+│ Phase 2: EXECUTE PROGRAMS (100 Hz)      │
+│ For each enabled ST program:            │
+│ - Load compiled bytecode                │
+│ - Run instruction by instruction        │
+│ - Update internal state                 │
+│ - Track execution count & errors        │
+└────────────┬────────────────────────────┘
+             ↓
+┌─────────────────────────────────────────┐
+│ Phase 3: SYNC OUTPUTS                   │
+│ ST variables → Coils (GPIO mapping)     │
+│ ST variables → Input registers          │
+│ Update status registers 200-251         │
+└─────────────────────────────────────────┘
+```
+
+### What Changed in v2.2.0
+
+**New Modbus Integration:**
+- **INPUT registers 200-251**: Real-time status of all 4 programs
+- **HOLDING registers 200-235**: Remote control and variable input
+- Can now read/control ST Logic entirely via Modbus
+- Perfect for SCADA/PLC integration
+
+**Extended Register Space:**
+- Array size increased from 160 to 256 addresses
+- Dedicated space for ST Logic (200-251)
+- Backward compatible (0-199 unchanged)
+
+**Increased GPIO Mappings:**
+- Limit increased from 8 to 32 simultaneous bindings
+- Support for more complex variable mappings
+- Per-program mapping visualization
+
+### Limitations & Constraints
+
+- **No global variables**: Each program is isolated
+- **No inter-program communication**: Programs don't call each other
+- **No external libraries**: Only built-in functions available
+- **No dynamic memory**: All variables declared statically
+- **No debug stepping**: Binary bytecode only
+- **String type not supported**: Only numeric types (INT, DWORD, BOOL, REAL)
+
+---
+
 ## Summary
 
-ST Logic Programming on ESP32 Modbus Server is **fully implemented, tested, and production-ready**. All features are operational with comprehensive error handling, persistent storage, and seamless Modbus integration. Users can upload IEC 61131-3 Structured Text programs directly to the device with intuitive CLI commands.
+ST Logic Programming on ESP32 Modbus Server is **fully implemented, tested, and production-ready**. All features are operational with comprehensive error handling, persistent storage, and seamless Modbus integration. Users can upload IEC 61131-3 Structured Text programs directly to the device with intuitive CLI commands, and can control programs remotely via dedicated Modbus registers (200-251).
 
 **Perfect for industrial automation, PLC logic emulation, and real-time control applications!**
