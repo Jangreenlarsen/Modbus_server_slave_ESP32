@@ -34,10 +34,37 @@
  * REGISTER/COIL CONFIGURATION
  * ============================================================================ */
 
-#define HOLDING_REGS_SIZE   160         // Number of holding registers
-#define INPUT_REGS_SIZE     160         // Number of input registers
+#define HOLDING_REGS_SIZE   256         // Number of holding registers (0-255)
+#define INPUT_REGS_SIZE     256         // Number of input registers (0-255)
 #define COILS_SIZE          32          // Coil bits (0-255 packed)
 #define DISCRETE_INPUTS_SIZE 32         // Discrete input bits (0-255 packed)
+
+/* ============================================================================
+ * ST LOGIC REGISTER MAPPING (Input/Holding Registers 200+)
+ * ============================================================================ */
+
+// INPUT REGISTERS (Read-only status)
+#define ST_LOGIC_STATUS_REG_BASE        200  // Logic1-4 Status (200-203)
+#define ST_LOGIC_EXEC_COUNT_REG_BASE    204  // Logic1-4 Execution Count (204-207)
+#define ST_LOGIC_ERROR_COUNT_REG_BASE   208  // Logic1-4 Error Count (208-211)
+#define ST_LOGIC_ERROR_CODE_REG_BASE    212  // Logic1-4 Last Error Code (212-215)
+#define ST_LOGIC_VAR_COUNT_REG_BASE     216  // Logic1-4 Variable Count (216-219)
+#define ST_LOGIC_VAR_VALUES_REG_BASE    220  // Logic1-4 Variable Values (220-251)
+
+// HOLDING REGISTERS (Read/Write control)
+#define ST_LOGIC_CONTROL_REG_BASE       200  // Logic1-4 Control (200-203)
+#define ST_LOGIC_VAR_INPUT_REG_BASE     204  // Logic1-4 Variable Input (204-235)
+
+// Status Register Bit Definitions
+#define ST_LOGIC_STATUS_ENABLED         0x0001  // Bit 0: Program enabled
+#define ST_LOGIC_STATUS_COMPILED        0x0002  // Bit 1: Program compiled
+#define ST_LOGIC_STATUS_RUNNING         0x0004  // Bit 2: Currently executing
+#define ST_LOGIC_STATUS_ERROR           0x0008  // Bit 3: Has error
+
+// Control Register Bit Definitions
+#define ST_LOGIC_CONTROL_ENABLE         0x0001  // Bit 0: Enable/disable
+#define ST_LOGIC_CONTROL_START          0x0002  // Bit 1: Start/stop
+#define ST_LOGIC_CONTROL_RESET_ERROR    0x0004  // Bit 2: Reset error flag
 
 /* ============================================================================
  * COUNTER CONFIGURATION
@@ -178,7 +205,7 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "2.0.0"
+#define PROJECT_VERSION     "2.2.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 #endif // CONSTANTS_H
