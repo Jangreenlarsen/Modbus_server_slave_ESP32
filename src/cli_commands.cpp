@@ -1173,6 +1173,42 @@ void cli_cmd_set_wifi(uint8_t argc, char* argv[]) {
     debug_print_uint(port);
     debug_println("");
 
+  } else if (!strcmp(option, "telnet")) {
+    // Enable/disable Telnet server
+    if (!value || (!strcmp(value, "") && argc < 3)) {
+      debug_println("SET WIFI TELNET: missing enable|disable parameter");
+      return;
+    }
+
+    // Get the value - could be in option or as separate parameter
+    const char* telnet_option = value;
+    if (!telnet_option || telnet_option[0] == '\0') {
+      // Try to get from next parameter
+      if (argc >= 3) {
+        telnet_option = argv[2];
+      } else {
+        debug_println("SET WIFI TELNET: missing enable|disable parameter");
+        return;
+      }
+    }
+
+    if (!strcmp(telnet_option, "enable")) {
+      g_persist_config.network.telnet_enabled = 1;
+      debug_println("Telnet enabled");
+    } else if (!strcmp(telnet_option, "disable")) {
+      g_persist_config.network.telnet_enabled = 0;
+      debug_println("Telnet disabled");
+    } else if (!strcmp(telnet_option, "on")) {
+      g_persist_config.network.telnet_enabled = 1;
+      debug_println("Telnet enabled");
+    } else if (!strcmp(telnet_option, "off")) {
+      g_persist_config.network.telnet_enabled = 0;
+      debug_println("Telnet disabled");
+    } else {
+      debug_println("SET WIFI TELNET: unknown option (use: enable, disable, on, off)");
+      return;
+    }
+
   } else if (!strcmp(option, "enable")) {
     g_persist_config.network.enabled = 1;
     debug_println("Wi-Fi enabled");
@@ -1184,7 +1220,7 @@ void cli_cmd_set_wifi(uint8_t argc, char* argv[]) {
   } else {
     debug_print("SET WIFI: unknown option '");
     debug_print(option);
-    debug_println("' (use: ssid, password, dhcp, ip, gateway, netmask, dns, telnet-port, enable, disable)");
+    debug_println("' (use: ssid, password, dhcp, ip, gateway, netmask, dns, telnet, telnet-port, enable, disable)");
   }
 
   debug_println("Hint: Use 'save' to persist configuration to NVS");

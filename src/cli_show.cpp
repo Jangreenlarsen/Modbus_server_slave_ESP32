@@ -967,11 +967,17 @@ void cli_cmd_show_wifi(void) {
     debug_println("Wi-Fi Status: NOT CONNECTED");
   } else {
     debug_println("Wi-Fi Status: CONNECTED");
+
+    // Show actual IP address from WiFi driver (works for both DHCP and static)
     uint32_t ip = network_manager_get_local_ip();
-    char ip_str[16];
-    network_config_ip_to_str(ip, ip_str);
-    debug_print("Local IP: ");
-    debug_println(ip_str);
+    if (ip != 0) {
+      char ip_str[16];
+      network_config_ip_to_str(ip, ip_str);
+      debug_print("Local IP: ");
+      debug_println(ip_str);
+    } else {
+      debug_println("Local IP: Acquiring...");
+    }
   }
 
   // Show config
@@ -1009,10 +1015,16 @@ void cli_cmd_show_wifi(void) {
     debug_println(ip_str);
   }
 
+  // Show Telnet status
   if (g_persist_config.network.telnet_enabled) {
     debug_print("  Telnet: ENABLED (port ");
     debug_print_uint(g_persist_config.network.telnet_port);
-    debug_println(")");
+    debug_print(")");
+    if (!network_manager_is_wifi_connected()) {
+      debug_println(" - waiting for WiFi connection...");
+    } else {
+      debug_println("");
+    }
   } else {
     debug_println("  Telnet: DISABLED");
   }
@@ -1025,6 +1037,7 @@ void cli_cmd_show_wifi(void) {
   debug_println("  set wifi gateway <ip>");
   debug_println("  set wifi netmask <ip>");
   debug_println("  set wifi dns <ip>");
+  debug_println("  set wifi telnet enable|disable");
   debug_println("  set wifi telnet-port <port>");
   debug_println("  connect wifi");
   debug_println("  disconnect wifi");
