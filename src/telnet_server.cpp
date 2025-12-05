@@ -387,6 +387,7 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
       // Check if this is start of escape sequence
       if (byte == 0x1B) {  // ESC
         server->escape_seq_state = 1;
+        // NOTE: Don't echo ESC character - it's part of control sequence
         return;
       }
 
@@ -413,7 +414,9 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
         }
       } else if (byte >= 32 && byte < 127) {
         // Printable character (with strict boundary check)
-        if (server->input_pos < TELNET_INPUT_BUFFER_SIZE - 1) {
+        // NOTE: Skip if we're in the middle of processing escape sequence
+        // (escape sequences contain printable chars like '[', 'A', 'B', etc.)
+        if (server->escape_seq_state == 0 && server->input_pos < TELNET_INPUT_BUFFER_SIZE - 1) {
           server->input_buffer[server->input_pos++] = byte;
 
           // Echo back
@@ -422,7 +425,10 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
           }
         }
       } else if (byte == 8 || byte == 127) {
-        // Backspace
+        // Backspace - always process, even if in escape sequence (to allow correction)
+        // Reset escape state if user is trying to backspace
+        server->escape_seq_state = 0;
+
         if (server->input_pos > 0) {
           server->input_pos--;
 
@@ -599,7 +605,11 @@ int telnet_server_loop(TelnetServer *server)
 
   // Accept new connections and initialize auth on new client
   if (tcp_server_accept(server->tcp_server) > 0) {
-    // New client detected - reset auth state
+    // New client detected - reset all state
+    server->escape_seq_state = 0;  // Reset escape sequence parser
+    server->input_pos = 0;         // Clear input buffer
+    memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
+
     if (server->auth_required) {
       server->auth_state = TELNET_AUTH_WAITING;
       server->auth_attempts = 0;
