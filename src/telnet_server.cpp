@@ -330,11 +330,13 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
           server->escape_seq_state = 2;
           return;
         } else {
-          // Invalid sequence, reset state
+          // Invalid escape sequence - just silently discard
           server->escape_seq_state = 0;
-          // Fall through to normal character processing
+          return;  // Don't process this byte as normal input
         }
-      } else if (server->escape_seq_state == 2) {
+      }
+
+      if (server->escape_seq_state == 2) {
         // We received ESC[, now expecting arrow key (A, B, C, D)
         server->escape_seq_state = 0;
 
@@ -380,8 +382,10 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
         } else if (byte == 'C' || byte == 'D') {
           // Left/Right arrows - ignore for now
           return;
+        } else {
+          // Not a recognized arrow key - discard silently
+          return;
         }
-        // For any other character, fall through to normal processing
       }
 
       // Check if this is start of escape sequence
@@ -414,9 +418,9 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
         }
       } else if (byte >= 32 && byte < 127) {
         // Printable character (with strict boundary check)
-        // NOTE: Skip if we're in the middle of processing escape sequence
-        // (escape sequences contain printable chars like '[', 'A', 'B', etc.)
-        if (server->escape_seq_state == 0 && server->input_pos < TELNET_INPUT_BUFFER_SIZE - 1) {
+        // NOTE: Escape sequences are already handled above and return early,
+        // so if we reach here, we're guaranteed escape_seq_state == 0
+        if (server->input_pos < TELNET_INPUT_BUFFER_SIZE - 1) {
           server->input_buffer[server->input_pos++] = byte;
 
           // Echo back
