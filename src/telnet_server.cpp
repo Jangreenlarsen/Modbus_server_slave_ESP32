@@ -16,6 +16,7 @@
 #include "constants.h"
 #include "types.h"  // For NetworkConfig
 #include "cli_shell.h"  // For cli_shell_execute_command()
+#include "cli_history.h"  // For command history (up/down arrow support)
 #include "debug.h"  // For debug_register_telnet_callbacks()
 
 static const char *TAG = "TELNET_SRV";
@@ -62,6 +63,7 @@ TelnetServer* telnet_server_create(uint16_t port, NetworkConfig *network_config)
   server->port = port;
   server->network_config = network_config;  // Store config pointer
   server->parse_state = TELNET_STATE_NONE;
+  server->escape_seq_state = 0;             // Initialize escape sequence state
   server->input_pos = 0;
   server->input_ready = 0;
   server->echo_enabled = 1;
@@ -319,6 +321,78 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
 {
   switch (server->parse_state) {
     case TELNET_STATE_NONE:
+      // ====================================================================
+      // ARROW KEY / ESCAPE SEQUENCE HANDLING
+      // ====================================================================
+      if (server->escape_seq_state == 1) {
+        // We received ESC, now expecting [
+        if (byte == '[') {
+          server->escape_seq_state = 2;
+          return;
+        } else {
+          // Invalid sequence, reset state
+          server->escape_seq_state = 0;
+          // Fall through to normal character processing
+        }
+      } else if (server->escape_seq_state == 2) {
+        // We received ESC[, now expecting arrow key (A, B, C, D)
+        server->escape_seq_state = 0;
+
+        if (byte == 'A') {
+          // Up arrow - get previous command from history
+          const char* prev_cmd = cli_history_get_prev();
+          if (prev_cmd != NULL && prev_cmd[0] != '\0') {
+            // Clear current line and redraw with history command
+            memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
+            strncpy(server->input_buffer, prev_cmd, TELNET_INPUT_BUFFER_SIZE - 1);
+            server->input_pos = strlen(server->input_buffer);
+
+            // Redraw line: clear current, show new
+            if (server->echo_enabled) {
+              // Send clear line + redraw
+              telnet_server_write(server, "\r> ");
+              telnet_server_write(server, server->input_buffer);
+            }
+          }
+          return;
+        } else if (byte == 'B') {
+          // Down arrow - get next command from history
+          const char* next_cmd = cli_history_get_next();
+          if (next_cmd != NULL) {
+            // Clear current line and redraw with history command
+            memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
+            if (next_cmd[0] != '\0') {
+              strncpy(server->input_buffer, next_cmd, TELNET_INPUT_BUFFER_SIZE - 1);
+              server->input_pos = strlen(server->input_buffer);
+            } else {
+              server->input_pos = 0;
+            }
+
+            // Redraw line
+            if (server->echo_enabled) {
+              telnet_server_write(server, "\r> ");
+              if (server->input_pos > 0) {
+                telnet_server_write(server, server->input_buffer);
+              }
+            }
+          }
+          return;
+        } else if (byte == 'C' || byte == 'D') {
+          // Left/Right arrows - ignore for now
+          return;
+        }
+        // For any other character, fall through to normal processing
+      }
+
+      // Check if this is start of escape sequence
+      if (byte == 0x1B) {  // ESC
+        server->escape_seq_state = 1;
+        return;
+      }
+
+      // ====================================================================
+      // NORMAL CHARACTER PROCESSING
+      // ====================================================================
       if (byte == TELNET_CMD_IAC) {
         server->parse_state = TELNET_STATE_IAC;
       } else if (byte == '\r') {

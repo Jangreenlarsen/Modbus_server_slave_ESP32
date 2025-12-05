@@ -61,6 +61,7 @@ typedef struct {
   char input_buffer[TELNET_INPUT_BUFFER_SIZE];
   uint16_t input_pos;
   uint8_t input_ready;            // 1 if complete line available
+  uint8_t escape_seq_state;       // For parsing arrow keys (0=none, 1=ESC, 2=ESC[)
 
   // Telnet option negotiation state (per client)
   struct {
