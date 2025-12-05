@@ -160,5 +160,43 @@ void cli_cmd_write_coil(uint8_t argc, char* argv[]);
  */
 void cli_cmd_set_gpio2(uint8_t argc, char* argv[]);
 
+/**
+ * @brief Handle "set debug" command (runtime debug flag control)
+ * @param argc Argument count
+ * @param argv Argument array (argv[0] = flag, argv[1] = "on" or "off")
+ */
+void cli_cmd_set_debug(uint8_t argc, char* argv[]);
+
+/* ============================================================================
+ * NETWORK/WI-FI COMMANDS (v3.0+)
+ * ============================================================================ */
+
+/**
+ * @brief Handle "set wifi" command (SSID, password, DHCP, static IP)
+ * @param argc Argument count
+ * @param argv Argument array (argv[0] = option name, argv[1:] = values)
+ *
+ * Examples:
+ *   set wifi ssid MyNetwork
+ *   set wifi password MyPassword123
+ *   set wifi dhcp on
+ *   set wifi dhcp off
+ *   set wifi ip 192.168.1.100
+ *   set wifi gateway 192.168.1.1
+ *   set wifi netmask 255.255.255.0
+ *   set wifi dns 8.8.8.8
+ */
+void cli_cmd_set_wifi(uint8_t argc, char* argv[]);
+
+/**
+ * @brief Handle "connect wifi" command (start Wi-Fi connection)
+ */
+void cli_cmd_connect_wifi(void);
+
+/**
+ * @brief Handle "disconnect wifi" command (stop Wi-Fi connection)
+ */
+void cli_cmd_disconnect_wifi(void);
+
 #endif // CLI_COMMANDS_H
 

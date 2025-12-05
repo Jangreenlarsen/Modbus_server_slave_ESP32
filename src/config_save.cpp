@@ -7,6 +7,7 @@
 
 #include "config_save.h"
 #include "debug.h"
+#include "debug_flags.h"
 #include <string.h>
 #include <Arduino.h>
 
@@ -78,8 +79,9 @@ uint16_t config_calculate_crc16(const PersistConfig* cfg) {
 #include <nvs_flash.h>
 #include <nvs.h>
 
-// NVS key for storing config
+// NVS keys for storing config
 #define NVS_CONFIG_KEY "modbus_cfg"
+#define NVS_ST_LOGIC_KEY "st_logic_%d"  // ST Logic program (0-3)
 #define NVS_NAMESPACE  "modbus"
 
 bool config_save_to_nvs(const PersistConfig* cfg) {
@@ -88,9 +90,38 @@ bool config_save_to_nvs(const PersistConfig* cfg) {
     return false;
   }
 
-  // Calculate and set CRC
-  PersistConfig cfg_with_crc = *cfg;
-  cfg_with_crc.crc16 = config_calculate_crc16(&cfg_with_crc);
+  // DEBUG: Print what we're about to save (if enabled)
+  DebugFlags* dbg = debug_flags_get();
+  if (dbg->config_save) {
+    debug_print("[SAVE_DEBUG] var_map_count=");
+    debug_print_uint(cfg->var_map_count);
+    debug_print(" sizeof(PersistConfig)=");
+    debug_print_uint(sizeof(PersistConfig));
+    debug_println("");
+    for (uint8_t i = 0; i < cfg->var_map_count; i++) {
+      debug_print("[SAVE_DEBUG] var_maps[");
+      debug_print_uint(i);
+      debug_print("] source_type=");
+      debug_print_uint(cfg->var_maps[i].source_type);
+      debug_print(" gpio_pin=");
+      debug_print_uint(cfg->var_maps[i].gpio_pin);
+      debug_print(" is_input=");
+      debug_print_uint(cfg->var_maps[i].is_input);
+      debug_println("");
+    }
+  }
+
+  // Allocate temp buffer on heap to avoid stack overflow
+  // (PersistConfig is ~30KB, too large for ESP32 stack)
+  PersistConfig* cfg_with_crc = (PersistConfig*)malloc(sizeof(PersistConfig));
+  if (!cfg_with_crc) {
+    debug_println("ERROR: Failed to allocate heap buffer for config save");
+    return false;
+  }
+
+  // Copy config to heap buffer and calculate CRC
+  memcpy(cfg_with_crc, cfg, sizeof(PersistConfig));
+  cfg_with_crc->crc16 = config_calculate_crc16(cfg_with_crc);
 
   // Open NVS
   nvs_handle_t handle;
@@ -99,22 +130,25 @@ bool config_save_to_nvs(const PersistConfig* cfg) {
     debug_print("ERROR: NVS open failed: ");
     debug_print_uint(err);
     debug_println("");
+    free(cfg_with_crc);
     return false;
   }
 
   // Write config blob to NVS
-  err = nvs_set_blob(handle, NVS_CONFIG_KEY, &cfg_with_crc, sizeof(PersistConfig));
+  err = nvs_set_blob(handle, NVS_CONFIG_KEY, cfg_with_crc, sizeof(PersistConfig));
   if (err != ESP_OK) {
     debug_print("ERROR: NVS set_blob failed: ");
     debug_print_uint(err);
     debug_println("");
     nvs_close(handle);
+    free(cfg_with_crc);
     return false;
   }
 
   // Commit to flash
   err = nvs_commit(handle);
   nvs_close(handle);
+  free(cfg_with_crc);
 
   if (err != ESP_OK) {
     debug_print("ERROR: NVS commit failed: ");
@@ -137,7 +171,7 @@ bool config_save_to_nvs(const PersistConfig* cfg) {
   debug_print(", static_coils=");
   debug_print_uint(cfg->static_coil_count);
   debug_print(", CRC=");
-  debug_print_uint(cfg_with_crc.crc16);
+  debug_print_uint(cfg_with_crc->crc16);
   debug_println("");
 
   return true;

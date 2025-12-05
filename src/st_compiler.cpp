@@ -7,6 +7,7 @@
  */
 
 #include "st_compiler.h"
+#include "debug.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -273,9 +274,13 @@ static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *nod
   }
   uint8_t jump_count = 0;
 
+  debug_printf("[CASE] Compiling CASE with %d branches\n", node->data.case_stmt.branch_count);
+
   // Compile each case branch
   for (uint8_t i = 0; i < node->data.case_stmt.branch_count; i++) {
     st_case_branch_t *branch = &node->data.case_stmt.branches[i];
+
+    debug_printf("[CASE] Branch %d (value=%d) at PC %d\n", i, branch->value, compiler->bytecode_ptr);
 
     // Duplicate the expression value on stack for comparison
     if (!st_compiler_emit(compiler, ST_OP_DUP)) {
@@ -297,6 +302,7 @@ static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *nod
     // Jump to next case if not equal
     // JMP_IF_FALSE will pop the comparison result
     uint16_t jump_next = st_compiler_emit_jump(compiler, ST_OP_JMP_IF_FALSE);
+    debug_printf("[CASE]   JMP_IF_FALSE at PC %d\n", jump_next);
 
     // We matched this case - pop the duplicate expression value before executing branch
     if (!st_compiler_emit(compiler, ST_OP_POP)) {
@@ -306,6 +312,7 @@ static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *nod
 
     // Compile branch body
     if (branch->body) {
+      debug_printf("[CASE]   Compiling branch body at PC %d\n", compiler->bytecode_ptr);
       if (!st_compiler_compile_node(compiler, branch->body)) {
         free(jump_end);
         return false;
@@ -313,11 +320,15 @@ static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *nod
     }
 
     // Jump to end of CASE
-    jump_end[jump_count++] = st_compiler_emit_jump(compiler, ST_OP_JMP);
+    uint16_t jump_addr = st_compiler_emit_jump(compiler, ST_OP_JMP);
+    jump_end[jump_count++] = jump_addr;
+    debug_printf("[CASE]   JMP to end at PC %d (target will be patched)\n", jump_addr);
 
-    // Patch next case jump to right after comparison (before duplicate pop)
-    // This way, if we don't match, we skip the POP and go straight to next DUP
-    st_compiler_patch_jump(compiler, jump_next, st_compiler_current_addr(compiler));
+    // Patch next case jump (JMP_IF_FALSE) from THIS iteration to point to NEXT CASE or END
+    // This must happen AFTER we emit the JMP so JMP_IF_FALSE skips the case body
+    uint16_t patch_target = st_compiler_current_addr(compiler);
+    st_compiler_patch_jump(compiler, jump_next, patch_target);
+    debug_printf("[CASE]   Patched JMP_IF_FALSE[%d] to PC %d\n", jump_next, patch_target);
   }
 
   // Pop the expression value
@@ -328,6 +339,7 @@ static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *nod
 
   // Compile ELSE block if present
   if (node->data.case_stmt.else_body) {
+    debug_printf("[CASE] Compiling ELSE block at PC %d\n", compiler->bytecode_ptr);
     if (!st_compiler_compile_node(compiler, node->data.case_stmt.else_body)) {
       free(jump_end);
       return false;
@@ -336,11 +348,14 @@ static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *nod
 
   // Patch all end jumps
   uint16_t end_addr = st_compiler_current_addr(compiler);
+  debug_printf("[CASE] Patching %d JMP instructions to end at PC %d\n", jump_count, end_addr);
   for (uint8_t i = 0; i < jump_count; i++) {
+    debug_printf("[CASE]   Patching JMP[%d] to PC %d\n", jump_end[i], end_addr);
     st_compiler_patch_jump(compiler, jump_end[i], end_addr);
   }
 
   free(jump_end);
+  debug_printf("[CASE] CASE compilation complete at PC %d\n", compiler->bytecode_ptr);
   return true;
 }
 
@@ -596,9 +611,10 @@ st_bytecode_program_t *st_compiler_compile(st_compiler_t *compiler, st_program_t
   for (int i = 0; i < compiler->symbol_table.count; i++) {
     st_symbol_t *sym = &compiler->symbol_table.symbols[i];
     bytecode->variables[i].int_val = 0;  // Initialize all to 0
-    // Save variable name for CLI binding by name
+    // Save variable name and type for CLI binding
     strncpy(bytecode->var_names[i], sym->name, sizeof(bytecode->var_names[i]) - 1);
     bytecode->var_names[i][sizeof(bytecode->var_names[i]) - 1] = '\0';
+    bytecode->var_types[i] = sym->type;  // Store variable type (BOOL, INT, etc.)
   }
 
   if (compiler->error_count > 0) {
@@ -643,6 +659,8 @@ const char *st_opcode_to_string(st_opcode_t opcode) {
     case ST_OP_JMP_IF_TRUE:     return "JMP_IF_TRUE";
     case ST_OP_STORE_VAR:       return "STORE_VAR";
     case ST_OP_LOAD_VAR:        return "LOAD_VAR";
+    case ST_OP_DUP:             return "DUP";
+    case ST_OP_POP:             return "POP";
     case ST_OP_LOOP_INIT:       return "LOOP_INIT";
     case ST_OP_LOOP_TEST:       return "LOOP_TEST";
     case ST_OP_LOOP_NEXT:       return "LOOP_NEXT";
@@ -655,20 +673,23 @@ const char *st_opcode_to_string(st_opcode_t opcode) {
 
 void st_bytecode_print(st_bytecode_program_t *bytecode) {
   if (!bytecode) {
-    printf("NULL bytecode\n");
+    debug_println("NULL bytecode");
     return;
   }
 
-  printf("\n=== Bytecode Program: %s ===\n", bytecode->name);
-  printf("Instructions: %d\n", bytecode->instr_count);
-  printf("Variables: %d\n\n", bytecode->var_count);
+  debug_println("");
+  debug_printf("=== Bytecode Program: %s ===\n", bytecode->name);
+  debug_printf("Instructions: %d\n", bytecode->instr_count);
+  debug_printf("Variables: %d\n", bytecode->var_count);
+  debug_println("");
 
-  printf("Bytecode:\n");
+  debug_println("Bytecode (detailed):");
   for (int i = 0; i < bytecode->instr_count; i++) {
     st_bytecode_instr_t *instr = &bytecode->instructions[i];
-    printf("  [%3d] %-15s", i, st_opcode_to_string(instr->opcode));
+    char line[256];
+    const char *opname = st_opcode_to_string(instr->opcode);
 
-    // Print argument based on opcode
+    // Build instruction line with argument
     switch (instr->opcode) {
       case ST_OP_PUSH_INT:
       case ST_OP_PUSH_DWORD:
@@ -678,20 +699,22 @@ void st_bytecode_print(st_bytecode_program_t *bytecode) {
       case ST_OP_JMP_IF_FALSE:
       case ST_OP_JMP_IF_TRUE:
       case ST_OP_CALL_BUILTIN:
-        printf(" %d\n", instr->arg.int_arg);
+        snprintf(line, sizeof(line), "  [%3d] %-18s %d", i, opname, instr->arg.int_arg);
         break;
 
       case ST_OP_STORE_VAR:
       case ST_OP_LOAD_VAR:
       case ST_OP_PUSH_VAR:
-        printf(" var[%d]\n", instr->arg.var_index);
+        snprintf(line, sizeof(line), "  [%3d] %-18s var[%d]", i, opname, instr->arg.var_index);
         break;
 
       default:
-        printf("\n");
+        snprintf(line, sizeof(line), "  [%3d] %-18s", i, opname);
         break;
     }
+
+    debug_println(line);
   }
 
-  printf("\n");
+  debug_println("");
 }

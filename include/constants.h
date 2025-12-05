@@ -150,7 +150,7 @@ typedef enum {
  * EEPROM / NVS CONFIGURATION
  * ============================================================================ */
 
-#define CONFIG_SCHEMA_VERSION   2       // Current config schema version
+#define CONFIG_SCHEMA_VERSION   4       // Current config schema version (v2.4+: VariableMapping input_type field)
 #define CONFIG_CRC_SEED         0xFFFF  // CRC16 initial value
 
 /* ============================================================================
@@ -201,11 +201,57 @@ typedef enum {
 #define COUNTER_DEBOUNCE_MS     10      // Default debounce filter
 
 /* ============================================================================
+ * DEBUG FLAGS (runtime controllable)
+ * ============================================================================ */
+
+#define DEBUG_CONFIG_SAVE       1       // Show debug when saving config to NVS
+#define DEBUG_CONFIG_LOAD       1       // Show debug when loading config from NVS
+
+/* ============================================================================
+ * NETWORK CONFIGURATION (Wi-Fi, Telnet)
+ * ============================================================================ */
+
+#define NETWORK_ENABLED                 1           // 0 = disabled, 1 = enabled
+#define WIFI_MODE_STATION               1           // Client mode (not AP mode)
+#define WIFI_SSID_MAX_LEN               32          // Max SSID length (IEEE 802.11)
+#define WIFI_PASSWORD_MAX_LEN           64          // Max password length (WPA2)
+#define WIFI_SCAN_TIMEOUT_MS            10000       // Wi-Fi scan timeout
+#define WIFI_CONNECT_TIMEOUT_MS         15000       // Connection timeout
+#define WIFI_RECONNECT_INTERVAL_MS      5000        // Retry interval on disconnect
+#define WIFI_RECONNECT_MAX_RETRIES      10          // Max reconnection attempts
+
+#define TELNET_PORT                     23          // Telnet standard port
+#define TELNET_MAX_CLIENTS              1           // Single client for simplicity
+#define TELNET_BUFFER_SIZE              256         // Per-client input buffer
+#define TELNET_READ_TIMEOUT_MS          30000       // Client timeout (30 sec idle)
+#define TELNET_NEWLINE_CHAR             '\n'        // Telnet uses LF for line ending
+
+/* Telnet IAC (Interpret As Command) protocol bytes */
+#define TELNET_IAC                      255         // Interpret As Command
+#define TELNET_DONT                     254         // Don't enable option
+#define TELNET_DO                       253         // Enable option
+#define TELNET_WONT                     252         // Won't enable option
+#define TELNET_WILL                     251         // Will enable option
+#define TELNET_SB                       250         // Subnegotiation start
+#define TELNET_SE                       240         // Subnegotiation end
+
+/* Telnet options */
+#define TELNET_OPT_ECHO                 1           // Echo
+#define TELNET_OPT_SUPPRESS_GA          3           // Suppress Go Ahead
+#define TELNET_OPT_LINEMODE             34          // Line mode
+
+#define DHCP_ENABLED                    1           // Use DHCP (vs static IP)
+#define DHCP_HOSTNAME                   "modbus-esp32"  // DHCP hostname
+
+/* NVS namespace for network config */
+#define NVS_NAMESPACE_NETWORK           "network"
+
+/* ============================================================================
  * VERSION & BUILD
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "2.2.0"
+#define PROJECT_VERSION     "3.0.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 #endif // CONSTANTS_H

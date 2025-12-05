@@ -10,7 +10,10 @@
       "Bash(pio run:*)",
       "Bash(python:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(powershell -Command \"Get-CimInstance Win32_SerialPort | Select-Object Name, DeviceID\")",
+      "Bash(pio device list:*)",
+      "Bash(pio clean:*)"
     ],
     "deny": [],
     "ask": []

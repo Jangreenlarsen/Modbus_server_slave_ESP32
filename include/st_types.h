@@ -368,6 +368,7 @@ typedef struct {
   // Variable memory
   st_value_t variables[32];  // Max 32 variables
   char var_names[32][64];    // Variable names (for CLI binding by name)
+  st_datatype_t var_types[32]; // Variable types (BOOL, INT, etc.) - for bindings display
   uint8_t var_count;
 
   char name[64];

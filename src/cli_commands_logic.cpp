@@ -34,7 +34,7 @@ extern bool config_save_to_nvs(const PersistConfig* cfg);
 
 /* Forward declaration for bind function */
 int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program_id,
-                           uint8_t var_index, uint16_t modbus_reg, const char *direction);
+                           uint8_t var_index, uint16_t modbus_reg, const char *direction, uint8_t input_type);
 
 /* ============================================================================
  * COMMAND HANDLERS
@@ -99,6 +99,11 @@ int cli_cmd_set_logic_upload(st_logic_engine_state_t *logic_state, uint8_t progr
   debug_printf("  [DEBUG] compiled: %d → %d\n", compiled_before, compiled_after);
   debug_println("");
 
+  // Debug: Print bytecode instructions (if debug mode enabled)
+  if (logic_state && logic_state->debug) {
+    st_bytecode_print(&prog->bytecode);
+  }
+
   return 0;
 }
 
@@ -118,8 +123,10 @@ int cli_cmd_set_logic_enabled(st_logic_engine_state_t *logic_state, uint8_t prog
   }
 
   st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
-  debug_printf("[ENABLED_DEBUG] program_id=%d, prog=%p, compiled=%d\n",
-               program_id, prog, prog ? prog->compiled : -1);
+  if (logic_state && logic_state->debug) {
+    debug_printf("[ENABLED_DEBUG] program_id=%d, prog=%p, compiled=%d\n",
+                 program_id, prog, prog ? prog->compiled : -1);
+  }
 
   if (!prog->compiled) {
     debug_println("ERROR: Program not compiled. Upload source code first.");
@@ -132,6 +139,26 @@ int cli_cmd_set_logic_enabled(st_logic_engine_state_t *logic_state, uint8_t prog
   }
 
   debug_printf("[OK] Logic%d %s\n", program_id + 1, enabled ? "ENABLED" : "DISABLED");
+  return 0;
+}
+
+/**
+ * @brief set logic debug:true|false
+ *
+ * Enable/disable debug output for ST Logic (bytecode printing, execution trace, etc.)
+ *
+ * Example:
+ *   set logic debug:true
+ *   set logic debug:false
+ */
+int cli_cmd_set_logic_debug(st_logic_engine_state_t *logic_state, bool debug) {
+  if (!logic_state) {
+    debug_println("ERROR: Logic state not initialized");
+    return -1;
+  }
+
+  logic_state->debug = debug ? 1 : 0;
+  debug_printf("[OK] ST Logic debug %s\n", debug ? "ENABLED" : "DISABLED");
   return 0;
 }
 
@@ -176,8 +203,10 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
   }
 
   st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
-  debug_printf("[BIND_DEBUG] program_id=%d, var=%s, prog=%p, compiled=%d\n",
-               program_id, var_name, prog, prog ? prog->compiled : -1);
+  if (logic_state && logic_state->debug) {
+    debug_printf("[BIND_DEBUG] program_id=%d, var=%s, prog=%p, compiled=%d\n",
+                 program_id, var_name, prog, prog ? prog->compiled : -1);
+  }
 
   if (!prog || !prog->compiled) {
     debug_println("ERROR: Program not compiled. Upload source code first.");
@@ -207,19 +236,23 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
   // Parse binding spec: reg:100, coil:10, or input-dis:5
   uint16_t register_addr = 0;
   const char *direction = "both";  // default
+  uint8_t input_type = 0;  // 0 = Holding Register (HR), 1 = Discrete Input (DI)
 
   if (strncmp(binding_spec, "reg:", 4) == 0) {
     // Holding register (16-bit integer)
     register_addr = atoi(binding_spec + 4);
     direction = "both";  // INT variables work as input/output
+    input_type = 0;  // HR
   } else if (strncmp(binding_spec, "coil:", 5) == 0) {
     // Coil output (BOOL write)
     register_addr = atoi(binding_spec + 5);
     direction = "output";
+    input_type = 0;  // N/A for output
   } else if (strncmp(binding_spec, "input-dis:", 10) == 0) {
     // Discrete input (BOOL read)
     register_addr = atoi(binding_spec + 10);
     direction = "input";
+    input_type = 1;  // DI
   } else {
     debug_printf("ERROR: Invalid binding spec '%s' (use reg:, coil:, or input-dis:)\n", binding_spec);
     return -1;
@@ -231,8 +264,8 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
     return -1;
   }
 
-  // Call original bind function
-  return cli_cmd_set_logic_bind(logic_state, program_id, var_index, register_addr, direction);
+  // Call original bind function with input_type
+  return cli_cmd_set_logic_bind(logic_state, program_id, var_index, register_addr, direction, input_type);
 }
 
 /**
@@ -246,7 +279,7 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
  *   set logic 1 bind 1 101 output  # ST var[1] writes to HR#101
  */
 int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program_id,
-                           uint8_t var_index, uint16_t modbus_reg, const char *direction) {
+                           uint8_t var_index, uint16_t modbus_reg, const char *direction, uint8_t input_type) {
   if (program_id >= 4) {
     debug_println("ERROR: Invalid program ID (0-3)");
     return -1;
@@ -297,16 +330,25 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
       // Update existing binding
       if (is_input) {
         map->is_input = 1;
+        map->input_type = input_type;
         map->input_reg = modbus_reg;
       }
       if (is_output) {
         map->is_input = 0;
         map->coil_reg = modbus_reg;
       }
-      debug_printf("[OK] Logic%d: var[%d] %s Modbus HR#%d (updated)\n",
-                   program_id + 1, var_index,
-                   (is_input && is_output) ? "<->" : (is_input) ? "<-" : "->",
-                   modbus_reg);
+
+      if (is_input && !is_output && input_type == 1) {
+        debug_printf("[OK] Logic%d: var[%d] %s Modbus DI#%d (updated)\n",
+                     program_id + 1, var_index,
+                     (is_input && is_output) ? "<->" : (is_input) ? "<-" : "->",
+                     modbus_reg);
+      } else {
+        debug_printf("[OK] Logic%d: var[%d] %s Modbus HR#%d (updated)\n",
+                     program_id + 1, var_index,
+                     (is_input && is_output) ? "<->" : (is_input) ? "<-" : "->",
+                     modbus_reg);
+      }
       return 0;
     }
   }
@@ -320,6 +362,7 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
 
   if (is_input) {
     map->is_input = 1;
+    map->input_type = input_type;
     map->input_reg = modbus_reg;
   }
   if (is_output) {
@@ -332,7 +375,11 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
                (is_input && is_output) ? "<->" : (is_input) ? "<-" : "->");
 
   if (is_input && !is_output) {
-    debug_printf("HR#%d (input)\n", modbus_reg);
+    if (input_type == 1) {
+      debug_printf("DI#%d (input)\n", modbus_reg);
+    } else {
+      debug_printf("HR#%d (input)\n", modbus_reg);
+    }
   } else if (is_output && !is_input) {
     debug_printf("Coil#%d (output)\n", modbus_reg);
   } else {
@@ -340,6 +387,8 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
   }
 
   // Save config to NVS to make binding persistent
+  // First, copy ST Logic programs to persistent config
+  st_logic_save_to_persist_config(&g_persist_config);
   if (!config_save_to_nvs(&g_persist_config)) {
     debug_println("WARNING: Failed to save config to NVS (binding still active in runtime)");
   }

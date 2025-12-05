@@ -9,9 +9,50 @@
 #include "modbus_parser.h"
 #include "modbus_serializer.h"
 #include "registers.h"
+#include "counter_config.h"
 #include "constants.h"
 #include "debug.h"
 #include <string.h>
+
+/* ============================================================================
+ * HELPER FUNCTION: RESET-ON-READ HANDLING
+ * ============================================================================ */
+
+/**
+ * @brief Handle reset-on-read for counter compare status bits (FC03)
+ *
+ * After reading holding registers, checks if any counter has reset_on_read enabled
+ * and ctrl_reg matches the read address range. If so, clears bit 4 (compare status bit).
+ *
+ * This implements the auto-clear behavior: when Modbus master reads the control register,
+ * the compare status bit (bit 4) is automatically cleared for next comparison cycle.
+ */
+static void modbus_fc03_handle_reset_on_read(uint16_t starting_address, uint16_t quantity) {
+  // Iterate through all counters to find those with reset-on-read enabled
+  for (uint8_t id = 1; id <= 4; id++) {
+    CounterConfig cfg;
+    if (!counter_config_get(id, &cfg)) continue;
+    if (!cfg.compare_enabled || !cfg.reset_on_read) continue;
+
+    // Check if this counter's control register was read
+    uint16_t ctrl_reg = cfg.ctrl_reg;
+    if (ctrl_reg >= HOLDING_REGS_SIZE) continue;  // Invalid register
+    if (ctrl_reg < starting_address || ctrl_reg >= starting_address + quantity) {
+      continue;  // Control register not in read range
+    }
+
+    // Clear bit 4 (compare status bit) in control register
+    uint16_t ctrl_val = registers_get_holding_register(ctrl_reg);
+    ctrl_val &= ~(1 << 4);  // Clear bit 4
+    registers_set_holding_register(ctrl_reg, ctrl_val);
+
+    debug_print("FC03 reset-on-read: Counter ");
+    debug_print_uint(id);
+    debug_print(" compare bit cleared (ctrl-reg ");
+    debug_print_uint(ctrl_reg);
+    debug_println(")");
+  }
+}
 
 /* ============================================================================
  * FC01: READ COILS
@@ -122,6 +163,11 @@ bool modbus_fc03_read_holding_registers(const ModbusFrame* request_frame, Modbus
   for (uint16_t i = 0; i < req.quantity; i++) {
     register_data[i] = registers_get_holding_register(req.starting_address + i);
   }
+
+  // Handle reset-on-read for counter compare status bits (v2.3+)
+  // This must happen AFTER reading registers but BEFORE sending response
+  // so the master receives the current value, then clears bit 4 for next cycle
+  modbus_fc03_handle_reset_on_read(req.starting_address, req.quantity);
 
   // Serialize response
   return modbus_serialize_read_registers_response(response_frame, request_frame->slave_id,

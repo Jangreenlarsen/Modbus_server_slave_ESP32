@@ -36,6 +36,22 @@
 #include <Arduino.h>  // For millis()
 
 /* ============================================================================
+ * GLOBAL STATE
+ * ============================================================================ */
+
+// COMPARE FEATURE RUNTIME STATE (v2.3+)
+typedef struct {
+  uint8_t compare_triggered;  // Flag: Compare værdi nået denne iteration
+  uint32_t compare_time_ms;   // Timestamp når triggered
+  uint64_t last_value;        // Previous counter value (for exact match detection)
+} CounterCompareRuntime;
+
+static CounterCompareRuntime counter_compare_state[COUNTER_COUNT];
+
+// Forward declaration for compare check function
+static void counter_engine_check_compare(uint8_t id, uint64_t counter_value);
+
+/* ============================================================================
  * INITIALIZATION
  * ============================================================================ */
 
@@ -52,6 +68,9 @@ void counter_engine_init(void) {
   for (uint8_t id = 1; id <= 4; id++) {
     counter_frequency_init(id);
   }
+
+  // COMPARE FEATURE: Initialize runtime state (v2.3+)
+  memset(counter_compare_state, 0, sizeof(counter_compare_state));
 }
 
 /* ============================================================================
@@ -361,6 +380,63 @@ void counter_engine_store_value_to_registers(uint8_t id) {
         break;
     }
     registers_set_holding_register(cfg.overload_reg, overflow ? 1 : 0);
+  }
+
+  // COMPARE CHECK (v2.3+)
+  // Check if counter value meets compare criteria and update status bit
+  counter_engine_check_compare(id, counter_value);
+}
+
+/* ============================================================================
+ * COMPARE FEATURE (v2.3+)
+ * ============================================================================ */
+
+static void counter_engine_check_compare(uint8_t id, uint64_t counter_value) {
+  if (id < 1 || id > 4) return;
+
+  CounterConfig cfg;
+  if (!counter_config_get(id, &cfg) || !cfg.compare_enabled) {
+    return;  // Compare feature disabled
+  }
+
+  if (cfg.ctrl_reg >= HOLDING_REGS_SIZE) {
+    return;  // Invalid control register
+  }
+
+  // Get runtime state for tracking previous value
+  CounterCompareRuntime *runtime = &counter_compare_state[id - 1];
+
+  // Check compare condition based on mode
+  uint8_t compare_hit = 0;
+
+  switch (cfg.compare_mode) {
+    case 0:  // ≥ (greater-or-equal) - DEFAULT
+      compare_hit = (counter_value >= cfg.compare_value) ? 1 : 0;
+      break;
+
+    case 1:  // > (greater-than)
+      compare_hit = (counter_value > cfg.compare_value) ? 1 : 0;
+      break;
+
+    case 2:  // === (exact match, only on rising edge transition)
+      // Only trigger when crossing from below to at-or-above compare value
+      compare_hit = (runtime->last_value < cfg.compare_value &&
+                     counter_value >= cfg.compare_value) ? 1 : 0;
+      break;
+  }
+
+  // Update last value for next iteration (used by exact match mode)
+  runtime->last_value = counter_value;
+
+  // If compare condition met, set bit 4 in control register
+  if (compare_hit) {
+    uint16_t ctrl_val = registers_get_holding_register(cfg.ctrl_reg);
+    ctrl_val |= (1 << 4);  // Set bit 4 (compare status bit)
+    registers_set_holding_register(cfg.ctrl_reg, ctrl_val);
+
+    // Log in runtime state
+    runtime->compare_triggered = 1;
+    runtime->compare_time_ms = millis();
   }
 }
 

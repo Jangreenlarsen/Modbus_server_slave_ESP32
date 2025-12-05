@@ -23,10 +23,14 @@
 #include "config_struct.h"
 #include "config_save.h"
 #include "config_load.h"
+#include "st_logic_config.h"
 #include "config_apply.h"
 #include "gpio_driver.h"
 #include "heartbeat.h"
 #include "debug.h"
+#include "debug_flags.h"
+#include "network_manager.h"
+#include "network_config.h"
 #include <Arduino.h>
 #include <esp_system.h>
 #include <string.h>
@@ -122,6 +126,16 @@ void cli_cmd_set_counter(uint8_t argc, char* argv[]) {
       debug_print_uint(cfg.hw_gpio);
       debug_println("");
     }
+    // COMPARE FEATURE (v2.3+) - Status stored in ctrl_reg bit 4
+    else if (!strcmp(key, "compare")) {
+      cfg.compare_enabled = (!strcmp(value, "on") || !strcmp(value, "1")) ? 1 : 0;
+    } else if (!strcmp(key, "compare-value")) {
+      cfg.compare_value = atoll(value);  // 64-bit value
+    } else if (!strcmp(key, "compare-mode")) {
+      cfg.compare_mode = atoi(value);  // 0=≥, 1=>, 2===
+    } else if (!strcmp(key, "reset-on-read")) {
+      cfg.reset_on_read = (!strcmp(value, "on") || !strcmp(value, "1")) ? 1 : 0;
+    }
   }
 
   cfg.enabled = 1;  // Implicit enable
@@ -192,6 +206,8 @@ void cli_cmd_set_counter(uint8_t argc, char* argv[]) {
     debug_println(" configured");
 
     // BUG FIX: Auto-save config to NVS after successful configure
+    // First, copy ST Logic programs to persistent config
+    st_logic_save_to_persist_config(&g_persist_config);
     if (config_save_to_nvs(&g_persist_config)) {
       debug_println("  (Config auto-saved to NVS)");
     } else {
@@ -595,7 +611,14 @@ void cli_cmd_no_set_gpio(uint8_t argc, char* argv[]) {
   debug_print("GPIO ");
   debug_print_uint(gpio_pin);
   debug_println(" mapping removed");
-  debug_println("NOTE: Use 'save' to persist to NVS");
+
+  // Auto-save to NVS (GPIO mappings persist like counters/timers)
+  bool success = config_save_to_nvs(&g_persist_config);
+  if (success) {
+    debug_println("[OK] GPIO mapping removal saved to NVS");
+  } else {
+    debug_println("WARNING: Failed to save GPIO mapping removal to NVS (still active in runtime)");
+  }
 }
 
 /**
@@ -698,6 +721,7 @@ void cli_cmd_set_gpio(uint8_t argc, char* argv[]) {
   }
 
   // Store STATIC mapping
+  g_persist_config.var_maps[found_idx].source_type = MAPPING_SOURCE_GPIO;  // Mark as GPIO source
   g_persist_config.var_maps[found_idx].gpio_pin = gpio_pin;
   g_persist_config.var_maps[found_idx].is_input = is_input;
   g_persist_config.var_maps[found_idx].associated_counter = 0xff;  // No counter in STATIC mode
@@ -723,11 +747,21 @@ void cli_cmd_set_gpio(uint8_t argc, char* argv[]) {
     debug_print_uint(coil_index);
   }
   debug_println("");
-  debug_println("NOTE: Use 'save' to persist to NVS");
+
+  // Auto-save to NVS (GPIO mappings persist like counters/timers)
+  bool success = config_save_to_nvs(&g_persist_config);
+  if (success) {
+    debug_println("[OK] GPIO mapping saved to NVS");
+  } else {
+    debug_println("WARNING: Failed to save GPIO mapping to NVS (still active in runtime)");
+  }
 }
 
 void cli_cmd_save(void) {
   debug_println("Saving configuration to NVS...");
+
+  // Copy ST Logic programs to persistent config before saving
+  st_logic_save_to_persist_config(&g_persist_config);
 
   // Calculate CRC before saving
   g_persist_config.crc16 = config_calculate_crc16(&g_persist_config);
@@ -985,5 +1019,206 @@ void cli_cmd_set_gpio2(uint8_t argc, char* argv[]) {
     debug_print("SET GPIO 2: ugyldig handling '");
     debug_print(action);
     debug_println("' (brug: enable|disable)");
+  }
+}
+
+void cli_cmd_set_debug(uint8_t argc, char* argv[]) {
+  if (argc < 2) {
+    debug_println("SET DEBUG: missing parameter");
+    debug_println("  Usage: set debug <flag> on|off");
+    debug_println("  Flags:");
+    debug_println("    config-save  - Debug config save to NVS");
+    debug_println("    config-load  - Debug config load from NVS");
+    debug_println("    all          - All debug flags");
+    return;
+  }
+
+  const char* flag = argv[0];
+  const char* state = argv[1];
+  uint8_t enabled = (strcmp(state, "on") == 0) ? 1 : 0;
+
+  if (strcmp(flag, "config-save") == 0) {
+    debug_flags_set_config_save(enabled);
+    debug_print("Config save debug: ");
+    debug_println(enabled ? "ON" : "OFF");
+  } else if (strcmp(flag, "config-load") == 0) {
+    debug_flags_set_config_load(enabled);
+    debug_print("Config load debug: ");
+    debug_println(enabled ? "ON" : "OFF");
+  } else if (strcmp(flag, "all") == 0) {
+    debug_flags_set_all(enabled);
+    debug_print("All debug flags: ");
+    debug_println(enabled ? "ON" : "OFF");
+  } else {
+    debug_print("SET DEBUG: unknown flag '");
+    debug_print(flag);
+    debug_println("'");
+  }
+}
+
+/* ============================================================================
+ * NETWORK/WI-FI COMMANDS (v3.0+)
+ * ============================================================================ */
+
+void cli_cmd_set_wifi(uint8_t argc, char* argv[]) {
+  if (argc < 2) {
+    debug_println("SET WIFI: missing parameters");
+    debug_println("  Usage: set wifi <option> <value>");
+    debug_println("");
+    debug_println("  Options:");
+    debug_println("    ssid <name>         - Set Wi-Fi network name");
+    debug_println("    password <pwd>      - Set Wi-Fi password (WPA2, 8-63 chars)");
+    debug_println("    dhcp on|off         - Enable/disable DHCP (default: on)");
+    debug_println("    ip <address>        - Static IP (e.g., 192.168.1.100)");
+    debug_println("    gateway <address>   - Gateway IP (e.g., 192.168.1.1)");
+    debug_println("    netmask <address>   - Netmask (e.g., 255.255.255.0)");
+    debug_println("    dns <address>       - DNS server (e.g., 8.8.8.8)");
+    debug_println("    telnet-port <port>  - Telnet port (default: 23)");
+    debug_println("    enable              - Enable Wi-Fi");
+    debug_println("    disable             - Disable Wi-Fi");
+    debug_println("");
+    debug_println("  Note: Use 'save' to persist settings to NVS");
+    return;
+  }
+
+  const char* option = argv[0];
+  const char* value = argv[1];
+
+  if (!strcmp(option, "ssid")) {
+    if (strlen(value) > WIFI_SSID_MAX_LEN - 1) {
+      debug_println("SET WIFI: SSID too long (max 32 chars)");
+      return;
+    }
+    strncpy(g_persist_config.network.ssid, value, WIFI_SSID_MAX_LEN - 1);
+    g_persist_config.network.ssid[WIFI_SSID_MAX_LEN - 1] = '\0';
+    debug_print("Wi-Fi SSID set to: ");
+    debug_println(g_persist_config.network.ssid);
+
+  } else if (!strcmp(option, "password")) {
+    if (strlen(value) < 8 || strlen(value) > WIFI_PASSWORD_MAX_LEN - 1) {
+      debug_println("SET WIFI: Password must be 8-63 characters");
+      return;
+    }
+    strncpy(g_persist_config.network.password, value, WIFI_PASSWORD_MAX_LEN - 1);
+    g_persist_config.network.password[WIFI_PASSWORD_MAX_LEN - 1] = '\0';
+    debug_println("Wi-Fi password set (not shown for security)");
+
+  } else if (!strcmp(option, "dhcp")) {
+    if (!strcmp(value, "on") || !strcmp(value, "ON")) {
+      g_persist_config.network.dhcp_enabled = 1;
+      debug_println("DHCP enabled (automatic IP assignment)");
+    } else if (!strcmp(value, "off") || !strcmp(value, "OFF")) {
+      g_persist_config.network.dhcp_enabled = 0;
+      debug_println("DHCP disabled (use static IP settings)");
+    } else {
+      debug_println("SET WIFI DHCP: invalid value (use: on|off)");
+    }
+
+  } else if (!strcmp(option, "ip")) {
+    uint32_t ip;
+    if (!network_config_str_to_ip(value, &ip)) {
+      debug_println("SET WIFI IP: invalid IP address format");
+      return;
+    }
+    g_persist_config.network.static_ip = ip;
+    debug_print("Static IP set to: ");
+    char ip_str[16];
+    debug_println(network_config_ip_to_str(ip, ip_str));
+
+  } else if (!strcmp(option, "gateway")) {
+    uint32_t gw;
+    if (!network_config_str_to_ip(value, &gw)) {
+      debug_println("SET WIFI GATEWAY: invalid IP address format");
+      return;
+    }
+    g_persist_config.network.static_gateway = gw;
+    debug_print("Gateway set to: ");
+    char gw_str[16];
+    debug_println(network_config_ip_to_str(gw, gw_str));
+
+  } else if (!strcmp(option, "netmask")) {
+    uint32_t nm;
+    if (!network_config_str_to_ip(value, &nm)) {
+      debug_println("SET WIFI NETMASK: invalid IP address format");
+      return;
+    }
+    if (!network_config_is_valid_netmask(nm)) {
+      debug_println("SET WIFI NETMASK: invalid netmask (must be contiguous bits)");
+      return;
+    }
+    g_persist_config.network.static_netmask = nm;
+    debug_print("Netmask set to: ");
+    char nm_str[16];
+    debug_println(network_config_ip_to_str(nm, nm_str));
+
+  } else if (!strcmp(option, "dns")) {
+    uint32_t dns;
+    if (!network_config_str_to_ip(value, &dns)) {
+      debug_println("SET WIFI DNS: invalid IP address format");
+      return;
+    }
+    g_persist_config.network.static_dns = dns;
+    debug_print("DNS set to: ");
+    char dns_str[16];
+    debug_println(network_config_ip_to_str(dns, dns_str));
+
+  } else if (!strcmp(option, "telnet-port")) {
+    uint16_t port = atoi(value);
+    if (port < 1 || port > 65535) {
+      debug_println("SET WIFI TELNET-PORT: invalid port (1-65535)");
+      return;
+    }
+    g_persist_config.network.telnet_port = port;
+    debug_print("Telnet port set to: ");
+    debug_print_uint(port);
+    debug_println("");
+
+  } else if (!strcmp(option, "enable")) {
+    g_persist_config.network.enabled = 1;
+    debug_println("Wi-Fi enabled");
+
+  } else if (!strcmp(option, "disable")) {
+    g_persist_config.network.enabled = 0;
+    debug_println("Wi-Fi disabled");
+
+  } else {
+    debug_print("SET WIFI: unknown option '");
+    debug_print(option);
+    debug_println("' (use: ssid, password, dhcp, ip, gateway, netmask, dns, telnet-port, enable, disable)");
+  }
+
+  debug_println("Hint: Use 'save' to persist configuration to NVS");
+}
+
+void cli_cmd_connect_wifi(void) {
+  if (!g_persist_config.network.enabled) {
+    debug_println("CONNECT WIFI: Wi-Fi is disabled in config");
+    debug_println("Hint: Use 'set wifi enable' first");
+    return;
+  }
+
+  if (!network_config_is_valid_ssid(g_persist_config.network.ssid)) {
+    debug_println("CONNECT WIFI: SSID not configured");
+    debug_println("Hint: Use 'set wifi ssid <name>' first");
+    return;
+  }
+
+  debug_print("Connecting to Wi-Fi: ");
+  debug_println(g_persist_config.network.ssid);
+
+  if (network_manager_connect(&g_persist_config.network) == 0) {
+    debug_println("Wi-Fi connection started (async)");
+    debug_println("Use 'show wifi' to check connection status");
+  } else {
+    debug_println("CONNECT WIFI: failed to start connection");
+  }
+}
+
+void cli_cmd_disconnect_wifi(void) {
+  debug_println("Disconnecting from Wi-Fi...");
+  if (network_manager_stop() == 0) {
+    debug_println("Wi-Fi disconnected");
+  } else {
+    debug_println("DISCONNECT WIFI: failed");
   }
 }

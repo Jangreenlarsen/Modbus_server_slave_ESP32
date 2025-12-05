@@ -12,6 +12,7 @@
 #include "types.h"
 #include "version.h"
 #include "cli_shell.h"
+#include "cli_remote.h"
 #include "counter_engine.h"
 #include "timer_engine.h"
 #include "gpio_driver.h"
@@ -25,6 +26,7 @@
 #include "registers.h"
 #include "st_logic_config.h"
 #include "st_logic_engine.h"
+#include "network_manager.h"
 
 // ============================================================================
 // SETUP
@@ -66,6 +68,9 @@ void setup() {
   modbus_server_init(g_persist_config.slave_id);    // Modbus RTU server (UART1, from config)
   heartbeat_init();         // LED blink on GPIO2
 
+  // Load ST Logic programs from persistent config
+  st_logic_load_from_persist_config(&g_persist_config);
+
   // Apply loaded configuration (MUST be after subsystem init to override defaults)
   config_apply(&g_persist_config);
 
@@ -77,6 +82,28 @@ void setup() {
   Serial.println("  ST Logic control: Holding registers 200-235");
   Serial.println("Coils: 32 (256 bits), Discrete inputs: 32 (256 bits)\n");
 
+  // Initialize network subsystem (v3.0+)
+  if (network_manager_init() == 0) {
+    Serial.println("Network manager initialized (Wi-Fi client mode)");
+
+    // If Wi-Fi is enabled in config, start connection
+    if (g_persist_config.network.enabled) {
+      Serial.print("Connecting to Wi-Fi: ");
+      Serial.println(g_persist_config.network.ssid);
+
+      network_manager_connect(&g_persist_config.network);
+    } else {
+      Serial.println("Wi-Fi disabled in config");
+    }
+  } else {
+    Serial.println("ERROR: Failed to initialize network manager");
+  }
+
+  // Initialize CLI remote (unified serial + Telnet)
+  if (cli_remote_init() == 0) {
+    Serial.println("CLI remote initialized (serial + Telnet support)");
+  }
+
   cli_shell_init();         // CLI system (last, shows prompt)
 }
 
@@ -85,6 +112,10 @@ void setup() {
 // ============================================================================
 
 void loop() {
+  // Network subsystem (v3.0+ Wi-Fi auto-reconnect, Telnet server)
+  network_manager_loop();
+  cli_remote_loop();
+
   // Modbus server (primary function - handles FC01-10)
   modbus_server_loop();
 

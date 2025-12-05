@@ -81,6 +81,11 @@ void cli_cmd_show_gpio(void);
 void cli_cmd_show_echo(void);
 
 /**
+ * @brief Handle "show wifi" command (Wi-Fi status)
+ */
+void cli_cmd_show_wifi(void);
+
+/**
  * @brief Handle "read reg <id> <antal>" command
  * @param argc Argument count (must be 2)
  * @param argv Argument array (argv[0] = start addr, argv[1] = count)

@@ -161,7 +161,8 @@ void registers_update_dynamic_registers(void) {
 
     if (dyn->source_type == DYNAMIC_SOURCE_COUNTER) {
       uint8_t counter_id = dyn->source_id;
-      CounterConfig cfg = {0};
+      CounterConfig cfg;
+      memset(&cfg, 0, sizeof(cfg));
 
       if (!counter_engine_get_config(counter_id, &cfg) || !cfg.enabled) {
         continue;  // Counter not configured or disabled
@@ -223,7 +224,8 @@ void registers_update_dynamic_registers(void) {
 
     } else if (dyn->source_type == DYNAMIC_SOURCE_TIMER) {
       uint8_t timer_id = dyn->source_id;
-      TimerConfig cfg = {0};
+      TimerConfig cfg;
+      memset(&cfg, 0, sizeof(cfg));
 
       if (!timer_engine_get_config(timer_id, &cfg) || !cfg.enabled) {
         continue;  // Timer not configured or disabled
@@ -266,7 +268,8 @@ void registers_update_dynamic_coils(void) {
 
     if (dyn->source_type == DYNAMIC_SOURCE_COUNTER) {
       uint8_t counter_id = dyn->source_id;
-      CounterConfig cfg = {0};
+      CounterConfig cfg;
+      memset(&cfg, 0, sizeof(cfg));
 
       if (!counter_engine_get_config(counter_id, &cfg) || !cfg.enabled) {
         continue;  // Counter not configured or disabled
@@ -289,7 +292,8 @@ void registers_update_dynamic_coils(void) {
 
     } else if (dyn->source_type == DYNAMIC_SOURCE_TIMER) {
       uint8_t timer_id = dyn->source_id;
-      TimerConfig cfg = {0};
+      TimerConfig cfg;
+      memset(&cfg, 0, sizeof(cfg));
 
       if (!timer_engine_get_config(timer_id, &cfg) || !cfg.enabled) {
         continue;  // Timer not configured or disabled

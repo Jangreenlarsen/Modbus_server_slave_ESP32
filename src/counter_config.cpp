@@ -57,6 +57,14 @@ CounterConfig counter_config_defaults(uint8_t id) {
   cfg.interrupt_pin = 0;
   cfg.hw_gpio = 0;  // BUG FIX 1.9: Default hw_gpio (0 = not configured)
 
+  // COMPARE FEATURE DEFAULTS (v2.3+)
+  cfg.compare_enabled = 0;       // Disabled by default
+  cfg.compare_mode = 0;          // 0 = ≥ (greater-or-equal)
+  cfg.compare_value = 0;         // No compare value set
+  cfg.reset_on_read = 1;         // Auto-clear bit 4 on ctrl-reg read by default
+
+  // Note: Compare status stored in ctrl_reg bit 4 (no register/bit config needed)
+
   return cfg;
 }
 
@@ -100,6 +108,15 @@ void counter_config_sanitize(CounterConfig* cfg) {
 
   // Ensure binary levels
   cfg->debounce_enabled = (cfg->debounce_enabled ? 1 : 0);
+
+  // COMPARE FEATURE VALIDATION (v2.3+)
+  cfg->compare_enabled = (cfg->compare_enabled ? 1 : 0);
+  cfg->reset_on_read = (cfg->reset_on_read ? 1 : 0);
+
+  // Clamp compare mode to valid values (0-2)
+  if (cfg->compare_mode > 2) cfg->compare_mode = 0;
+
+  // Note: Compare status stored in ctrl_reg bit 4, no additional validation needed
 }
 
 /* ============================================================================

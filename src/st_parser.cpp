@@ -349,6 +349,7 @@ static st_ast_node_t *parser_parse_case_statement(st_parser_t *parser);
 static st_ast_node_t *parser_parse_for_statement(st_parser_t *parser);
 static st_ast_node_t *parser_parse_while_statement(st_parser_t *parser);
 static st_ast_node_t *parser_parse_repeat_statement(st_parser_t *parser);
+static st_ast_node_t *st_parser_parse_statements_for_case(st_parser_t *parser);
 
 /* Parse assignment: var := expr; */
 static st_ast_node_t *parser_parse_assignment(st_parser_t *parser) {
@@ -474,7 +475,8 @@ static st_ast_node_t *parser_parse_case_statement(st_parser_t *parser) {
     }
 
     // Parse statements for this case (until next label, ELSE, or END_CASE)
-    st_ast_node_t *case_body = st_parser_parse_statements(parser);
+    // Use special case parser that stops at case labels
+    st_ast_node_t *case_body = st_parser_parse_statements_for_case(parser);
 
     // Store case branch
     node->data.case_stmt.branches[node->data.case_stmt.branch_count].value = case_value;
@@ -679,6 +681,47 @@ st_ast_node_t *st_parser_parse_statement(st_parser_t *parser) {
   } else {
     return NULL;  // Not a statement
   }
+}
+
+/* Parse statement list for CASE branches (stops at next case label or END_CASE) */
+static st_ast_node_t *st_parser_parse_statements_for_case(st_parser_t *parser) {
+  st_ast_node_t *head = NULL;
+  st_ast_node_t *tail = NULL;
+
+  while (!parser_match(parser, ST_TOK_EOF) &&
+         !parser_match(parser, ST_TOK_END_CASE) &&
+         !parser_match(parser, ST_TOK_ELSE)) {
+
+    // Check for next case label: INT token followed by COLON
+    // Use peek_token to look ahead without consuming tokens
+    if (parser_match(parser, ST_TOK_INT) &&
+        parser->peek_token.type == ST_TOK_COLON) {
+      // This is a case label! Stop parsing and return
+      break;
+    }
+
+    st_ast_node_t *stmt = st_parser_parse_statement(parser);
+    if (!stmt) {
+      // Skip to next semicolon to recover
+      while (!parser_match(parser, ST_TOK_SEMICOLON) && !parser_match(parser, ST_TOK_EOF)) {
+        parser_advance(parser);
+      }
+      if (parser_match(parser, ST_TOK_SEMICOLON)) {
+        parser_advance(parser);
+      }
+      continue;
+    }
+
+    if (!head) {
+      head = stmt;
+      tail = stmt;
+    } else {
+      tail->next = stmt;
+      tail = stmt;
+    }
+  }
+
+  return head;
 }
 
 /* Parse statement list */

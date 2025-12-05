@@ -9,7 +9,9 @@
 #ifndef ST_LOGIC_CONFIG_H
 #define ST_LOGIC_CONFIG_H
 
+#include <stdint.h>
 #include "st_types.h"
+#include "config_struct.h"
 
 /* ============================================================================
  * LOGIC PROGRAM CONFIGURATION
@@ -24,7 +26,7 @@ typedef struct {
   uint8_t enabled;            // Is this program enabled?
 
   // Source code storage
-  char source_code[5000];     // ST source code (max 5KB per program)
+  char source_code[2000];     // ST source code (max 2KB per program)
   uint32_t source_size;
 
   // Compiled bytecode
@@ -49,6 +51,7 @@ typedef struct {
 
   // Global settings
   uint8_t enabled;            // Logic mode enabled/disabled globally
+  uint8_t debug;              // Debug output enabled (bytecode, execution trace, etc.)
   uint32_t execution_interval_ms; // How often to run programs (10ms default)
   uint32_t last_run_time;     // Timestamp of last execution
 
@@ -128,5 +131,19 @@ st_logic_program_config_t *st_logic_get_program(st_logic_engine_state_t *state, 
  * @return Pointer to the global ST logic engine state
  */
 st_logic_engine_state_t *st_logic_get_state(void);
+
+/**
+ * @brief Save ST Logic programs to PersistConfig (before config_save_to_nvs)
+ * @param config Persistent config to save programs into
+ * @return true if successful
+ */
+bool st_logic_save_to_persist_config(PersistConfig *config);
+
+/**
+ * @brief Load ST Logic programs from PersistConfig (after config_load_from_nvs)
+ * @param config Persistent config containing programs to load
+ * @return true if successful
+ */
+bool st_logic_load_from_persist_config(const PersistConfig *config);
 
 #endif // ST_LOGIC_CONFIG_H

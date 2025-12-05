@@ -24,6 +24,8 @@
 #include "cli_shell.h"
 #include "config_struct.h"
 #include "st_logic_config.h"
+#include "network_manager.h"
+#include "network_config.h"
 #include "debug.h"
 #include <stdio.h>
 #include <string.h>
@@ -278,41 +280,101 @@ void cli_cmd_show_config(void) {
   debug_println("  GPIO 33 - Counter 4 HW (PCNT Unit 3)");
   debug_println("");
 
-  // Check if any GPIO mappings exist
-  if (g_persist_config.var_map_count > 0) {
-    debug_print("User configured (");
-    debug_print_uint(g_persist_config.var_map_count);
-    debug_println(" mappings):");
+  // Separate GPIO and ST Logic mappings
+  uint8_t gpio_count = 0;
+  uint8_t st_count = 0;
+
+  // Count each type
+  for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+    const VariableMapping* map = &g_persist_config.var_maps[i];
+    if (map->source_type == MAPPING_SOURCE_GPIO) {
+      gpio_count++;
+    } else if (map->source_type == MAPPING_SOURCE_ST_VAR) {
+      st_count++;
+    }
+  }
+
+  // Show GPIO mappings
+  if (gpio_count > 0) {
+    debug_print("GPIO Mappings (");
+    debug_print_uint(gpio_count);
+    debug_println("):");
     for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
-      const VariableMapping* gpio = &g_persist_config.var_maps[i];
+      const VariableMapping* map = &g_persist_config.var_maps[i];
+      if (map->source_type != MAPPING_SOURCE_GPIO) continue;
+
       debug_print("  GPIO ");
-      debug_print_uint(gpio->gpio_pin);
+      debug_print_uint(map->gpio_pin);
       debug_print(" - ");
-      if (gpio->is_input) {
-        debug_print("INPUT:");
-        debug_print_uint(gpio->input_reg);
+      if (map->is_input) {
+        debug_print("INPUT REG:");
+        debug_print_uint(map->input_reg);
       } else {
         debug_print("COIL:");
-        debug_print_uint(gpio->coil_reg);
+        debug_print_uint(map->coil_reg);
       }
-      if (gpio->associated_counter != 0xff) {
+      if (map->associated_counter != 0xff) {
         debug_print(" (Counter ");
-        debug_print_uint(gpio->associated_counter);
+        debug_print_uint(map->associated_counter);
         debug_print(")");
       }
-      if (gpio->associated_timer != 0xff) {
+      if (map->associated_timer != 0xff) {
         debug_print(" (Timer ");
-        debug_print_uint(gpio->associated_timer);
+        debug_print_uint(map->associated_timer);
         debug_print(")");
       }
-      debug_print("  [fjern: 'no set gpio ");
-      debug_print_uint(gpio->gpio_pin);
+      debug_print("  [remove: 'no set gpio ");
+      debug_print_uint(map->gpio_pin);
       debug_print("']");
       debug_println("");
     }
   } else {
-    debug_println("(No user-configured GPIO mappings)");
-    debug_println("  Brug: 'set gpio <pin> static map input:<idx>' eller 'coil:<idx>'");
+    debug_println("GPIO Mappings: (none)");
+  }
+
+  // Show ST Logic variable bindings
+  if (st_count > 0) {
+    debug_print("ST Logic Bindings (");
+    debug_print_uint(st_count);
+    debug_println("):");
+
+    st_logic_engine_state_t *st_state = st_logic_get_state();
+
+    for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+      const VariableMapping* map = &g_persist_config.var_maps[i];
+      if (map->source_type != MAPPING_SOURCE_ST_VAR) continue;
+
+      debug_print("  Logic");
+      debug_print_uint(map->st_program_id + 1);
+      debug_print(" var[");
+      debug_print_uint(map->st_var_index);
+      debug_print("] - ");
+
+      if (map->is_input) {
+        debug_print("INPUT REG:");
+        debug_print_uint(map->input_reg);
+      } else {
+        // OUTPUT mode: determine if it's a coil (BOOL) or holding register (INT)
+        // by checking the variable type in bytecode
+        st_logic_program_config_t *prog = st_logic_get_program(st_state, map->st_program_id);
+        if (prog && map->st_program_id < 4 && map->st_var_index < 32) {
+          st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
+          if (var_type == ST_TYPE_BOOL) {
+            debug_print("COIL:");
+          } else if (var_type == ST_TYPE_INT || var_type == ST_TYPE_DWORD) {
+            debug_print("REG:");
+          } else {
+            debug_print("OUTPUT:");  // Unknown type
+          }
+        } else {
+          debug_print("OUTPUT:");  // Can't determine type
+        }
+        debug_print_uint(map->coil_reg);
+      }
+      debug_println("");
+    }
+  } else {
+    debug_println("ST Logic Bindings: (none)");
   }
   debug_println("");
 
@@ -375,15 +437,15 @@ void cli_cmd_show_config(void) {
 
 void cli_cmd_show_counters(void) {
   // Header med forkortelser (3 linjer)
-  debug_println("----------------------------------------------------------------------------------------------------------------------------------------------");
+  debug_println("────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────");
   debug_println("co = count-on, sv = startValue, res = resolution, ps = prescaler, ir = index-reg, rr = raw-reg, fr = freq-reg");
-  debug_println("or = overload-reg, cr = ctrl-reg, dir = direction, sf = scaleFloat, dis = input-dis, d = debounce, dt = debounce-ms");
-  debug_println("hw = HW/SW mode (SW|ISR|HW), pin = GPIO pin (actual hardware pin), hz = measured freq (Hz)");
-  debug_println("value = scaled value, raw = raw counter value");
-  debug_println("----------------------------------------------------------------------------------------------------------------------------------------------");
+  debug_println("or = overload-reg, cr = ctrl-reg, dir = direction, sf = scaleFloat, d = debounce, dt = debounce-ms");
+  debug_println("hw = HW/SW mode (SW|ISR|HW), hz = measured freq (Hz), value = scaled value, raw = prescaled counter value");
+  debug_println("cmp-en = compare enabled, cmp-mode = 0:≥ 1:> 2:exact, cmp-val = compare threshold, ror = reset-on-read");
+  debug_println("────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────");
 
   // Kolonne headers
-  debug_println("counter | mode | hw  | pin  | co      | sv       | res | ps   | ir   | rr   | fr   | or   | cr   | dir   | sf     | d   | dt   | hz    | value     | raw");
+  debug_println("counter | en | hw  | pin  | co      | sv    | res | ps | ir  | rr  | fr  | or  | cr  | dir | sf    | d   | dt | hz   | val    | raw   | cmp-en | cmp-md | cmp-val | ror");
 
   // Data rækker for hver counter
   for (uint8_t id = 1; id <= 4; id++) {
@@ -499,41 +561,123 @@ void cli_cmd_show_counters(void) {
     p += snprintf(p, sizeof(line) - (p - line), "%9u ", (unsigned int)scaled_value);
     p += snprintf(p, sizeof(line) - (p - line), "| ");
 
-    // Raw value (prescaled, 10 chars right-aligned, sidste kolonne)
+    // Raw value (prescaled, 7 chars right-aligned)
     uint64_t raw_prescaled = raw_value / cfg.prescaler;
-    p += snprintf(p, sizeof(line) - (p - line), "%10u", (unsigned int)raw_prescaled);
+    p += snprintf(p, sizeof(line) - (p - line), "%7u ", (unsigned int)raw_prescaled);
+    p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+    // COMPARE FEATURE COLUMNS
+    // cmp-en (compare enabled, 3 chars left-aligned)
+    p += snprintf(p, sizeof(line) - (p - line), "%-3s ", cfg.compare_enabled ? "yes" : "no");
+    p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+    // cmp-md (compare mode: 0=≥, 1=>, 2=exact, 1 char)
+    if (cfg.compare_enabled) {
+      const char* cmp_mode_char = "?";
+      if (cfg.compare_mode == 0) cmp_mode_char = "≥";
+      else if (cfg.compare_mode == 1) cmp_mode_char = ">";
+      else if (cfg.compare_mode == 2) cmp_mode_char = "=";
+      p += snprintf(p, sizeof(line) - (p - line), "%-4s ", cmp_mode_char);
+    } else {
+      p += snprintf(p, sizeof(line) - (p - line), "%-4s ", "—");
+    }
+    p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+    // cmp-val (compare value, 8 chars right-aligned)
+    if (cfg.compare_enabled) {
+      p += snprintf(p, sizeof(line) - (p - line), "%8llu ", (unsigned long long)cfg.compare_value);
+    } else {
+      p += snprintf(p, sizeof(line) - (p - line), "%-8s ", "—");
+    }
+    p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+    // ror (reset-on-read, 3 chars left-aligned)
+    if (cfg.compare_enabled) {
+      p += snprintf(p, sizeof(line) - (p - line), "%-3s", cfg.reset_on_read ? "yes" : "no");
+    } else {
+      p += snprintf(p, sizeof(line) - (p - line), "%-3s", "—");
+    }
 
     // Print hele linjen
     debug_println(line);
   }
 
-  // Counter control status sektion
-  debug_println("\n=== COUNTER CONTROL STATUS ===");
+  // COUNTER CONTROL STATUS (ny sektion - ctrl-register bits)
+  debug_println("");
+  debug_println("════════════════════════════════════════════════════════════════════════════════════════");
+  debug_println("COUNTER CONTROL STATUS (Control Register Bits)");
+  debug_println("════════════════════════════════════════════════════════════════════════════════════════");
+  debug_println("bit0=reset, bit1=start, bit2=stop, bit3=reserved, bit4=compare-status (bits 5-15=reserved)");
+  debug_println("");
+  debug_println("counter | ctrl-reg | hex-value | bit0 | bit1 | bit2 | bit3 | bit4 | bits 5-15");
+  debug_println("────────┼──────────┼───────────┼──────┼──────┼──────┼──────┼──────┼──────────");
+
   for (uint8_t id = 1; id <= 4; id++) {
     CounterConfig cfg;
     if (!counter_config_get(id, &cfg) || !cfg.enabled) continue;
 
-    // Læs ctrl-reg hvis konfigureret
-    uint16_t ctrl_value = 0;
+    char line[256];
+    char* p = line;
+
+    // Counter ID
+    p += snprintf(p, sizeof(line) - (p - line), " %-7d", id);
+    p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+    // ctrl-reg address
     if (cfg.ctrl_reg < HOLDING_REGS_SIZE) {
-      ctrl_value = registers_get_holding_register(cfg.ctrl_reg);
+      p += snprintf(p, sizeof(line) - (p - line), "%-8u ", cfg.ctrl_reg);
+    } else {
+      p += snprintf(p, sizeof(line) - (p - line), "%-8s ", "n/a");
+    }
+    p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+    // ctrl-reg value (hex)
+    if (cfg.ctrl_reg < HOLDING_REGS_SIZE) {
+      uint16_t ctrl_value = registers_get_holding_register(cfg.ctrl_reg);
+      p += snprintf(p, sizeof(line) - (p - line), "0x%-7x ", ctrl_value);
+    } else {
+      p += snprintf(p, sizeof(line) - (p - line), "%-9s ", "—");
+    }
+    p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+    if (cfg.ctrl_reg < HOLDING_REGS_SIZE) {
+      uint16_t ctrl_value = registers_get_holding_register(cfg.ctrl_reg);
+
+      // Bit 0
+      uint8_t bit0 = (ctrl_value >> 0) & 1;
+      p += snprintf(p, sizeof(line) - (p - line), "%d    ", bit0);
+      p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+      // Bit 1
+      uint8_t bit1 = (ctrl_value >> 1) & 1;
+      p += snprintf(p, sizeof(line) - (p - line), "%d    ", bit1);
+      p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+      // Bit 2
+      uint8_t bit2 = (ctrl_value >> 2) & 1;
+      p += snprintf(p, sizeof(line) - (p - line), "%d    ", bit2);
+      p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+      // Bit 3
+      uint8_t bit3 = (ctrl_value >> 3) & 1;
+      p += snprintf(p, sizeof(line) - (p - line), "%d    ", bit3);
+      p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+      // Bit 4
+      uint8_t bit4 = (ctrl_value >> 4) & 1;
+      p += snprintf(p, sizeof(line) - (p - line), "%d    ", bit4);
+      p += snprintf(p, sizeof(line) - (p - line), "| ");
+
+      // Bits 5-15
+      uint16_t bits_5_15 = (ctrl_value >> 5) & 0x7FF;
+      p += snprintf(p, sizeof(line) - (p - line), "0x%-6x", bits_5_15);
+    } else {
+      p += snprintf(p, sizeof(line) - (p - line), "— | — | — | — | — | —");
     }
 
-    // Bit 0 = reset-on-read, Bit 1 = auto-start, Bit 7 = running
-    bool reset_on_read = (ctrl_value & 0x01) != 0;
-    bool auto_start = (ctrl_value & 0x02) != 0;
-    bool running = (ctrl_value & 0x80) != 0;
-
-    debug_print("Counter");
-    debug_print_uint(id);
-    debug_print(" reset-on-read: ");
-    debug_print(reset_on_read ? "ENABLED" : "DISABLED");
-    debug_print(" | auto-start: ");
-    debug_print(auto_start ? "ENABLED" : "DISABLED");
-    debug_print(" | running: ");
-    debug_println(running ? "YES" : "NO");
+    debug_println(line);
   }
-  debug_println("==============================\n");
+  debug_println("════════════════════════════════════════════════════════════════════════════════════════\n");
 }
 
 /* ============================================================================
@@ -758,25 +902,35 @@ void cli_cmd_show_gpio(void) {
   debug_println("  GPIO 33 - Counter 4 (PCNT Unit 3)");
   debug_println("");
 
-  // Show user-configured GPIO mappings
-  if (g_persist_config.var_map_count > 0) {
-    debug_print("User configured (");
-    debug_print_uint(g_persist_config.var_map_count);
+  // Show user-configured GPIO mappings (exclude ST Logic bindings)
+  uint8_t gpio_count = 0;
+  for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+    const VariableMapping* map = &g_persist_config.var_maps[i];
+    if (map->source_type == MAPPING_SOURCE_GPIO) {
+      gpio_count++;
+    }
+  }
+
+  if (gpio_count > 0) {
+    debug_print("User configured GPIO (");
+    debug_print_uint(gpio_count);
     debug_println(" mappings):");
     for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
-      const VariableMapping* gpio = &g_persist_config.var_maps[i];
+      const VariableMapping* map = &g_persist_config.var_maps[i];
+      if (map->source_type != MAPPING_SOURCE_GPIO) continue;
+
       debug_print("  GPIO ");
-      debug_print_uint(gpio->gpio_pin);
+      debug_print_uint(map->gpio_pin);
       debug_print(" - ");
-      if (gpio->is_input) {
+      if (map->is_input) {
         debug_print("INPUT:");
-        debug_print_uint(gpio->input_reg);
+        debug_print_uint(map->input_reg);
       } else {
         debug_print("COIL:");
-        debug_print_uint(gpio->coil_reg);
+        debug_print_uint(map->coil_reg);
       }
       debug_print("  [fjern: 'no set gpio ");
-      debug_print_uint(gpio->gpio_pin);
+      debug_print_uint(map->gpio_pin);
       debug_print("']");
       debug_println("");
     }
@@ -799,6 +953,82 @@ void cli_cmd_show_echo(void) {
   }
   debug_println("Set: set echo <on|off>");
   debug_println("=====================\n");
+}
+
+/* ============================================================================
+ * SHOW WIFI
+ * ============================================================================ */
+
+void cli_cmd_show_wifi(void) {
+  debug_println("\n=== WI-FI STATUS ===");
+
+  // Get network state from network manager
+  if (!network_manager_is_wifi_connected()) {
+    debug_println("Wi-Fi Status: NOT CONNECTED");
+  } else {
+    debug_println("Wi-Fi Status: CONNECTED");
+    uint32_t ip = network_manager_get_local_ip();
+    char ip_str[16];
+    network_config_ip_to_str(ip, ip_str);
+    debug_print("Local IP: ");
+    debug_println(ip_str);
+  }
+
+  // Show config
+  debug_println("");
+  debug_println("Configuration:");
+
+  if (g_persist_config.network.enabled) {
+    debug_println("  Enabled: YES");
+  } else {
+    debug_println("  Enabled: NO");
+  }
+
+  debug_print("  SSID: ");
+  debug_println(g_persist_config.network.ssid[0] ? g_persist_config.network.ssid : "(not set)");
+
+  if (g_persist_config.network.dhcp_enabled) {
+    debug_println("  IP Mode: DHCP");
+  } else {
+    debug_println("  IP Mode: STATIC");
+    char ip_str[16];
+    network_config_ip_to_str(g_persist_config.network.static_ip, ip_str);
+    debug_print("  Static IP: ");
+    debug_println(ip_str);
+
+    network_config_ip_to_str(g_persist_config.network.static_gateway, ip_str);
+    debug_print("  Gateway: ");
+    debug_println(ip_str);
+
+    network_config_ip_to_str(g_persist_config.network.static_netmask, ip_str);
+    debug_print("  Netmask: ");
+    debug_println(ip_str);
+
+    network_config_ip_to_str(g_persist_config.network.static_dns, ip_str);
+    debug_print("  DNS: ");
+    debug_println(ip_str);
+  }
+
+  if (g_persist_config.network.telnet_enabled) {
+    debug_print("  Telnet: ENABLED (port ");
+    debug_print_uint(g_persist_config.network.telnet_port);
+    debug_println(")");
+  } else {
+    debug_println("  Telnet: DISABLED");
+  }
+
+  debug_println("\nCommands:");
+  debug_println("  set wifi ssid <name>");
+  debug_println("  set wifi password <pwd>");
+  debug_println("  set wifi dhcp on|off");
+  debug_println("  set wifi ip <ip>");
+  debug_println("  set wifi gateway <ip>");
+  debug_println("  set wifi netmask <ip>");
+  debug_println("  set wifi dns <ip>");
+  debug_println("  set wifi telnet-port <port>");
+  debug_println("  connect wifi");
+  debug_println("  disconnect wifi");
+  debug_println("  save (to persist changes)\n");
 }
 
 /* ============================================================================

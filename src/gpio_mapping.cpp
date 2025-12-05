@@ -76,18 +76,34 @@ void gpio_mapping_update(void) {
       }
 
       if (map->is_input) {
-        // INPUT mode: Holding register → ST variable
+        // INPUT mode: Read from Modbus, write to ST variable
         if (map->input_reg != 65535 && map->input_reg < HOLDING_REGS_SIZE) {
-          uint16_t reg_value = registers_get_holding_register(map->input_reg);
+          uint16_t reg_value;
+
+          // Check input_type: 0 = Holding Register (HR), 1 = Discrete Input (DI)
+          if (map->input_type == 1) {
+            // Discrete Input: read as BOOL (0 or 1)
+            reg_value = registers_get_discrete_input(map->input_reg) ? 1 : 0;
+          } else {
+            // Holding Register: read as INT
+            reg_value = registers_get_holding_register(map->input_reg);
+          }
+
           // Store as INT (simple type conversion)
           prog->bytecode.variables[map->st_var_index].int_val = (int16_t)reg_value;
         }
       } else {
-        // OUTPUT mode: ST variable → Holding register
-        if (map->coil_reg != 65535 && map->coil_reg < HOLDING_REGS_SIZE) {
-          // Read as INT (simple type conversion)
-          int16_t var_value = prog->bytecode.variables[map->st_var_index].int_val;
-          registers_set_holding_register(map->coil_reg, (uint16_t)var_value);
+        // OUTPUT mode: Read from ST variable, write to Modbus
+        int16_t var_value = prog->bytecode.variables[map->st_var_index].int_val;
+
+        // Output can go to either coil or holding register
+        if (map->coil_reg != 65535) {
+          // Output to coil (used for BOOL variables mapped to coils)
+          uint8_t coil_value = (var_value != 0) ? 1 : 0;
+          registers_set_coil(map->coil_reg, coil_value);
+        } else if (map->input_reg != 65535 && map->input_reg < HOLDING_REGS_SIZE) {
+          // Output to holding register (used for INT variables)
+          registers_set_holding_register(map->input_reg, (uint16_t)var_value);
         }
       }
     }

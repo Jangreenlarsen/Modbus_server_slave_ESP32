@@ -102,6 +102,8 @@ static const char* normalize_alias(const char* s) {
   if (!strcmp(s, "LOAD") || !strcmp(s, "load") || !strcmp(s, "LD")) return "LOAD";
   if (!strcmp(s, "DEFAULTS") || !strcmp(s, "defaults") || !strcmp(s, "DEF")) return "DEFAULTS";
   if (!strcmp(s, "REBOOT") || !strcmp(s, "reboot")) return "REBOOT";
+  if (!strcmp(s, "CONNECT") || !strcmp(s, "connect") || !strcmp(s, "CONN")) return "CONNECT";
+  if (!strcmp(s, "DISCONNECT") || !strcmp(s, "disconnect") || !strcmp(s, "DISC")) return "DISCONNECT";
   if (!strcmp(s, "HELP") || !strcmp(s, "help") || !strcmp(s, "?")) return "HELP";
   if (!strcmp(s, "READ") || !strcmp(s, "read") || !strcmp(s, "RD")) return "READ";
   if (!strcmp(s, "WRITE") || !strcmp(s, "write") || !strcmp(s, "WR")) return "WRITE";
@@ -136,6 +138,7 @@ static const char* normalize_alias(const char* s) {
   if (!strcmp(s, "ID") || !strcmp(s, "id")) return "ID";
   if (!strcmp(s, "HOSTNAME") || !strcmp(s, "hostname")) return "HOSTNAME";
   if (!strcmp(s, "BAUD") || !strcmp(s, "baud")) return "BAUD";
+  if (!strcmp(s, "WIFI") || !strcmp(s, "wifi")) return "WIFI";
   if (!strcmp(s, "ENABLE") || !strcmp(s, "enable")) return "ENABLE";
   if (!strcmp(s, "DISABLE") || !strcmp(s, "disable")) return "DISABLE";
 
@@ -204,6 +207,9 @@ bool cli_parser_execute(char* line) {
       return true;
     } else if (!strcmp(what, "ECHO")) {
       cli_cmd_show_echo();
+      return true;
+    } else if (!strcmp(what, "WIFI")) {
+      cli_cmd_show_wifi();
       return true;
     } else if (!strcmp(what, "REG")) {
       // show reg - Display register configuration
@@ -394,7 +400,28 @@ bool cli_parser_execute(char* line) {
     } else if (!strcmp(what, "ECHO")) {
       cli_cmd_set_echo(argc - 2, argv + 2);
       return true;
+    } else if (!strcmp(what, "DEBUG")) {
+      cli_cmd_set_debug(argc - 2, argv + 2);
+      return true;
+    } else if (!strcmp(what, "WIFI")) {
+      // set wifi <option> <value>
+      if (argc < 3) {
+        cli_cmd_set_wifi(0, NULL);  // Show help
+        return true;
+      }
+      cli_cmd_set_wifi(argc - 2, argv + 2);
+      return true;
     } else if (!strcmp(what, "LOGIC")) {
+      // set logic debug:true|false  (global debug flag - no program ID needed)
+      if (argc >= 3) {
+        const char* arg = argv[2];
+        if (strstr(arg, "debug:")) {
+          bool debug = (strstr(arg, "true")) ? true : false;
+          cli_cmd_set_logic_debug(st_logic_get_state(), debug);
+          return true;
+        }
+      }
+
       // set logic <id> <subcommand> [params...]
       if (argc < 4) {
         debug_println("SET LOGIC: missing arguments");
@@ -407,6 +434,7 @@ bool cli_parser_execute(char* line) {
         debug_println("         set logic <id> enabled:true|false");
         debug_println("         set logic <id> delete");
         debug_println("         set logic <id> bind <var_name> reg:100|coil:10|input-dis:5");
+        debug_println("         set logic debug:true|false");
         return false;
       }
 
@@ -471,8 +499,9 @@ bool cli_parser_execute(char* line) {
         uint8_t var_idx = atoi(arg4);
         uint16_t register_addr = atoi(arg5);
         const char* direction = (argc > 6) ? argv[6] : "both";
+        uint8_t input_type = 0;  // Default: Holding Register (HR), not Discrete Input
 
-        cli_cmd_set_logic_bind(st_logic_get_state(), prog_idx, var_idx, register_addr, direction);
+        cli_cmd_set_logic_bind(st_logic_get_state(), prog_idx, var_idx, register_addr, direction, input_type);
         return true;
       } else {
         debug_println("SET LOGIC: unknown subcommand");
@@ -560,6 +589,26 @@ bool cli_parser_execute(char* line) {
   } else if (!strcmp(cmd, "REBOOT")) {
     cli_cmd_reboot();
     return true;
+
+  } else if (!strcmp(cmd, "CONNECT")) {
+    // connect wifi
+    if (argc >= 2 && !strcmp(normalize_alias(argv[1]), "WIFI")) {
+      cli_cmd_connect_wifi();
+      return true;
+    } else {
+      debug_println("CONNECT: unknown target (use: wifi)");
+      return false;
+    }
+
+  } else if (!strcmp(cmd, "DISCONNECT")) {
+    // disconnect wifi
+    if (argc >= 2 && !strcmp(normalize_alias(argv[1]), "WIFI")) {
+      cli_cmd_disconnect_wifi();
+      return true;
+    } else {
+      debug_println("DISCONNECT: unknown target (use: wifi)");
+      return false;
+    }
 
   } else if (!strcmp(cmd, "HELP")) {
     cli_parser_print_help();
