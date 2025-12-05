@@ -1,6 +1,8 @@
 /**
  * @file version.h
  * @brief Version information and changelog
+ *
+ * NOTE: This file is deprecated. Use include/constants.h for PROJECT_VERSION
  */
 
 #ifndef version_H
@@ -8,8 +10,9 @@
 
 // Auto-generated build information (updated by generate_build_info.py)
 #include "build_version.h"
+#include "constants.h"  // Get PROJECT_VERSION from single source of truth
 
-#define PROJECT_VERSION "2.2.0"
+// For backward compatibility (deprecated - use constants.h instead)
 #define PROJECT_BUILD_DATE __DATE__
 #define PROJECT_NAME "Modbus RTU Server (ESP32)"
 
