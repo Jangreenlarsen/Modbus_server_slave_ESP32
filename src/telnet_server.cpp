@@ -614,6 +614,12 @@ int telnet_server_loop(TelnetServer *server)
     server->input_pos = 0;         // Clear input buffer
     memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
 
+    // Send Telnet option negotiation
+    // Tell client: server will handle ECHO (0xFF 0xFB 0x01 = IAC WILL ECHO)
+    tcp_server_send(server->tcp_server, 0, (uint8_t*)"\xFF\xFB\x01", 3);
+    // Tell client: server wants SUPPRESS-GO-AHEAD (0xFF 0xFD 0x03 = IAC DO SUPPRESS-GA)
+    tcp_server_send(server->tcp_server, 0, (uint8_t*)"\xFF\xFD\x03", 3);
+
     if (server->auth_required) {
       server->auth_state = TELNET_AUTH_WAITING;
       server->auth_attempts = 0;
