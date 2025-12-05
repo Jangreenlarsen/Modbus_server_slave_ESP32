@@ -31,15 +31,29 @@ typedef enum {
   TELNET_STATE_IAC_OPTION = 3,    // Saw option byte after IAC command
 } TelnetParseState;
 
+typedef enum {
+  TELNET_AUTH_NONE = 0,        // No authentication (disabled)
+  TELNET_AUTH_WAITING = 1,     // Waiting for login
+  TELNET_AUTH_USERNAME = 2,    // Username entered, waiting for password
+  TELNET_AUTH_AUTHENTICATED = 3  // Authentication successful
+} TelnetAuthState;
+
 typedef struct {
   // Configuration
   uint16_t port;
   uint8_t echo_enabled;           // Echo input back to client
   uint8_t linemode_enabled;       // Line-mode (vs character-by-character)
+  uint8_t auth_required;          // 1 = require authentication, 0 = no auth
 
   // Internal state
   TcpServer *tcp_server;
   TelnetParseState parse_state;
+
+  // Authentication state (v3.0+)
+  TelnetAuthState auth_state;
+  char auth_username[32];
+  uint8_t auth_attempts;          // Failed login attempt counter
+  uint32_t auth_lockout_time;     // Timestamp when lockout expires (0 = no lockout)
 
   // Per-client input buffer (cooked mode)
   char input_buffer[TELNET_INPUT_BUFFER_SIZE];

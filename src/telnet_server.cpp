@@ -10,6 +10,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <esp_log.h>
+#include <Arduino.h>
 
 #include "telnet_server.h"
 #include "constants.h"
@@ -61,6 +62,13 @@ TelnetServer* telnet_server_create(uint16_t port)
   server->input_ready = 0;
   server->echo_enabled = 1;
   server->linemode_enabled = 1;
+
+  // SECURITY: Initialize authentication (enabled by default)
+  server->auth_required = 1;
+  server->auth_state = TELNET_AUTH_WAITING;
+  server->auth_attempts = 0;
+  server->auth_lockout_time = 0;
+  memset(server->auth_username, 0, sizeof(server->auth_username));
 
   ESP_LOGI(TAG, "Telnet server created for port %d", port);
   return server;
@@ -194,8 +202,94 @@ static void telnet_handle_iac_command(TelnetServer *server, uint8_t cmd, uint8_t
 }
 
 /* ============================================================================
+ * AUTHENTICATION (v3.0+)
+ * ============================================================================ */
+
+// Simple authentication - hardcoded for now (can be made configurable)
+#define TELNET_CRED_USERNAME "admin"
+#define TELNET_CRED_PASSWORD "telnet123"
+#define TELNET_MAX_AUTH_ATTEMPTS 3
+#define TELNET_LOCKOUT_TIME_MS 30000  // 30 second lockout
+
+static void telnet_send_auth_prompt(TelnetServer *server) {
+  if (server->auth_state == TELNET_AUTH_WAITING) {
+    telnet_server_writeline(server, "");
+    telnet_server_writeline(server, "=== Telnet Server (v3.0) ===");
+    telnet_server_writeline(server, "LOGIN REQUIRED");
+    telnet_server_writeline(server, "");
+    telnet_server_write(server, "Username: ");
+  } else if (server->auth_state == TELNET_AUTH_USERNAME) {
+    telnet_server_write(server, "Password: ");
+  }
+}
+
+static void telnet_handle_auth_input(TelnetServer *server, const char *input) {
+  if (!input || !server) return;
+
+  // Check if in lockout period
+  if (server->auth_lockout_time > 0) {
+    if (millis() < server->auth_lockout_time) {
+      telnet_server_writeline(server, "ERROR: Too many failed attempts. Please try again later.");
+      server->input_pos = 0;
+      server->input_ready = 0;
+      return;
+    } else {
+      // Lockout expired
+      server->auth_lockout_time = 0;
+      server->auth_attempts = 0;
+      telnet_send_auth_prompt(server);
+      server->input_pos = 0;
+      server->input_ready = 0;
+      return;
+    }
+  }
+
+  if (server->auth_state == TELNET_AUTH_WAITING) {
+    // Username entry
+    strncpy(server->auth_username, input, sizeof(server->auth_username) - 1);
+    server->auth_username[sizeof(server->auth_username) - 1] = '\0';
+    server->auth_state = TELNET_AUTH_USERNAME;
+    telnet_send_auth_prompt(server);
+  } else if (server->auth_state == TELNET_AUTH_USERNAME) {
+    // Password entry
+    if (strcmp(server->auth_username, TELNET_CRED_USERNAME) == 0 &&
+        strcmp(input, TELNET_CRED_PASSWORD) == 0) {
+      // Authentication successful!
+      server->auth_state = TELNET_AUTH_AUTHENTICATED;
+      server->auth_attempts = 0;
+      telnet_server_writeline(server, "");
+      telnet_server_writeline(server, "Authentication successful. Welcome!");
+      telnet_server_writeline(server, "");
+    } else {
+      // Authentication failed
+      server->auth_attempts++;
+      telnet_server_writeline(server, "");
+      telnet_server_writeline(server, "ERROR: Invalid username or password");
+
+      if (server->auth_attempts >= TELNET_MAX_AUTH_ATTEMPTS) {
+        // Trigger lockout
+        server->auth_lockout_time = millis() + TELNET_LOCKOUT_TIME_MS;
+        telnet_server_writeline(server, "Too many failed attempts. Locking out for 30 seconds.");
+        telnet_server_writeline(server, "");
+      } else {
+        // Reset to username prompt
+        server->auth_state = TELNET_AUTH_WAITING;
+        memset(server->auth_username, 0, sizeof(server->auth_username));
+        telnet_send_auth_prompt(server);
+      }
+    }
+  }
+
+  server->input_pos = 0;
+  server->input_ready = 0;
+}
+
+/* ============================================================================
  * INPUT PROCESSING
  * ============================================================================ */
+
+// Store for IAC state machine
+static uint8_t telnet_iac_cmd = 0;
 
 static void telnet_process_input(TelnetServer *server, uint8_t byte)
 {
@@ -206,7 +300,11 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
       } else if (byte == '\r') {
         // Carriage return - ignore (waiting for \n)
       } else if (byte == '\n') {
-        // Line complete
+        // Line complete (with boundary check)
+        // SECURITY FIX: Ensure we don't write past buffer boundary
+        if (server->input_pos >= TELNET_INPUT_BUFFER_SIZE) {
+          server->input_pos = TELNET_INPUT_BUFFER_SIZE - 1;
+        }
         server->input_buffer[server->input_pos] = '\0';
         server->input_ready = 1;
         server->input_pos = 0;
@@ -216,8 +314,8 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
           tcp_server_send(server->tcp_server, 0, (uint8_t*)"\r\n", 2);
         }
       } else if (byte >= 32 && byte < 127) {
-        // Printable character
-        if (server->input_pos < TELNET_BUFFER_SIZE - 1) {
+        // Printable character (with strict boundary check)
+        if (server->input_pos < TELNET_INPUT_BUFFER_SIZE - 1) {
           server->input_buffer[server->input_pos++] = byte;
 
           // Echo back
@@ -238,13 +336,14 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
       break;
 
     case TELNET_STATE_IAC:
+      // SECURITY FIX: Properly handle IAC state machine
       if (byte >= TELNET_CMD_WILL && byte <= TELNET_CMD_DONT) {
-        server->parse_state = TELNET_STATE_IAC_OPTION;
-        // Store command for next byte
+        // Store command byte for next state
+        telnet_iac_cmd = byte;
         server->parse_state = TELNET_STATE_IAC_CMD;
       } else if (byte == TELNET_CMD_IAC) {
         // Escaped IAC (literal 255)
-        if (server->input_pos < TELNET_BUFFER_SIZE - 1) {
+        if (server->input_pos < TELNET_INPUT_BUFFER_SIZE - 1) {
           server->input_buffer[server->input_pos++] = byte;
           if (server->echo_enabled) {
             tcp_server_send(server->tcp_server, 0, &byte, 1);
@@ -258,7 +357,9 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
 
     case TELNET_STATE_IAC_CMD:
       // Now we have: IAC, cmd (WILL/WONT/DO/DONT), opt
-      // Need to reparse properly - for now, simplify
+      // cmd is stored in telnet_iac_cmd, current byte is the option
+      // For now, we just ignore the negotiation and return to NONE state
+      // (In a full implementation, we'd handle the negotiation here)
       server->parse_state = TELNET_STATE_NONE;
       break;
 
@@ -398,8 +499,21 @@ int telnet_server_loop(TelnetServer *server)
   // Process TCP server events
   events += tcp_server_loop(server->tcp_server);
 
-  // Accept new connections
-  events += tcp_server_accept(server->tcp_server);
+  // Accept new connections and initialize auth on new client
+  if (tcp_server_accept(server->tcp_server) > 0) {
+    // New client detected - reset auth state
+    if (server->auth_required) {
+      server->auth_state = TELNET_AUTH_WAITING;
+      server->auth_attempts = 0;
+      server->auth_lockout_time = 0;
+      memset(server->auth_username, 0, sizeof(server->auth_username));
+      telnet_send_auth_prompt(server);
+      events++;
+    } else {
+      // Auth disabled - go straight to authenticated
+      server->auth_state = TELNET_AUTH_AUTHENTICATED;
+    }
+  }
 
   // Process incoming data from client
   if (telnet_server_client_connected(server)) {
@@ -407,6 +521,15 @@ int telnet_server_loop(TelnetServer *server)
     while (tcp_server_recv_byte(server->tcp_server, 0, &byte) > 0) {
       telnet_process_input(server, byte);
       events++;
+    }
+
+    // SECURITY FIX: Process authentication if input is ready and auth is needed
+    if (server->input_ready && server->auth_required && server->auth_state != TELNET_AUTH_AUTHENTICATED) {
+      telnet_handle_auth_input(server, server->input_buffer);
+      // Show next prompt if auth not complete
+      if (server->auth_state != TELNET_AUTH_AUTHENTICATED) {
+        telnet_send_auth_prompt(server);
+      }
     }
   }
 
