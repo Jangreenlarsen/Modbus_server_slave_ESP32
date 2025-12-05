@@ -16,6 +16,7 @@
 #include "constants.h"
 #include "types.h"  // For NetworkConfig
 #include "cli_shell.h"  // For cli_shell_execute_command()
+#include "debug.h"  // For debug_register_telnet_callbacks()
 
 static const char *TAG = "TELNET_SRV";
 
@@ -72,6 +73,11 @@ TelnetServer* telnet_server_create(uint16_t port, NetworkConfig *network_config)
   server->auth_attempts = 0;
   server->auth_lockout_time = 0;
   memset(server->auth_username, 0, sizeof(server->auth_username));
+
+  // Register debug callbacks (cast TelnetServer functions to void*)
+  debug_register_telnet_callbacks(
+      (int (*)(void*, const char*))telnet_server_write,
+      (int (*)(void*, const char*))telnet_server_writeline);
 
   ESP_LOGI(TAG, "Telnet server created for port %d", port);
   return server;
@@ -550,8 +556,14 @@ int telnet_server_loop(TelnetServer *server)
 
     // FEATURE: Execute CLI commands if authenticated and input is ready
     if (server->input_ready && server->auth_state == TELNET_AUTH_AUTHENTICATED) {
+      // Set Telnet as the output destination for this command
+      debug_set_telnet_output(server);
+
       // Execute the command through CLI shell
       cli_shell_execute_command(server->input_buffer);
+
+      // Restore output to Serial
+      debug_clear_telnet_output();
 
       // Show the CLI prompt after command execution
       telnet_server_write(server, "> ");

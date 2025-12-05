@@ -52,4 +52,38 @@ void debug_newline(void);
  */
 void debug_printf(const char* fmt, ...);
 
+/* ============================================================================
+ * OUTPUT CONTEXT - Allow redirecting debug output to different destinations
+ * ============================================================================ */
+
+/**
+ * @brief Set Telnet server as the output destination for debug functions
+ * @param server Telnet server instance (void* to avoid circular includes, NULL to disable)
+ *
+ * When a Telnet server is set, all debug_print* calls will send output to the
+ * Telnet client instead of Serial. This allows CLI commands executed via Telnet
+ * to have their output displayed to the Telnet user.
+ */
+void debug_set_telnet_output(void *server);
+
+/**
+ * @brief Get current Telnet output context
+ * @return Pointer to Telnet server (void*) or NULL if not set
+ */
+void* debug_get_telnet_output(void);
+
+/**
+ * @brief Clear Telnet output context (go back to Serial only)
+ */
+void debug_clear_telnet_output(void);
+
+/**
+ * @brief Register Telnet output callbacks (for internal use by telnet_server.cpp)
+ * @param write_fn Callback for writing text without newline
+ * @param writeline_fn Callback for writing text with newline
+ */
+void debug_register_telnet_callbacks(
+    int (*write_fn)(void *server, const char *text),
+    int (*writeline_fn)(void *server, const char *line));
+
 #endif // debug_H
