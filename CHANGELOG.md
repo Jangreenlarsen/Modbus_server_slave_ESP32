@@ -4,7 +4,7 @@ All notable changes to this project are documented in this file.
 
 ---
 
-## [3.1.0] - 2025-12-05 🌐 (WiFi Display & Validation Improvements)
+## [3.1.0] - 2025-12-05 🌐 (WiFi Display, Validation, & Telnet Auth Improvements)
 
 ### BUGFIXES & IMPROVEMENTS
 
@@ -20,11 +20,22 @@ All notable changes to this project are documented in this file.
      - Password length validation (0 or 8-63 chars)
      - Clear hints for each validation failure
   6. Enhanced `network_config_validate()` to explicitly check for empty SSID when WiFi enabled
+  7. Added WiFi debug flags (`wifi_connect`, `network_validate`) with comprehensive logging
+
+#### Telnet Server Duplicate Prompt Fix ✅ IMPROVED
+- **Issue:** Telnet authentication showed duplicate login banner and prompts, output was garbled
+- **Root Cause:** Double prompt sending - both `telnet_handle_auth_input()` AND `telnet_server_loop()` sent next prompt
+- **Solution:**
+  - Remove duplicate `telnet_send_auth_prompt()` call after auth input (line 530-531)
+  - Create `telnet_send_retry_prompt()` for simplified retry prompts (no banner)
+  - Keep full banner only for initial connection
+- **Result:** Clean authentication with single prompt per step
 
 ### NEW FEATURES
 - `set wifi telnet enable|disable` - Toggle Telnet server without file edit
 - Enhanced `show config` network section - centralized configuration display
 - Detailed `connect wifi` error messages with helpful hints
+- WiFi debug flags for troubleshooting connection issues
 
 ---
 
