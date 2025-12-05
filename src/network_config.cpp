@@ -12,6 +12,7 @@
 
 #include "network_config.h"
 #include "constants.h"
+#include "debug_flags.h"
 
 static const char *TAG = "NET_CFG";
 
@@ -56,24 +57,39 @@ void network_config_init_defaults(NetworkConfig *config)
 uint8_t network_config_validate(const NetworkConfig *config)
 {
   if (!config) {
+    ESP_LOGE(TAG, "Config is NULL");
     return 0;
+  }
+
+  DebugFlags *debug = debug_flags_get();
+
+  if (debug && debug->network_validate) {
+    ESP_LOGI(TAG, "Validating network config:");
+    ESP_LOGI(TAG, "  enabled=%d", config->enabled);
+    if (config->enabled) {
+      ESP_LOGI(TAG, "  ssid='%s' (len=%d)", config->ssid, strlen(config->ssid));
+      ESP_LOGI(TAG, "  password=(len=%d)", strlen(config->password));
+      ESP_LOGI(TAG, "  dhcp_enabled=%d", config->dhcp_enabled);
+      ESP_LOGI(TAG, "  telnet_enabled=%d, port=%d", config->telnet_enabled, config->telnet_port);
+    }
   }
 
   // If enabled, require SSID
   if (config->enabled) {
     if (!network_config_is_valid_ssid(config->ssid)) {
-      ESP_LOGE(TAG, "Invalid SSID");
+      ESP_LOGE(TAG, "Invalid SSID (failed is_valid_ssid check)");
       return 0;
     }
 
     // SSID cannot be empty if enabled
     if (strlen(config->ssid) == 0) {
-      ESP_LOGE(TAG, "SSID cannot be empty when WiFi is enabled");
+      ESP_LOGE(TAG, "SSID cannot be empty when WiFi is enabled (len=0)");
       return 0;
     }
 
     if (!network_config_is_valid_password(config->password)) {
-      ESP_LOGE(TAG, "Invalid password");
+      int pwd_len = strlen(config->password);
+      ESP_LOGE(TAG, "Invalid password (len=%d, must be 0 or 8-63)", pwd_len);
       return 0;
     }
   }

@@ -18,6 +18,7 @@
 #include "telnet_server.h"
 #include "network_config.h"
 #include "constants.h"
+#include "debug_flags.h"
 
 static const char *TAG = "NET_MGR";
 
@@ -77,10 +78,21 @@ int network_manager_connect(const NetworkConfig *config)
     return -1;
   }
 
+  DebugFlags *debug = debug_flags_get();
+  if (debug && debug->wifi_connect) {
+    ESP_LOGI(TAG, "network_manager_connect() called");
+    ESP_LOGI(TAG, "  SSID: %s", config->ssid);
+    ESP_LOGI(TAG, "  DHCP: %d, Telnet: %d", config->dhcp_enabled, config->telnet_enabled);
+  }
+
   // Validate config
   if (!network_config_validate(config)) {
-    ESP_LOGE(TAG, "Invalid network config");
+    ESP_LOGE(TAG, "Invalid network config - validation failed");
     return -1;
+  }
+
+  if (debug && debug->wifi_connect) {
+    ESP_LOGI(TAG, "Config validation PASSED");
   }
 
   // Save config
@@ -106,8 +118,12 @@ int network_manager_connect(const NetworkConfig *config)
   }
 
   // Connect to Wi-Fi
+  if (debug && debug->wifi_connect) {
+    ESP_LOGI(TAG, "Calling wifi_driver_connect('%s', ...)", config->ssid);
+  }
+
   if (wifi_driver_connect(config->ssid, config->password) != 0) {
-    ESP_LOGE(TAG, "Failed to start Wi-Fi connection");
+    ESP_LOGE(TAG, "Failed to start Wi-Fi connection (wifi_driver_connect returned non-zero)");
     return -1;
   }
 

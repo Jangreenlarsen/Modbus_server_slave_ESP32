@@ -325,6 +325,8 @@ typedef struct {
 typedef struct {
   uint8_t config_save;        // Show debug when saving config to NVS
   uint8_t config_load;        // Show debug when loading config from NVS
+  uint8_t wifi_connect;       // Show debug when connecting WiFi (network_manager, wifi_driver)
+  uint8_t network_validate;   // Show debug for network config validation
 } DebugFlags;
 
 /* ============================================================================

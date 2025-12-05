@@ -24,6 +24,16 @@ void debug_flags_set_config_save(uint8_t enabled);
 void debug_flags_set_config_load(uint8_t enabled);
 
 /**
+ * @brief Enable/disable WiFi connection debug (network_manager, wifi_driver)
+ */
+void debug_flags_set_wifi_connect(uint8_t enabled);
+
+/**
+ * @brief Enable/disable network config validation debug
+ */
+void debug_flags_set_network_validate(uint8_t enabled);
+
+/**
  * @brief Enable/disable all debug flags
  */
 void debug_flags_set_all(uint8_t enabled);
