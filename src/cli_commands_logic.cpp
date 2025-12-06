@@ -575,12 +575,10 @@ int cli_cmd_show_logic_code(st_logic_engine_state_t *logic_state, uint8_t progra
   debug_printf("--- SOURCE CODE ---\n");
   const char *source = prog->source_code;
 
-  for (int i = 0; i < prog->source_size; i++) {
-    // Print each character
-    putchar(source[i]);
-  }
+  // Print source code - use debug_printf with %.*s to respect Telnet routing
+  debug_printf("%.*s\n", prog->source_size, source);
 
-  debug_printf("\n--- END SOURCE CODE ---\n\n");
+  debug_printf("--- END SOURCE CODE ---\n\n");
   return 0;
 }
 
@@ -608,10 +606,8 @@ int cli_cmd_show_logic_code_all(st_logic_engine_state_t *logic_state) {
     } else {
       debug_printf("\nSource:\n");
       const char *source = prog->source_code;
-      for (int j = 0; j < prog->source_size; j++) {
-        putchar(source[j]);
-      }
-      debug_printf("\n");
+      // Print source code - use debug_printf with %.*s to respect Telnet routing
+      debug_printf("%.*s\n", prog->source_size, source);
     }
 
     debug_printf("\n");
