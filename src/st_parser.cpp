@@ -8,6 +8,7 @@
 
 #include "st_parser.h"
 #include "st_lexer.h"
+#include "debug.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -899,45 +900,45 @@ void st_ast_node_print(st_ast_node_t *node, int indent) {
 
   switch (node->type) {
     case ST_AST_ASSIGNMENT:
-      printf("%sASSIGN: %s :=\n", padding, node->data.assignment.var_name);
+      debug_printf("%sASSIGN: %s :=\n", padding, node->data.assignment.var_name);
       st_ast_node_print(node->data.assignment.expr, indent + 2);
       break;
 
     case ST_AST_LITERAL:
-      printf("%sLITERAL: ", padding);
+      debug_printf("%sLITERAL: ", padding);
       switch (node->data.literal.type) {
-        case ST_TYPE_BOOL: printf("BOOL(%d)\n", node->data.literal.value.bool_val); break;
-        case ST_TYPE_INT: printf("INT(%d)\n", node->data.literal.value.int_val); break;
-        case ST_TYPE_DWORD: printf("DWORD(%u)\n", node->data.literal.value.dword_val); break;
-        case ST_TYPE_REAL: printf("REAL(%f)\n", node->data.literal.value.real_val); break;
-        default: printf("?\n");
+        case ST_TYPE_BOOL: debug_printf("BOOL(%d)\n", node->data.literal.value.bool_val); break;
+        case ST_TYPE_INT: debug_printf("INT(%d)\n", node->data.literal.value.int_val); break;
+        case ST_TYPE_DWORD: debug_printf("DWORD(%u)\n", node->data.literal.value.dword_val); break;
+        case ST_TYPE_REAL: debug_printf("REAL(%f)\n", node->data.literal.value.real_val); break;
+        default: debug_printf("?\n");
       }
       break;
 
     case ST_AST_VARIABLE:
-      printf("%sVAR: %s\n", padding, node->data.variable.var_name);
+      debug_printf("%sVAR: %s\n", padding, node->data.variable.var_name);
       break;
 
     case ST_AST_BINARY_OP:
-      printf("%sBINOP: %s\n", padding, st_token_type_to_string(node->data.binary_op.op));
+      debug_printf("%sBINOP: %s\n", padding, st_token_type_to_string(node->data.binary_op.op));
       st_ast_node_print(node->data.binary_op.left, indent + 2);
       st_ast_node_print(node->data.binary_op.right, indent + 2);
       break;
 
     case ST_AST_IF:
-      printf("%sIF\n", padding);
-      printf("%s  CONDITION:\n", padding);
+      debug_printf("%sIF\n", padding);
+      debug_printf("%s  CONDITION:\n", padding);
       st_ast_node_print(node->data.if_stmt.condition_expr, indent + 4);
-      printf("%s  THEN:\n", padding);
+      debug_printf("%s  THEN:\n", padding);
       st_ast_node_print(node->data.if_stmt.then_body, indent + 4);
       if (node->data.if_stmt.else_body) {
-        printf("%s  ELSE:\n", padding);
+        debug_printf("%s  ELSE:\n", padding);
         st_ast_node_print(node->data.if_stmt.else_body, indent + 4);
       }
       break;
 
     default:
-      printf("%s[%s]\n", padding, "node");
+      debug_printf("%s[%s]\n", padding, "node");
   }
 
   if (node->next) {

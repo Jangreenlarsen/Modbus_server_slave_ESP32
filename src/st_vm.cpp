@@ -7,6 +7,7 @@
 
 #include "st_vm.h"
 #include "st_builtins.h"
+#include "debug.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -506,32 +507,32 @@ bool st_vm_run(st_vm_t *vm, uint32_t max_steps) {
 
 void st_vm_print_state(st_vm_t *vm) {
   if (!vm || !vm->program) {
-    printf("VM not initialized\n");
+    debug_printf("VM not initialized\n");
     return;
   }
 
-  printf("\n=== VM State ===\n");
-  printf("Program: %s\n", vm->program->name);
-  printf("PC: %d / %d\n", vm->pc, vm->program->instr_count);
-  printf("Stack pointer: %d / 64\n", vm->sp);
-  printf("Halted: %s\n", vm->halted ? "Yes" : "No");
-  printf("Error: %s\n", vm->error ? vm->error_msg : "None");
-  printf("Steps: %u\n", vm->step_count);
-  printf("Max stack: %u\n\n", vm->max_stack_depth);
+  debug_printf("\n=== VM State ===\n");
+  debug_printf("Program: %s\n", vm->program->name);
+  debug_printf("PC: %d / %d\n", vm->pc, vm->program->instr_count);
+  debug_printf("Stack pointer: %d / 64\n", vm->sp);
+  debug_printf("Halted: %s\n", vm->halted ? "Yes" : "No");
+  debug_printf("Error: %s\n", vm->error ? vm->error_msg : "None");
+  debug_printf("Steps: %u\n", vm->step_count);
+  debug_printf("Max stack: %u\n\n", vm->max_stack_depth);
 }
 
 void st_vm_print_stack(st_vm_t *vm) {
-  printf("\n=== Stack (depth %d) ===\n", vm->sp);
+  debug_printf("\n=== Stack (depth %d) ===\n", vm->sp);
   for (int i = vm->sp - 1; i >= 0; i--) {
-    printf("  [%d] INT: %d\n", i, vm->stack[i].int_val);
+    debug_printf("  [%d] INT: %d\n", i, vm->stack[i].int_val);
   }
-  printf("\n");
+  debug_printf("\n");
 }
 
 void st_vm_print_variables(st_vm_t *vm) {
-  printf("\n=== Variables (%d) ===\n", vm->var_count);
+  debug_printf("\n=== Variables (%d) ===\n", vm->var_count);
   for (int i = 0; i < vm->var_count; i++) {
-    printf("  [%d] INT: %d\n", i, vm->variables[i].int_val);
+    debug_printf("  [%d] INT: %d\n", i, vm->variables[i].int_val);
   }
-  printf("\n");
+  debug_printf("\n");
 }

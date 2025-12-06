@@ -11,6 +11,7 @@
 #include "st_vm.h"
 #include "config_struct.h"
 #include "constants.h"
+#include "debug.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -100,49 +101,49 @@ bool st_logic_engine_loop(st_logic_engine_state_t *state,
  * ============================================================================ */
 
 void st_logic_print_status(st_logic_engine_state_t *state) {
-  printf("\n=== Logic Engine Status ===\n");
-  printf("Enabled: %s\n", state->enabled ? "YES" : "NO");
-  printf("Execution Interval: %ums\n", state->execution_interval_ms);
-  printf("\nPrograms:\n");
+  debug_printf("\n=== Logic Engine Status ===\n");
+  debug_printf("Enabled: %s\n", state->enabled ? "YES" : "NO");
+  debug_printf("Execution Interval: %ums\n", state->execution_interval_ms);
+  debug_printf("\nPrograms:\n");
 
   for (int i = 0; i < 4; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
-    printf("  %s:\n", prog->name);
-    printf("    Enabled: %s\n", prog->enabled ? "YES" : "NO");
-    printf("    Compiled: %s\n", prog->compiled ? "YES" : "NO");
-    printf("    Source: %d bytes\n", prog->source_size);
-    printf("    Executions: %u (errors: %u)\n", prog->execution_count, prog->error_count);
+    debug_printf("  %s:\n", prog->name);
+    debug_printf("    Enabled: %s\n", prog->enabled ? "YES" : "NO");
+    debug_printf("    Compiled: %s\n", prog->compiled ? "YES" : "NO");
+    debug_printf("    Source: %d bytes\n", prog->source_size);
+    debug_printf("    Executions: %u (errors: %u)\n", prog->execution_count, prog->error_count);
     if (prog->error_count > 0) {
-      printf("    Last error: %s\n", prog->last_error);
+      debug_printf("    Last error: %s\n", prog->last_error);
     }
   }
 
-  printf("\n");
+  debug_printf("\n");
 }
 
 void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) {
   st_logic_program_config_t *prog = st_logic_get_program(state, program_id);
   if (!prog) {
-    printf("Invalid program ID: %d\n", program_id);
+    debug_printf("Invalid program ID: %d\n", program_id);
     return;
   }
 
-  printf("\n=== Logic Program: %s ===\n", prog->name);
-  printf("Enabled: %s\n", prog->enabled ? "YES" : "NO");
-  printf("Compiled: %s\n", prog->compiled ? "YES" : "NO");
-  printf("Source Code: %d bytes\n", prog->source_size);
+  debug_printf("\n=== Logic Program: %s ===\n", prog->name);
+  debug_printf("Enabled: %s\n", prog->enabled ? "YES" : "NO");
+  debug_printf("Compiled: %s\n", prog->compiled ? "YES" : "NO");
+  debug_printf("Source Code: %d bytes\n", prog->source_size);
 
   if (prog->source_size > 0) {
-    printf("\nSource:\n");
+    debug_printf("\nSource:\n");
     // Print first 500 chars of source
     int chars = (prog->source_size > 500) ? 500 : prog->source_size;
-    printf("%.*s\n", chars, prog->source_code);
+    debug_printf("%.*s\n", chars, prog->source_code);
     if (prog->source_size > 500) {
-      printf("... (%d more bytes)\n", prog->source_size - 500);
+      debug_printf("... (%d more bytes)\n", prog->source_size - 500);
     }
   }
 
-  printf("\nVariable Bindings:\n");
+  debug_printf("\nVariable Bindings:\n");
 
   // Find and display all ST bindings for this program from g_persist_config
   extern PersistConfig g_persist_config;
@@ -160,33 +161,33 @@ void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) 
       const char *var_name = prog->bytecode.var_names[map->st_var_index];
 
       if (map->is_input) {
-        printf("  [%d] %s ← HR#%d (input)\n",
+        debug_printf("  [%d] %s ← HR#%d (input)\n",
                map->st_var_index, var_name, map->input_reg);
       } else {
-        printf("  [%d] %s → Coil#%d (output)\n",
+        debug_printf("  [%d] %s → Coil#%d (output)\n",
                map->st_var_index, var_name, map->coil_reg);
       }
     }
   }
 
   if (binding_count == 0) {
-    printf("  (No bindings configured)\n");
-    printf("  Syntax: set logic %d bind <var_name> reg:100|coil:10|input-dis:5\n", program_id + 1);
+    debug_printf("  (No bindings configured)\n");
+    debug_printf("  Syntax: set logic %d bind <var_name> reg:100|coil:10|input-dis:5\n", program_id + 1);
   } else {
-    printf("  Total: %d binding%s\n", binding_count, binding_count != 1 ? "s" : "");
+    debug_printf("  Total: %d binding%s\n", binding_count, binding_count != 1 ? "s" : "");
   }
 
-  printf("\nStatistics:\n");
-  printf("  Executions: %u\n", prog->execution_count);
-  printf("  Errors: %u\n", prog->error_count);
+  debug_printf("\nStatistics:\n");
+  debug_printf("  Executions: %u\n", prog->execution_count);
+  debug_printf("  Errors: %u\n", prog->error_count);
 
   if (prog->compiled) {
-    printf("\nCompiled Bytecode: %d instructions\n", prog->bytecode.instr_count);
+    debug_printf("\nCompiled Bytecode: %d instructions\n", prog->bytecode.instr_count);
   }
 
   if (prog->error_count > 0) {
-    printf("\nLast Error: %s\n", prog->last_error);
+    debug_printf("\nLast Error: %s\n", prog->last_error);
   }
 
-  printf("\n");
+  debug_printf("\n");
 }
