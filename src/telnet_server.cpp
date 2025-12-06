@@ -527,11 +527,24 @@ int telnet_server_writeline(TelnetServer *server, const char *line)
     return -1;
   }
 
-  int len = tcp_server_send(server->tcp_server, 0, (uint8_t*)line, strlen(line));
-  if (len > 0) {
-    tcp_server_send(server->tcp_server, 0, (uint8_t*)"\r\n", 2);
-    len += 2;
+  int len = 0;
+  size_t line_len = strlen(line);
+
+  // Send line content if non-empty
+  if (line_len > 0) {
+    int sent = tcp_server_send(server->tcp_server, 0, (uint8_t*)line, line_len);
+    if (sent < 0) {
+      return -1;
+    }
+    len += sent;
   }
+
+  // Always send line terminator (even for empty lines - important for newlines!)
+  int sent = tcp_server_send(server->tcp_server, 0, (uint8_t*)"\r\n", 2);
+  if (sent < 0) {
+    return -1;
+  }
+  len += sent;
 
   return len;
 }
