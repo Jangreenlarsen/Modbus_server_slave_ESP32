@@ -133,6 +133,11 @@ void cli_cmd_defaults(void);
 void cli_cmd_reboot(void);
 
 /**
+ * @brief Handle "exit" command (close Telnet connection)
+ */
+void cli_cmd_exit(void);
+
+/**
  * @brief Handle "set echo" command (enable/disable remote echo)
  * @param argc Argument count
  * @param argv Argument array (argv[0] = "on" or "off")

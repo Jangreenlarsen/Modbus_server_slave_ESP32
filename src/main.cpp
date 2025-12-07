@@ -11,6 +11,8 @@
 #include "constants.h"
 #include "types.h"
 #include "version.h"
+#include "console.h"
+#include "console_serial.h"
 #include "cli_shell.h"
 #include "cli_remote.h"
 #include "counter_engine.h"
@@ -27,6 +29,12 @@
 #include "st_logic_config.h"
 #include "st_logic_engine.h"
 #include "network_manager.h"
+
+// ============================================================================
+// GLOBAL CONSOLE
+// ============================================================================
+
+Console *g_serial_console = NULL;  // Used by cli_commands.cpp to detect Serial vs Telnet
 
 // ============================================================================
 // SETUP
@@ -104,7 +112,15 @@ void setup() {
     Serial.println("CLI remote initialized (serial + Telnet support)");
   }
 
-  cli_shell_init();         // CLI system (last, shows prompt)
+  // Create Serial console
+  g_serial_console = console_serial_create();
+  if (g_serial_console) {
+    Serial.println("Serial console created");
+  } else {
+    Serial.println("ERROR: Failed to create serial console");
+  }
+
+  cli_shell_init(g_serial_console);  // CLI system (last, shows prompt)
 }
 
 // ============================================================================
@@ -120,7 +136,9 @@ void loop() {
   modbus_server_loop();
 
   // CLI interface (responsive while Modbus runs)
-  cli_shell_loop();
+  if (g_serial_console) {
+    cli_shell_loop(g_serial_console);
+  }
 
   // Background feature engines
   counter_engine_loop();

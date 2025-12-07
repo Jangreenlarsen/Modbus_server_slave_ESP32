@@ -1,15 +1,17 @@
 /**
  * @file cli_shell.h
- * @brief CLI shell - serial input/output and command loop (LAYER 7)
+ * @brief CLI shell - console input/output and command loop (LAYER 7)
  *
  * LAYER 7: User Interface - CLI Shell
- * Responsibility: Serial I/O, prompt display, command execution loop
+ * Responsibility: Console I/O, prompt display, command execution loop
  *
  * This file handles:
- * - Serial input buffering and line reading
+ * - Console input buffering and line reading
  * - Prompt display
  * - Command loop integration
  * - User feedback
+ *
+ * REFACTORED: Now uses Console abstraction instead of hardcoded Serial
  */
 
 #ifndef cli_shell_H
@@ -17,16 +19,19 @@
 
 #include <stdint.h>
 #include "types.h"
+#include "console.h"
 
 /**
  * @brief Initialize CLI shell (called once from setup)
+ * @param console Console instance to use (Serial, Telnet, etc.)
  */
-void cli_shell_init(void);
+void cli_shell_init(Console *console);
 
 /**
  * @brief Main CLI loop (called from main loop, non-blocking)
+ * @param console Console instance to process
  */
-void cli_shell_loop(void);
+void cli_shell_loop(Console *console);
 
 /**
  * @brief Enable/disable remote echo (for serial terminals)
@@ -58,13 +63,28 @@ void cli_shell_reset_upload_mode(void);
 uint8_t cli_shell_is_in_upload_mode(void);
 
 /**
- * @brief Execute a CLI command from external source (e.g., Telnet, Remote)
+ * @brief Execute a CLI command on a specific console
+ * @param console Console to execute on
  * @param cmd Command string to execute
  *
- * This function allows external interfaces like Telnet to execute CLI commands
- * without going through the Serial input parsing. Output is directed to the
- * normal output stream (Serial or debug).
+ * This function allows external interfaces to execute CLI commands.
+ * Output is directed to the specified console.
  */
-void cli_shell_execute_command(const char *cmd);
+void cli_shell_execute_command(Console *console, const char *cmd);
+
+/**
+ * @brief Set the active console for debug output
+ * @param console Console to use for debug_print/debug_println
+ *
+ * This allows debug output to be redirected to different consoles.
+ * Set to NULL to disable debug output to console.
+ */
+void cli_shell_set_debug_console(Console *console);
+
+/**
+ * @brief Get the active console for debug output
+ * @return Current debug console, or NULL if not set
+ */
+Console* cli_shell_get_debug_console(void);
 
 #endif // cli_shell_H

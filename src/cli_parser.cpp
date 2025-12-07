@@ -118,6 +118,7 @@ static const char* normalize_alias(const char* s) {
   if (!strcmp(s, "LOAD") || !strcmp(s, "load") || !strcmp(s, "LD")) return "LOAD";
   if (!strcmp(s, "DEFAULTS") || !strcmp(s, "defaults") || !strcmp(s, "DEF")) return "DEFAULTS";
   if (!strcmp(s, "REBOOT") || !strcmp(s, "reboot")) return "REBOOT";
+  if (!strcmp(s, "EXIT") || !strcmp(s, "exit") || !strcmp(s, "QUIT") || !strcmp(s, "quit")) return "EXIT";
   if (!strcmp(s, "CONNECT") || !strcmp(s, "connect") || !strcmp(s, "CONN")) return "CONNECT";
   if (!strcmp(s, "DISCONNECT") || !strcmp(s, "disconnect") || !strcmp(s, "DISC")) return "DISCONNECT";
   if (!strcmp(s, "HELP") || !strcmp(s, "help") || !strcmp(s, "?")) return "HELP";
@@ -604,6 +605,10 @@ bool cli_parser_execute(char* line) {
 
   } else if (!strcmp(cmd, "REBOOT")) {
     cli_cmd_reboot();
+    return true;
+
+  } else if (!strcmp(cmd, "EXIT")) {
+    cli_cmd_exit();
     return true;
 
   } else if (!strcmp(cmd, "CONNECT")) {

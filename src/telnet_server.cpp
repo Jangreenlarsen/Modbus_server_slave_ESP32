@@ -15,9 +15,10 @@
 #include "telnet_server.h"
 #include "constants.h"
 #include "types.h"  // For NetworkConfig
+#include "console.h"
+#include "console_telnet.h"
 #include "cli_shell.h"  // For cli_shell_execute_command()
 #include "cli_history.h"  // For command history (up/down arrow support)
-#include "debug.h"  // For debug_register_telnet_callbacks()
 
 static const char *TAG = "TELNET_SRV";
 
@@ -75,11 +76,6 @@ TelnetServer* telnet_server_create(uint16_t port, NetworkConfig *network_config)
   server->auth_attempts = 0;
   server->auth_lockout_time = 0;
   memset(server->auth_username, 0, sizeof(server->auth_username));
-
-  // Register debug callbacks (cast TelnetServer functions to void*)
-  debug_register_telnet_callbacks(
-      (int (*)(void*, const char*))telnet_server_write,
-      (int (*)(void*, const char*))telnet_server_writeline);
 
   ESP_LOGI(TAG, "Telnet server created for port %d", port);
   return server;
@@ -223,21 +219,22 @@ static void telnet_handle_iac_command(TelnetServer *server, uint8_t cmd, uint8_t
 
 static void telnet_send_auth_prompt(TelnetServer *server) {
   if (server->auth_state == TELNET_AUTH_WAITING) {
+    // USERNAME: Enable server echo
+    server->echo_enabled = 1;
+
     // Full banner only for initial prompt
     telnet_server_writeline(server, "");
     telnet_server_writeline(server, "=== Telnet Server (v3.0) ===");
     telnet_server_writeline(server, "LOGIN REQUIRED");
     telnet_server_writeline(server, "");
 
-    // Enable echo for username (IAC WILL ECHO = 0xFF 0xFB 0x01)
-    uint8_t enable_echo[] = {0xFF, 0xFB, 0x01};
-    tcp_server_send(server->tcp_server, 0, enable_echo, 3);
-
     telnet_server_write(server, "Username: ");
+
+    // CRITICAL: Force flush to ensure prompt reaches client
+    delay(10);  // Small delay to ensure TCP packet is sent
   } else if (server->auth_state == TELNET_AUTH_USERNAME) {
-    // Disable echo for password (IAC WONT ECHO = 0xFF 0xFC 0x01)
-    uint8_t disable_echo[] = {0xFF, 0xFC, 0x01};
-    tcp_server_send(server->tcp_server, 0, disable_echo, 3);
+    // PASSWORD: DISABLE server echo (security - password must not be visible!)
+    server->echo_enabled = 0;
 
     telnet_server_write(server, "Password: ");
   }
@@ -246,10 +243,15 @@ static void telnet_send_auth_prompt(TelnetServer *server) {
 // Simpler version that just sends the prompt without full banner
 static void telnet_send_retry_prompt(TelnetServer *server) {
   if (server->auth_state == TELNET_AUTH_WAITING) {
-    // Simplified retry prompt
+    // Enable SERVER echo for username retry
+    server->echo_enabled = 1;  // SERVER WILL ECHO
     telnet_server_write(server, "Username: ");
+    delay(10);  // Ensure prompt reaches client
   } else if (server->auth_state == TELNET_AUTH_USERNAME) {
+    // Disable SERVER echo for password retry
+    server->echo_enabled = 0;  // SERVER WONT ECHO (password invisible)
     telnet_server_write(server, "Password: ");
+    delay(10);  // Ensure prompt reaches client
   }
 }
 
@@ -292,13 +294,15 @@ static void telnet_handle_auth_input(TelnetServer *server, const char *input) {
       server->auth_state = TELNET_AUTH_AUTHENTICATED;
       server->auth_attempts = 0;
 
-      // Re-enable echo for normal CLI interaction (IAC WILL ECHO = 0xFF 0xFB 0x01)
-      uint8_t enable_echo[] = {0xFF, 0xFB, 0x01};
-      tcp_server_send(server->tcp_server, 0, enable_echo, 3);
+      // Re-enable SERVER echo for normal CLI interaction
+      server->echo_enabled = 1;  // SERVER WILL ECHO
 
       telnet_server_writeline(server, "");
       telnet_server_writeline(server, "Authentication successful. Welcome!");
       telnet_server_writeline(server, "");
+
+      // Send initial CLI prompt
+      telnet_server_write(server, "> ");
     } else {
       // Authentication failed
       server->auth_attempts++;
@@ -315,10 +319,7 @@ static void telnet_handle_auth_input(TelnetServer *server, const char *input) {
         server->auth_state = TELNET_AUTH_WAITING;
         memset(server->auth_username, 0, sizeof(server->auth_username));
 
-        // Re-enable echo for username retry (IAC WILL ECHO = 0xFF 0xFB 0x01)
-        uint8_t enable_echo[] = {0xFF, 0xFB, 0x01};
-        tcp_server_send(server->tcp_server, 0, enable_echo, 3);
-
+        // telnet_send_retry_prompt() will set server->echo_enabled = 1
         telnet_send_retry_prompt(server);
       }
     }
@@ -369,8 +370,8 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
 
             // Redraw line: clear current, show new
             if (server->echo_enabled) {
-              // Send clear line + redraw
-              telnet_server_write(server, "\r> ");
+              // ANSI: clear entire line, return to start, show prompt + command
+              telnet_server_write(server, "\x1B[2K\r> ");
               telnet_server_write(server, server->input_buffer);
             }
           }
@@ -390,7 +391,8 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
 
             // Redraw line
             if (server->echo_enabled) {
-              telnet_server_write(server, "\r> ");
+              // ANSI: clear entire line, return to start, show prompt + command (if any)
+              telnet_server_write(server, "\x1B[2K\r> ");
               if (server->input_pos > 0) {
                 telnet_server_write(server, server->input_buffer);
               }
@@ -574,7 +576,43 @@ int telnet_server_write(TelnetServer *server, const char *text)
     return -1;
   }
 
-  return tcp_server_send(server->tcp_server, 0, (uint8_t*)text, strlen(text));
+  // Telnet protocol requires CRLF (\r\n) for newlines
+  // We need to convert any standalone \n to \r\n
+  const char *src = text;
+  int total_sent = 0;
+
+  while (*src) {
+    const char *next_newline = strchr(src, '\n');
+
+    if (next_newline) {
+      // Send text up to (but not including) the \n
+      size_t chunk_len = next_newline - src;
+      if (chunk_len > 0) {
+        int sent = tcp_server_send(server->tcp_server, 0, (uint8_t*)src, chunk_len);
+        if (sent < 0) return -1;
+        total_sent += sent;
+      }
+
+      // Send \r\n instead of just \n
+      int sent = tcp_server_send(server->tcp_server, 0, (uint8_t*)"\r\n", 2);
+      if (sent < 0) return -1;
+      total_sent += sent;
+
+      // Move past the \n
+      src = next_newline + 1;
+    } else {
+      // No more newlines - send remaining text
+      size_t remaining = strlen(src);
+      if (remaining > 0) {
+        int sent = tcp_server_send(server->tcp_server, 0, (uint8_t*)src, remaining);
+        if (sent < 0) return -1;
+        total_sent += sent;
+      }
+      break;
+    }
+  }
+
+  return total_sent;
 }
 
 int telnet_server_writef(TelnetServer *server, const char *format, ...)
@@ -635,32 +673,66 @@ int telnet_server_loop(TelnetServer *server)
 
   int events = 0;
 
-  // Process TCP server events
-  events += tcp_server_loop(server->tcp_server);
+  // SECURITY: Check if TCP connection died unexpectedly
+  // If TCP client is disconnected but Telnet still thinks it's connected,
+  // reset all Telnet state so next connection requires authentication
+  static uint8_t was_connected = 0;
+  uint8_t is_connected = telnet_server_client_connected(server);
 
-  // Accept new connections and initialize auth on new client
-  if (tcp_server_accept(server->tcp_server) > 0) {
+  if (was_connected && !is_connected) {
+    // Connection just died - reset authentication state
+    if (server->auth_required) {
+      server->auth_state = TELNET_AUTH_WAITING;
+      server->auth_attempts = 0;
+      server->auth_lockout_time = 0;
+      memset(server->auth_username, 0, sizeof(server->auth_username));
+    }
+    server->escape_seq_state = 0;
+    server->input_pos = 0;
+    server->input_ready = 0;
+    memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
+  }
+
+  // Process TCP server events (this calls tcp_server_accept() internally)
+  // Detect NEW connection by checking before/after connection state
+  uint8_t was_connected_before_loop = is_connected;
+  events += tcp_server_loop(server->tcp_server);
+  is_connected = telnet_server_client_connected(server);
+  was_connected = is_connected;
+
+  // NEW CONNECTION DETECTED: was disconnected, now connected
+  if (!was_connected_before_loop && is_connected) {
     // New client detected - reset all state
     server->escape_seq_state = 0;  // Reset escape sequence parser
     server->input_pos = 0;         // Clear input buffer
     memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
 
-    // Send Telnet option negotiation
-    // Tell client: server will handle ECHO (0xFF 0xFB 0x01 = IAC WILL ECHO)
-    tcp_server_send(server->tcp_server, 0, (uint8_t*)"\xFF\xFB\x01", 3);
-    // Tell client: server wants SUPPRESS-GO-AHEAD (0xFF 0xFD 0x03 = IAC DO SUPPRESS-GA)
-    tcp_server_send(server->tcp_server, 0, (uint8_t*)"\xFF\xFD\x03", 3);
+    // SIMPLIFIED: No IAC negotiation - just echo from server side
+    // Many Telnet clients ignore IAC anyway
+    // Users can disable local echo in their client settings if they see double echo
+
+    // Small delay to allow client to be ready (fixes missing initial prompt)
+    delay(100);
 
     if (server->auth_required) {
       server->auth_state = TELNET_AUTH_WAITING;
       server->auth_attempts = 0;
       server->auth_lockout_time = 0;
       memset(server->auth_username, 0, sizeof(server->auth_username));
+
+      // telnet_send_auth_prompt() will set server->echo_enabled = 1
       telnet_send_auth_prompt(server);
       events++;
     } else {
       // Auth disabled - go straight to authenticated
       server->auth_state = TELNET_AUTH_AUTHENTICATED;
+      server->echo_enabled = 1;  // Enable SERVER echo for no-auth mode
+
+      // Send welcome message and initial CLI prompt
+      telnet_server_writeline(server, "");
+      telnet_server_writeline(server, "=== Telnet Server (v3.0) ===");
+      telnet_server_writeline(server, "");
+      telnet_server_write(server, "> ");
     }
   }
 
@@ -681,14 +753,40 @@ int telnet_server_loop(TelnetServer *server)
 
     // FEATURE: Execute CLI commands if authenticated and input is ready
     if (server->input_ready && server->auth_state == TELNET_AUTH_AUTHENTICATED) {
-      // Set Telnet as the output destination for this command
-      debug_set_telnet_output(server);
+      // Create a temporary Telnet console for this command
+      Console *telnet_console = console_telnet_create(server);
+      if (telnet_console) {
+        // Execute the command on the Telnet console
+        cli_shell_execute_command(telnet_console, server->input_buffer);
 
-      // Execute the command through CLI shell
-      cli_shell_execute_command(server->input_buffer);
+        // Check if "exit" command was issued
+        if (telnet_console->close_requested) {
+          // Close connection gracefully
+          console_telnet_destroy(telnet_console);
 
-      // Restore output to Serial
-      debug_clear_telnet_output();
+          // SECURITY: Reset authentication state before disconnect
+          if (server->auth_required) {
+            server->auth_state = TELNET_AUTH_WAITING;
+            server->auth_attempts = 0;
+            server->auth_lockout_time = 0;
+            memset(server->auth_username, 0, sizeof(server->auth_username));
+          }
+
+          tcp_server_disconnect_client(server->tcp_server, 0);
+          events++;
+
+          // Clear the input buffer
+          server->input_pos = 0;
+          server->input_ready = 0;
+          memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
+
+          // Skip prompt sending - connection is closing
+          return events;
+        }
+
+        // Destroy the temporary console
+        console_telnet_destroy(telnet_console);
+      }
 
       // Show the CLI prompt after command execution
       telnet_server_write(server, "> ");

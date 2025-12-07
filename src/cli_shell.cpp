@@ -1,25 +1,42 @@
 /**
  * @file cli_shell.cpp
- * @brief CLI shell implementation - serial I/O and command loop (LAYER 7)
+ * @brief CLI shell implementation - console I/O and command loop (LAYER 7)
+ *
+ * REFACTORED: Now uses Console abstraction instead of hardcoded Serial
  *
  * Handles:
- * - Non-blocking serial input reading
+ * - Non-blocking console input reading
  * - Command line buffering
  * - Prompt display
  * - Command execution via cli_parser
  * - Command history navigation (up/down arrows)
  * - Remote echo control
+ *
+ * All I/O is now done through Console* (can be Serial, Telnet, etc.)
  */
 
 #include "cli_shell.h"
 #include "cli_parser.h"
 #include "cli_history.h"
-#include "debug.h"
 #include <Arduino.h>
 #include <string.h>
 
 /* Forward declarations */
 extern void cli_parser_execute_st_upload(uint8_t program_id, const char* source_code);
+
+/* ============================================================================
+ * GLOBAL DEBUG CONSOLE
+ * ============================================================================ */
+
+static Console *g_debug_console = NULL;
+
+void cli_shell_set_debug_console(Console *console) {
+  g_debug_console = console;
+}
+
+Console* cli_shell_get_debug_console(void) {
+  return g_debug_console;
+}
 
 /* ============================================================================
  * UTILITY FUNCTIONS
@@ -79,15 +96,47 @@ static char cli_upload_buffer[CLI_UPLOAD_BUFFER_SIZE];
 static uint16_t cli_upload_buffer_pos = 0;
 
 /* ============================================================================
+ * CONSOLE OUTPUT HELPERS
+ * ============================================================================ */
+
+static void cli_console_print(Console *console, const char *str) {
+  if (console && console->write_str) {
+    console->write_str(console->context, str);
+  }
+}
+
+static void cli_console_println(Console *console, const char *str) {
+  if (console && console->write_line) {
+    console->write_line(console->context, str);
+  }
+}
+
+static void cli_console_putchar(Console *console, char ch) {
+  if (console && console->write_char) {
+    console->write_char(console->context, ch);
+  }
+}
+
+static void cli_console_flush(Console *console) {
+  if (console && console->flush) {
+    console->flush(console->context);
+  }
+}
+
+/* ============================================================================
  * INITIALIZATION
  * ============================================================================ */
 
-void cli_shell_init(void) {
+void cli_shell_init(Console *console) {
   if (cli_initialized) return;
 
   cli_history_init();
-  debug_println("\nModbus CLI Ready. Type 'help' for commands.\n");
-  debug_print("> ");
+
+  // Set as debug console
+  g_debug_console = console;
+
+  cli_console_println(console, "\nModbus CLI Ready. Type 'help' for commands.\n");
+  cli_console_print(console, "> ");
 
   cli_input_pos = 0;
   cli_cursor_pos = 0;
@@ -111,8 +160,10 @@ void cli_shell_start_st_upload(uint8_t program_id) {
   cli_cursor_pos = 0;
   memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
 
-  debug_println("Entering ST Logic upload mode. Type code and end with 'END_UPLOAD':");
-  debug_print(">>> ");
+  if (g_debug_console) {
+    cli_console_println(g_debug_console, "Entering ST Logic upload mode. Type code and end with 'END_UPLOAD':");
+    cli_console_print(g_debug_console, ">>> ");
+  }
 }
 
 void cli_shell_reset_upload_mode(void) {
@@ -121,7 +172,9 @@ void cli_shell_reset_upload_mode(void) {
   cli_upload_buffer_pos = 0;
   memset(cli_upload_buffer, 0, CLI_UPLOAD_BUFFER_SIZE);
 
-  debug_print("> ");
+  if (g_debug_console) {
+    cli_console_print(g_debug_console, "> ");
+  }
 }
 
 uint8_t cli_shell_is_in_upload_mode(void) {
@@ -144,27 +197,27 @@ uint8_t cli_shell_get_remote_echo(void) {
  * HELPER FUNCTIONS
  * ============================================================================ */
 
-static void cli_redraw_line(void) {
+static void cli_redraw_line(Console *console) {
   // Choose prompt based on mode
   const char* prompt = (cli_mode == CLI_MODE_ST_UPLOAD) ? ">>> " : "> ";
 
   // Move to start of line after prompt
-  Serial.write('\r');  // Carriage return
-  Serial.print(prompt);
+  cli_console_putchar(console, '\r');  // Carriage return
+  cli_console_print(console, prompt);
 
   // Clear rest of line with spaces
   for (uint16_t i = 0; i < CLI_INPUT_BUFFER_SIZE - 10; i++) {
-    Serial.write(' ');
+    cli_console_putchar(console, ' ');
   }
 
   // Go back to start of input area
-  Serial.write('\r');
-  Serial.print(prompt);
+  cli_console_putchar(console, '\r');
+  cli_console_print(console, prompt);
 
   // Display buffer content
   if (cli_input_pos > 0) {
     for (uint16_t i = 0; i < cli_input_pos; i++) {
-      Serial.write(cli_input_buffer[i]);
+      cli_console_putchar(console, cli_input_buffer[i]);
     }
   }
 
@@ -173,14 +226,14 @@ static void cli_redraw_line(void) {
     // Move cursor back to position
     uint16_t move_back = cli_input_pos - cli_cursor_pos;
     for (uint16_t i = 0; i < move_back; i++) {
-      Serial.write('\b');  // Backspace
+      cli_console_putchar(console, '\b');  // Backspace
     }
   }
 
-  Serial.flush();  // Force output to terminal immediately
+  cli_console_flush(console);
 }
 
-static void cli_insert_char_at_cursor(char c) {
+static void cli_insert_char_at_cursor(Console *console, char c) {
   if (cli_input_pos >= CLI_INPUT_BUFFER_SIZE - 1) {
     return;  // Buffer full
   }
@@ -205,8 +258,8 @@ static void cli_insert_char_at_cursor(char c) {
     cli_input_buffer[cli_cursor_pos] = c;
     cli_input_pos++;
     cli_cursor_pos++;
-    Serial.write(c);
-    Serial.flush();
+    cli_console_putchar(console, c);
+    cli_console_flush(console);
   } else {
     // Complex case: cursor in middle, need to redraw
     // Shift characters forward
@@ -219,15 +272,15 @@ static void cli_insert_char_at_cursor(char c) {
 
     // Redraw from current position to end
     for (uint16_t i = cli_cursor_pos - 1; i < cli_input_pos; i++) {
-      Serial.write(cli_input_buffer[i]);
+      cli_console_putchar(console, cli_input_buffer[i]);
     }
 
     // Move cursor back to right position
     uint16_t move_back = cli_input_pos - cli_cursor_pos;
     for (uint16_t i = 0; i < move_back; i++) {
-      Serial.write('\b');
+      cli_console_putchar(console, '\b');
     }
-    Serial.flush();
+    cli_console_flush(console);
   }
 }
 
@@ -235,11 +288,12 @@ static void cli_insert_char_at_cursor(char c) {
  * MAIN LOOP
  * ============================================================================ */
 
-void cli_shell_loop(void) {
-  // Non-blocking serial input reading
-  while (Serial.available() > 0) {
-    int c = Serial.read();
+void cli_shell_loop(Console *console) {
+  if (!console) return;
 
+  // Non-blocking console input reading
+  char c;
+  while (console_getchar(console, &c) > 0) {
     // ========================================================================
     // ESCAPE SEQUENCE PARSING FOR ARROW KEYS
     // ========================================================================
@@ -262,19 +316,19 @@ void cli_shell_loop(void) {
         // Up arrow - get previous command
         const char* prev_cmd = cli_history_get_prev();
         if (prev_cmd != NULL && prev_cmd[0] != '\0') {
-          cli_redraw_line();  // Clear current line
+          cli_redraw_line(console);  // Clear current line
           memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
           strncpy(cli_input_buffer, prev_cmd, CLI_INPUT_BUFFER_SIZE - 1);
           cli_input_pos = strlen(cli_input_buffer);
           cli_cursor_pos = cli_input_pos;  // Cursor at end
-          cli_redraw_line();
+          cli_redraw_line(console);
         }
         continue;
       } else if (c == 'B') {
         // Down arrow - get next command
         const char* next_cmd = cli_history_get_next();
         if (next_cmd != NULL) {
-          cli_redraw_line();  // Clear current line
+          cli_redraw_line(console);  // Clear current line
           memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
           if (next_cmd[0] != '\0') {
             strncpy(cli_input_buffer, next_cmd, CLI_INPUT_BUFFER_SIZE - 1);
@@ -283,7 +337,7 @@ void cli_shell_loop(void) {
             cli_input_pos = 0;
           }
           cli_cursor_pos = cli_input_pos;  // Cursor at end
-          cli_redraw_line();
+          cli_redraw_line(console);
         }
         continue;
       } else if (c == 'C') {
@@ -291,22 +345,22 @@ void cli_shell_loop(void) {
         if (cli_cursor_pos < cli_input_pos) {
           cli_cursor_pos++;
         }
-        // Always send the control sequence back
-        Serial.write(0x1B);
-        Serial.write('[');
-        Serial.write('C');
-        Serial.flush();
+        // Send control sequence back
+        cli_console_putchar(console, 0x1B);
+        cli_console_putchar(console, '[');
+        cli_console_putchar(console, 'C');
+        cli_console_flush(console);
         continue;
       } else if (c == 'D') {
         // Left arrow - move cursor backward
         if (cli_cursor_pos > 0) {
           cli_cursor_pos--;
         }
-        // Always send the control sequence back
-        Serial.write(0x1B);
-        Serial.write('[');
-        Serial.write('D');
-        Serial.flush();
+        // Send control sequence back
+        cli_console_putchar(console, 0x1B);
+        cli_console_putchar(console, '[');
+        cli_console_putchar(console, 'D');
+        cli_console_flush(console);
         continue;
       }
       // For any other character, fall through to normal processing
@@ -327,9 +381,9 @@ void cli_shell_loop(void) {
       cli_input_buffer[cli_input_pos] = '\0';
 
       if (cli_remote_echo_enabled) {
-        debug_println("");  // Echo newline
+        cli_console_println(console, "");  // Echo newline
       } else {
-        Serial.write('\n');  // Just newline, no echo
+        cli_console_putchar(console, '\n');  // Just newline, no echo
       }
 
       // ====================================================================
@@ -346,7 +400,7 @@ void cli_shell_loop(void) {
 
         if (strcasecmp(trimmed_check, "END_UPLOAD") == 0) {
           // End of upload - compile and return to normal mode
-          debug_println("Compiling ST Logic program...");
+          cli_console_println(console, "Compiling ST Logic program...");
 
           // Null-terminate the upload buffer (CRITICAL!)
           if (cli_upload_buffer_pos < CLI_UPLOAD_BUFFER_SIZE) {
@@ -371,14 +425,14 @@ void cli_shell_loop(void) {
             cli_upload_buffer[cli_upload_buffer_pos] = '\n';
             cli_upload_buffer_pos++;
 
-            debug_print(">>> ");  // Show upload prompt for next line
+            cli_console_print(console, ">>> ");  // Show upload prompt for next line
           } else {
-            debug_println("ERROR: Upload buffer full!");
+            cli_console_println(console, "ERROR: Upload buffer full!");
             cli_shell_reset_upload_mode();
           }
         } else {
           // Empty line in upload mode - just show prompt again
-          debug_print(">>> ");
+          cli_console_print(console, ">>> ");
         }
 
         // Reset input buffer for next line
@@ -406,7 +460,7 @@ void cli_shell_loop(void) {
         cli_input_pos = 0;
         cli_cursor_pos = 0;
         memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
-        debug_print("> ");
+        cli_console_print(console, "> ");
       }
     }
     else if (c == 0x08 || c == 0x7F) {
@@ -423,30 +477,30 @@ void cli_shell_loop(void) {
 
         if (cli_remote_echo_enabled) {
           // Send backspace to terminal
-          Serial.write('\b');
-          Serial.write(' ');
-          Serial.write('\b');
+          cli_console_putchar(console, '\b');
+          cli_console_putchar(console, ' ');
+          cli_console_putchar(console, '\b');
 
           // If there are characters after cursor, redraw them
           if (cli_cursor_pos < cli_input_pos) {
             for (uint16_t i = cli_cursor_pos; i < cli_input_pos; i++) {
-              Serial.write(cli_input_buffer[i]);
+              cli_console_putchar(console, cli_input_buffer[i]);
             }
-            Serial.write(' ');  // Clear the last position
+            cli_console_putchar(console, ' ');  // Clear the last position
 
             // Move cursor back to original position
             uint16_t move_back = cli_input_pos - cli_cursor_pos + 1;
             for (uint16_t i = 0; i < move_back; i++) {
-              Serial.write('\b');
+              cli_console_putchar(console, '\b');
             }
           }
-          Serial.flush();
+          cli_console_flush(console);
         }
       }
     }
     else if (c >= 32 && c < 127) {
       // Printable character - insert at cursor position
-      cli_insert_char_at_cursor(c);
+      cli_insert_char_at_cursor(console, c);
     }
     // Ignore all other characters (control codes, etc.)
   }
@@ -456,7 +510,7 @@ void cli_shell_loop(void) {
  * EXTERNAL COMMAND EXECUTION (Telnet, Remote, etc.)
  * ============================================================================ */
 
-void cli_shell_execute_command(const char *cmd) {
+void cli_shell_execute_command(Console *console, const char *cmd) {
   if (!cmd || cmd[0] == '\0') {
     return;
   }
@@ -472,9 +526,15 @@ void cli_shell_execute_command(const char *cmd) {
 
   // Execute only if not empty
   if (cmd_len > 0) {
+    // Temporarily set debug console to this console
+    Console *prev_debug_console = g_debug_console;
+    g_debug_console = console;
+
     cli_history_add(cmd_buffer);
     cli_history_reset_nav();
     cli_parser_execute(cmd_buffer);
+
+    // Restore previous debug console
+    g_debug_console = prev_debug_console;
   }
 }
-

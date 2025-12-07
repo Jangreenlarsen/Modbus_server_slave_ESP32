@@ -79,6 +79,175 @@ This is a complete port/redesign of the Mega2560 project with:
 
 ---
 
+## Version Control & Release Strategy
+
+### Semantic Versioning (SemVer)
+
+Dette projekt følger **Semantic Versioning 2.0.0**: `MAJOR.MINOR.PATCH`
+
+**Format:** `vX.Y.Z` (eksempel: v3.1.2)
+
+- **MAJOR (X):** Breaking changes - inkompatible ændringer i API, config format, Modbus register layout
+- **MINOR (Y):** Nye features - bagudkompatible tilføjelser (nye funktioner, CLI commands)
+- **PATCH (Z):** Bug fixes - bagudkompatible fejlrettelser
+
+**Nuværende version:** v3.0.0 (Telnet/Wi-Fi support tilføjet)
+
+### Build Number
+
+Hver `pio run` genererer automatisk et **build number** i `build_number.txt`.
+
+- Build number bruges til development tracking
+- Øges ved HVER compilation (ikke kun releases)
+- Findes i Serial output: `Build #475`
+- Bruges IKKE i versionsnumre (kun internt)
+
+### Versionering Workflow
+
+#### 1. Feature Development (MINOR bump)
+
+Når en ny feature er færdig og testet:
+
+```bash
+# Opdater version i følgende filer:
+# - include/constants.h: #define PROJECT_VERSION "3.1.0"
+# - CHANGELOG.md: Tilføj ny sektion med features
+
+# Commit med version tag
+git add .
+git commit -m "VERSION: v3.1.0 - Feature: ST Logic Modbus Integration"
+git tag -a v3.1.0 -m "Release v3.1.0: ST Logic Modbus registers (200-251)"
+git push origin main --tags
+```
+
+#### 2. Bug Fix (PATCH bump)
+
+Når en kritisk fejl er rettet:
+
+```bash
+# Opdater version i include/constants.h: "3.0.1"
+# CHANGELOG.md: Tilføj bug fix beskrivelse
+
+git commit -m "FIX: Telnet username prompt missing on connect"
+git tag -a v3.0.1 -m "Bugfix v3.0.1: Telnet authentication prompt fix"
+git push origin main --tags
+```
+
+#### 3. Breaking Changes (MAJOR bump)
+
+Når API/config format ændres (inkompatibelt med tidligere versioner):
+
+```bash
+# Opdater version i include/constants.h: "4.0.0"
+# CHANGELOG.md: Dokumenter BREAKING CHANGES tydeligt
+
+git commit -m "BREAKING: New NVS config format - requires config reset"
+git tag -a v4.0.0 -m "Release v4.0.0: BREAKING - New config schema"
+git push origin main --tags
+```
+
+### Filer der Skal Opdateres Ved Version Bump
+
+1. **`include/constants.h`** (linje 254):
+   ```c
+   #define PROJECT_VERSION "3.0.0"  // ← Opdater her
+   ```
+
+2. **`CHANGELOG.md`** (top of file):
+   ```markdown
+   ## [3.1.0] - 2025-12-07
+   ### Added
+   - Telnet server med CLI support
+   - Wi-Fi client mode
+   - Remote authentication
+   ```
+
+3. **Git tag:**
+   ```bash
+   git tag -a v3.1.0 -m "Release v3.1.0: Network features"
+   ```
+
+### Changelog Format
+
+CHANGELOG.md følger [Keep a Changelog](https://keepachangelog.com/) format:
+
+```markdown
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## [Unreleased]
+### Added
+- Features under development
+
+## [3.0.0] - 2025-12-07
+### Added
+- Telnet server CLI (port 23)
+- Wi-Fi client mode (DHCP/static IP)
+- Remote authentication (username/password)
+- Arrow key command history i Telnet
+- "exit" command til graceful disconnect
+
+### Fixed
+- Telnet username prompt now appears on connect
+- Auth state reset on disconnect (security fix)
+
+### Changed
+- Console abstraction layer (Serial/Telnet unified)
+
+## [2.2.0] - 2025-12-05
+### Added
+- ST Logic Modbus integration (registers 200-251)
+...
+```
+
+### Version vs Build Number
+
+**Version (vX.Y.Z):**
+- Bruges i releases, git tags, documentation
+- Ændres kun når features/fixes FÆRDIGGØRES
+- Manuel opdatering (developer beslutning)
+- Synlig for brugere
+
+**Build Number (#NNN):**
+- Automatisk genereret ved hver compilation
+- Bruges til debugging, issue tracking
+- Øges ved HVER `pio run` (development cycles)
+- Ikke synlig i releases (kun development logs)
+
+**Eksempel:**
+```
+Version: v3.0.0
+Build: #475
+Git: main@4189036
+```
+
+### Release Checklist
+
+Før en ny version releases:
+
+- [ ] Alle tests bestået (unit + integration)
+- [ ] CHANGELOG.md opdateret med alle ændringer
+- [ ] `include/constants.h` PROJECT_VERSION opdateret
+- [ ] Git commit med "VERSION: vX.Y.Z - beskrivelse"
+- [ ] Git tag oprettet: `git tag -a vX.Y.Z`
+- [ ] Tag pushed til remote: `git push --tags`
+- [ ] Dokumentation opdateret (hvis API ændret)
+- [ ] Flash/RAM usage tjekket (må ikke overstige grænser)
+
+### Hotfix Strategi
+
+Ved kritiske bugs i produktion:
+
+1. Opret `hotfix/vX.Y.Z` branch fra seneste tag
+2. Fix bug i hotfix branch
+3. Bump PATCH version (eks. 3.0.0 → 3.0.1)
+4. Test grundigt
+5. Merge til `main` og tag `vX.Y.Z`
+6. Deploy hurtigst muligt
+
+---
+
 ## Project Architecture (Layer-based, modular)
 
 ### Layer 0: Hardware Abstraction Drivers

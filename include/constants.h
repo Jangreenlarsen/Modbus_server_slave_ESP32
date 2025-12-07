@@ -223,7 +223,7 @@ typedef enum {
 #define TELNET_PORT                     23          // Telnet standard port
 #define TELNET_MAX_CLIENTS              1           // Single client for simplicity
 #define TELNET_BUFFER_SIZE              256         // Per-client input buffer
-#define TELNET_READ_TIMEOUT_MS          30000       // Client timeout (30 sec idle)
+#define TELNET_READ_TIMEOUT_MS          0           // Disabled - no idle timeout (use "exit" to disconnect)
 #define TELNET_NEWLINE_CHAR             '\n'        // Telnet uses LF for line ending
 
 /* Telnet IAC (Interpret As Command) protocol bytes */

@@ -865,6 +865,30 @@ void cli_cmd_reboot(void) {
   esp_restart();
 }
 
+void cli_cmd_exit(void) {
+  // Get current console
+  Console *console = cli_shell_get_debug_console();
+
+  if (!console) {
+    debug_println("ERROR: No active console");
+    return;
+  }
+
+  // Check if this is a network console (Telnet)
+  // Serial console should not close (it's the debug port)
+  // We detect Telnet by checking if context is not NULL and if it's not the global serial console
+  extern Console *g_serial_console;  // Defined in main.cpp
+
+  if (console == g_serial_console) {
+    debug_println("ERROR: Cannot exit serial console (use Ctrl+C in terminal)");
+    return;
+  }
+
+  // Request connection close (Telnet will handle it)
+  console->close_requested = 1;
+  debug_println("Goodbye!");
+}
+
 void cli_cmd_set_echo(uint8_t argc, char* argv[]) {
   // set echo <on|off>
   if (argc < 1) {

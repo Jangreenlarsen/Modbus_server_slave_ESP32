@@ -1,19 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pio device monitor:*)",
-      "Bash(python3:*)",
-      "Bash(python setup_blink_program.py:*)",
-      "Bash(powershell -Command \"(Get-Content setup_blink_program.py) -replace ''✓'', ''[OK]'' -replace ''✗'', ''[FAIL]'' | Set-Content setup_blink_program.py\")",
-      "Bash(powershell -Command \"(Get-Content setup_blink_program.py) -replace ''→'', ''->'' | Set-Content setup_blink_program.py\":*)",
-      "Bash(python setup_blink_simple.py:*)",
-      "Bash(pio run:*)",
-      "Bash(python:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(powershell -Command \"Get-CimInstance Win32_SerialPort | Select-Object Name, DeviceID\")",
-      "Bash(pio device list:*)",
-      "Bash(pio clean:*)"
+      "Bash(done)"
     ],
     "deny": [],
     "ask": []

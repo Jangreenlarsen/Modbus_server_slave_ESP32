@@ -383,14 +383,38 @@ int tcp_server_loop(TcpServer *server)
   // Accept new connections
   events += tcp_server_accept(server);
 
-  // Check for client timeouts
+  // Check for dead connections (socket closed by client)
   for (int i = 0; i < 1; i++) {
-    if (server->clients[i].connected) {
-      uint32_t idle_ms = millis() - server->clients[i].last_activity_ms;
-      if (idle_ms > TELNET_READ_TIMEOUT_MS) {
-        ESP_LOGW(TAG, "Client %d timeout (idle %lu ms)", i, idle_ms);
+    if (server->clients[i].connected && server->clients[i].socket >= 0) {
+      // Try to peek at socket to detect if connection is dead
+      uint8_t peek_byte;
+      int peek_result = recv(server->clients[i].socket, &peek_byte, 1, MSG_PEEK | MSG_DONTWAIT);
+
+      // If recv returns 0, the connection is closed
+      if (peek_result == 0) {
+        ESP_LOGI(TAG, "Client %d disconnected (socket closed)", i);
         tcp_server_disconnect_client(server, i);
         events++;
+      }
+      // If recv returns -1 and errno is not EAGAIN/EWOULDBLOCK, there's an error
+      else if (peek_result < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
+        ESP_LOGW(TAG, "Client %d socket error (errno: %d)", i, errno);
+        tcp_server_disconnect_client(server, i);
+        events++;
+      }
+    }
+  }
+
+  // Check for client timeouts (only if timeout is enabled)
+  if (TELNET_READ_TIMEOUT_MS > 0) {
+    for (int i = 0; i < 1; i++) {
+      if (server->clients[i].connected) {
+        uint32_t idle_ms = millis() - server->clients[i].last_activity_ms;
+        if (idle_ms > TELNET_READ_TIMEOUT_MS) {
+          ESP_LOGW(TAG, "Client %d timeout (idle %lu ms)", i, idle_ms);
+          tcp_server_disconnect_client(server, i);
+          events++;
+        }
       }
     }
   }
