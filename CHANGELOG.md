@@ -4,6 +4,23 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [4.0.2] - 2025-12-11 🔐 (Telnet Auth Fix)
+
+### FIXED
+- **Telnet Authentication:** Fixed password validation failure due to whitespace
+  - Added `trim_string()` helper function to strip leading/trailing whitespace
+  - Username and password inputs now trimmed before validation
+  - Fixes issue where telnet clients sending trailing spaces/tabs/CR/LF would fail authentication
+  - Added debug logging (ESP_LOGI) showing username and password lengths for troubleshooting
+  - Prevents authentication failures due to invisible characters from different telnet clients
+
+**Root cause:** Telnet clients (especially Windows telnet) may send trailing whitespace/control characters after password input, causing `strcmp()` to fail even with correct credentials.
+
+**Files changed:** 1 file, +29 lines
+- `src/telnet_server.cpp` - Added trim_string() + debug logging
+
+---
+
 ## [4.0.1] - 2025-12-11 🐛 (Bugfix Patch)
 
 ### FIXED

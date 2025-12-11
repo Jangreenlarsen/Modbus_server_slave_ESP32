@@ -257,8 +257,38 @@ static void telnet_send_retry_prompt(TelnetServer *server) {
   }
 }
 
+/**
+ * @brief Trim leading and trailing whitespace from string (in-place)
+ */
+static void trim_string(char *str) {
+  if (!str || !*str) return;
+
+  // Trim trailing whitespace
+  char *end = str + strlen(str) - 1;
+  while (end > str && (*end == ' ' || *end == '\t' || *end == '\r' || *end == '\n')) {
+    *end = '\0';
+    end--;
+  }
+
+  // Trim leading whitespace (shift string left)
+  char *start = str;
+  while (*start && (*start == ' ' || *start == '\t' || *start == '\r' || *start == '\n')) {
+    start++;
+  }
+
+  if (start != str) {
+    memmove(str, start, strlen(start) + 1);
+  }
+}
+
 static void telnet_handle_auth_input(TelnetServer *server, const char *input) {
   if (!input || !server) return;
+
+  // Trim whitespace from input (copy to avoid modifying const)
+  char trimmed_input[256];
+  strncpy(trimmed_input, input, sizeof(trimmed_input) - 1);
+  trimmed_input[sizeof(trimmed_input) - 1] = '\0';
+  trim_string(trimmed_input);
 
   // Check if in lockout period
   if (server->auth_lockout_time > 0) {
@@ -282,7 +312,7 @@ static void telnet_handle_auth_input(TelnetServer *server, const char *input) {
 
   if (server->auth_state == TELNET_AUTH_WAITING) {
     // Username entry
-    strncpy(server->auth_username, input, sizeof(server->auth_username) - 1);
+    strncpy(server->auth_username, trimmed_input, sizeof(server->auth_username) - 1);
     server->auth_username[sizeof(server->auth_username) - 1] = '\0';
     server->auth_state = TELNET_AUTH_USERNAME;
     telnet_send_auth_prompt(server);
@@ -292,8 +322,12 @@ static void telnet_handle_auth_input(TelnetServer *server, const char *input) {
     const char *expected_user = (server->network_config) ? server->network_config->telnet_username : "admin";
     const char *expected_pass = (server->network_config) ? server->network_config->telnet_password : "telnet123";
 
+    // DEBUG: Log password validation attempt (temporary - can be removed later)
+    ESP_LOGI(TAG, "Auth attempt: user='%s' (expected='%s'), pass_len=%d (expected_len=%d)",
+             server->auth_username, expected_user, strlen(trimmed_input), strlen(expected_pass));
+
     if (strcmp(server->auth_username, expected_user) == 0 &&
-        strcmp(input, expected_pass) == 0) {
+        strcmp(trimmed_input, expected_pass) == 0) {
       // Authentication successful!
       server->auth_state = TELNET_AUTH_AUTHENTICATED;
       server->auth_attempts = 0;
