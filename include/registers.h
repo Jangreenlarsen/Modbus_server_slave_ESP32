@@ -159,4 +159,13 @@ void registers_update_st_logic_status(void);
  */
 void registers_process_st_logic_control(uint16_t addr, uint16_t value);
 
+/**
+ * @brief Process ST Logic execution interval register writes (v4.1.0)
+ * Called when holding register HR 236-237 (execution interval) is written
+ * Validates interval (allowed: 10, 20, 25, 50, 75, 100 ms)
+ * @param addr Register address (236 or 237)
+ * @param value Written value
+ */
+void registers_process_st_logic_interval(uint16_t addr, uint16_t value);
+
 #endif // REGISTERS_H

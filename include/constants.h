@@ -51,9 +51,23 @@
 #define ST_LOGIC_VAR_COUNT_REG_BASE     216  // Logic1-4 Variable Count (216-219)
 #define ST_LOGIC_VAR_VALUES_REG_BASE    220  // Logic1-4 Variable Values (220-251)
 
+// PERFORMANCE STATISTICS (v4.1.0) - Input Registers 252-291
+#define ST_LOGIC_MIN_EXEC_TIME_REG_BASE 252  // Logic1-4 Min Execution Time µs, 32-bit (252-259, 2 regs each)
+#define ST_LOGIC_MAX_EXEC_TIME_REG_BASE 260  // Logic1-4 Max Execution Time µs, 32-bit (260-267, 2 regs each)
+#define ST_LOGIC_AVG_EXEC_TIME_REG_BASE 268  // Logic1-4 Avg Execution Time µs, 32-bit (268-275, 2 regs each)
+#define ST_LOGIC_OVERRUN_COUNT_REG_BASE 276  // Logic1-4 Overrun Count, 32-bit (276-283, 2 regs each)
+
+// GLOBAL CYCLE STATISTICS (v4.1.0) - Input Registers 284-293
+#define ST_LOGIC_CYCLE_MIN_REG          284  // Global cycle min time ms, 32-bit (284-285)
+#define ST_LOGIC_CYCLE_MAX_REG          286  // Global cycle max time ms, 32-bit (286-287)
+#define ST_LOGIC_CYCLE_OVERRUN_REG      288  // Global cycle overrun count, 32-bit (288-289)
+#define ST_LOGIC_TOTAL_CYCLES_REG       290  // Total cycles executed, 32-bit (290-291)
+#define ST_LOGIC_EXEC_INTERVAL_RO_REG   292  // Execution interval ms (read-only copy), 32-bit (292-293)
+
 // HOLDING REGISTERS (Read/Write control)
 #define ST_LOGIC_CONTROL_REG_BASE       200  // Logic1-4 Control (200-203)
 #define ST_LOGIC_VAR_INPUT_REG_BASE     204  // Logic1-4 Variable Input (204-235)
+#define ST_LOGIC_EXEC_INTERVAL_RW_REG   236  // Execution interval ms (read-write), 32-bit (236-237)
 
 // Status Register Bit Definitions
 #define ST_LOGIC_STATUS_ENABLED         0x0001  // Bit 0: Program enabled
@@ -251,7 +265,7 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "4.0.2"
+#define PROJECT_VERSION     "4.1.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:

@@ -34,10 +34,20 @@ typedef struct {
   uint8_t compiled;           // Is bytecode valid?
 
   // Execution statistics
-  uint32_t execution_count;   // Number of times executed
-  uint32_t error_count;       // Number of execution errors
+  // BUG-006 FIX: Changed to uint16_t to match register size (65535 max, saves 8 bytes RAM)
+  uint16_t execution_count;   // Number of times executed (wraps at 65535)
+  uint16_t error_count;       // Number of execution errors (wraps at 65535)
   uint32_t last_execution_ms; // Last execution time (milliseconds)
   char last_error[128];       // Last error message
+
+  // BUG-005 FIX: Cache variable binding count (performance optimization)
+  uint8_t binding_count;      // Number of variable bindings for this program
+
+  // Performance monitoring (v4.1.0)
+  uint32_t min_execution_ms;  // Minimum execution time (microseconds for precision)
+  uint32_t max_execution_ms;  // Maximum execution time (microseconds)
+  uint32_t total_execution_us;// Total execution time for average calculation (microseconds)
+  uint32_t overrun_count;     // Number of times execution > target interval
 
 } st_logic_program_config_t;
 
@@ -54,6 +64,12 @@ typedef struct {
   uint8_t debug;              // Debug output enabled (bytecode, execution trace, etc.)
   uint32_t execution_interval_ms; // How often to run programs (10ms default)
   uint32_t last_run_time;     // Timestamp of last execution
+
+  // Global cycle statistics (v4.1.0)
+  uint32_t cycle_min_ms;      // Minimum total cycle time (all programs)
+  uint32_t cycle_max_ms;      // Maximum total cycle time
+  uint32_t cycle_overrun_count; // Number of cycles where time > interval
+  uint32_t total_cycles;      // Total number of cycles executed
 
 } st_logic_engine_state_t;
 
@@ -131,6 +147,30 @@ st_logic_program_config_t *st_logic_get_program(st_logic_engine_state_t *state, 
  * @return Pointer to the global ST logic engine state
  */
 st_logic_engine_state_t *st_logic_get_state(void);
+
+/**
+ * @brief Update binding_count cache for all programs (BUG-005 fix)
+ *
+ * Counts variable bindings from g_persist_config.var_maps and updates
+ * each program's cached binding_count field for performance.
+ * Call this after bind/unbind operations.
+ *
+ * @param state Logic engine state
+ */
+void st_logic_update_binding_counts(st_logic_engine_state_t *state);
+
+/**
+ * @brief Reset performance statistics for a program (v4.1.0)
+ * @param state Logic engine state
+ * @param program_id Program ID (0-3), or 0xFF for all programs
+ */
+void st_logic_reset_stats(st_logic_engine_state_t *state, uint8_t program_id);
+
+/**
+ * @brief Reset global cycle statistics (v4.1.0)
+ * @param state Logic engine state
+ */
+void st_logic_reset_cycle_stats(st_logic_engine_state_t *state);
 
 /**
  * @brief Save ST Logic programs to PersistConfig (before config_save_to_nvs)

@@ -35,6 +35,13 @@ int cli_cmd_set_logic_enabled(st_logic_engine_state_t *logic_state, uint8_t prog
 int cli_cmd_set_logic_debug(st_logic_engine_state_t *logic_state, bool debug);
 
 /**
+ * @brief set logic interval:X (v4.1.0)
+ * Set global execution interval for all ST Logic programs
+ * Allowed values: 10, 20, 25, 50, 75, 100 ms
+ */
+int cli_cmd_set_logic_interval(st_logic_engine_state_t *logic_state, uint32_t interval_ms);
+
+/**
  * @brief set logic <id> delete
  * Delete a logic program
  */

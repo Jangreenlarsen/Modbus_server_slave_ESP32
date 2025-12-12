@@ -4,6 +4,141 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [4.1.0] - 2025-12-12 🎯 (ST Logic Bugfixes, Fixed Rate Scheduler & Performance Monitoring)
+
+### ADDED
+- **ST Logic Fixed Rate Scheduler:** Implemented deterministic 10ms execution cycle
+  - Added timing check in `st_logic_engine_loop()` to throttle execution
+  - Programs now execute exactly every `execution_interval_ms` (default 10ms)
+  - Prevents variable timing caused by main loop jitter (was 5-240ms, now ±1ms)
+  - Optional debug output shows cycle time and warns if overrun (>10ms)
+  - Enable debug: `set logic debug:true` to see `[ST_TIMING]` messages
+  - Critical for PID control, timing-sensitive protocols, and deterministic behavior
+
+- **ST Logic Performance Monitoring System:** Comprehensive execution statistics tracking
+  - **Per-program metrics:** Min/Max/Avg execution time (microsecond precision)
+  - **Overrun tracking:** Counts executions where time > target interval
+  - **Global cycle stats:** Min/Max cycle time, total cycles executed
+  - **CLI commands:**
+    - `show logic stats` - Display all program performance statistics
+    - `show logic X timing` - Detailed analysis for specific program with recommendations
+    - `set logic stats reset [all|cycle|1-4]` - Reset statistics
+  - **Performance ratings:** EXCELLENT/GOOD/ACCEPTABLE/POOR with automatic tuning recommendations
+  - Stores statistics in `st_logic_program_config_t` and `st_logic_engine_state_t`
+
+- **Modbus Register Interface for Statistics (IR 252-293):**
+  - **IR 252-259:** Logic1-4 Min Execution Time (µs, 32-bit)
+  - **IR 260-267:** Logic1-4 Max Execution Time (µs, 32-bit)
+  - **IR 268-275:** Logic1-4 Avg Execution Time (calculated, µs, 32-bit)
+  - **IR 276-283:** Logic1-4 Overrun Count (32-bit)
+  - **IR 284-285:** Global Cycle Min Time (ms, 32-bit)
+  - **IR 286-287:** Global Cycle Max Time (ms, 32-bit)
+  - **IR 288-289:** Global Cycle Overrun Count (32-bit)
+  - **IR 290-291:** Total Cycles Executed (32-bit)
+  - **IR 292-293:** Execution Interval (read-only copy, ms, 32-bit)
+  - All statistics auto-sync to registers in `registers_update_st_logic_status()`
+
+- **Dynamic Execution Interval Control:**
+  - **CLI command:** `set logic interval:X` (X = 10, 20, 25, 50, 75, 100 ms)
+  - **Modbus control:** HR 236-237 (32-bit, write to change interval)
+  - Validation: Only specific values allowed, invalid values rejected
+  - Changes take effect immediately
+  - Must be saved with `save` command to persist across reboot
+  - Use cases: Reduce interval for faster response, increase for slow programs
+
+- **ST Logic Execution Time Monitoring:** Per-program execution time tracking
+  - Stores actual execution time in `last_execution_ms` field (now microseconds)
+  - Warnings logged if individual program takes >100ms
+  - Helps identify performance bottlenecks
+
+### FIXED
+- **BUG-001 (CRITICAL):** Input registers 220-251 now update with ST variable values
+  - Fixed missing code in `registers_update_st_logic_status()`
+  - Modbus masters can now read ST Logic variable values from input registers
+  - Impact: Output visibility restored (was broken, registers always 0)
+
+- **BUG-002 (CRITICAL):** Type checking in ST Logic variable bindings
+  - Added proper BOOL/INT/REAL type conversion in `gpio_mapping.cpp`
+  - BOOL variables now output 0/1 (not arbitrary INT values)
+  - REAL variables properly converted to/from float
+  - Impact: Correct data types prevent logic errors in ST programs
+
+- **BUG-003 (HIGH):** Bounds checking on ST variable index
+  - Added validation before array access in `registers.cpp`
+  - Prevents memory corruption if mapping references non-existent variable
+  - Impact: Crash prevention, safer operation
+
+- **BUG-004 (HIGH):** Control register reset bit now auto-clears
+  - Bit 2 (RESET_ERROR) in HR 200-203 now clears after handling
+  - Modbus master can detect when command was processed
+  - Impact: Better command acknowledgment, follows standard pattern
+
+- **BUG-005 (MEDIUM):** Variable binding count now cached for performance
+  - Added `binding_count` field to `st_logic_program_config_t`
+  - Eliminated O(n×m) nested loop (256 checks per main loop)
+  - Updated on bind/unbind and load from NVS
+  - Impact: Reduced CPU overhead, better scalability
+
+- **BUG-006 (LOW):** Execution/error counters changed to 16-bit
+  - Changed from `uint32_t` to `uint16_t` to match register size
+  - Saves 32 bytes RAM (8 bytes × 4 programs)
+  - Counters wrap at 65535 (acceptable for most use cases)
+  - Impact: No more data truncation, cleaner code
+
+- **BUG-007 (MEDIUM):** Timeout protection on ST program execution
+  - Added `millis()` timing wrapper around VM execution
+  - Warning logged if program takes >100ms
+  - Stores execution time in `last_execution_ms`
+  - Impact: Better visibility into performance, watchdog safety
+
+### CHANGED
+- **ST Logic Architecture:** Timing model now deterministic
+  - Programs execute every 10ms (configurable via `execution_interval_ms`)
+  - Previously: Variable timing (5-240ms) depending on system load
+  - Now: Fixed rate ±1ms jitter from main loop delay(1)
+  - See `TIMING_ANALYSIS.md` for detailed timing documentation
+
+### DOCUMENTATION
+- **Added:** `BUGS.md` - Comprehensive bug tracking system with test plans (7 bugs, all FIXED)
+- **Added:** `TIMING_ANALYSIS.md` - ST Logic timing analysis, scheduler details, recommendations
+- **Added:** `ST_MONITORING.md` - Complete performance monitoring & tuning guide with examples
+- **Added:** `MODBUS_REGISTER_MAP.md` - **Complete Modbus register reference** with ALL registers:
+  - Fixed mappings: ST Logic (IR/HR 200-293)
+  - Dynamic mappings: Counters, Timers, Persistent Registers
+  - Coils & Discrete Inputs
+  - Address collision avoidance guide
+  - Python pymodbus examples
+  - CLI command reference
+- **Updated:** `CLAUDE.md` - Added "ALTID TJEK BUGS.MD FØR ÆNDRINGER" + Key Files Reference updated
+
+**Files changed:** 15 files, ~800 lines added/modified
+- `include/st_logic_config.h` - Added performance monitoring fields (min/max/avg time, overrun count)
+- `include/constants.h` - Added IR 252-293 and HR 236-237 register defines
+- `include/registers.h` - Added registers_process_st_logic_interval() declaration
+- `include/cli_commands_logic.h` - Added cli_cmd_set_logic_interval() declaration
+- `src/st_logic_config.cpp` - Added st_logic_reset_stats() and st_logic_reset_cycle_stats()
+- `src/st_logic_engine.cpp` - Fixed rate scheduler + performance tracking (min/max/avg/overrun)
+- `src/registers.cpp` - Statistics sync to IR 252-293 + interval handler for HR 236-237
+- `src/gpio_mapping.cpp` - Type checking for BOOL/INT/REAL
+- `src/cli_commands_logic.cpp` - Added show logic stats/timing commands + set interval command
+- `src/cli_parser.cpp` - Parser for "set logic interval:X"
+- `BUGS.md` - Created with 7 bugs (all FIXED)
+- `TIMING_ANALYSIS.md` - Created (timing deep dive)
+- `ST_MONITORING.md` - Created (performance guide)
+- `MODBUS_REGISTER_MAP.md` - Created (complete register reference)
+- `CLAUDE.md` - Updated
+
+**Migration notes:**
+- ST Logic timing is now deterministic - existing programs will behave identically
+- If total execution time >10ms, scheduler automatically extends interval
+- Use `set logic debug:true` to monitor timing performance
+- **New CLI commands available:** `show logic stats`, `show logic X timing`, `set logic interval:X`
+- **Modbus access:** Read statistics from IR 252-293, control interval via HR 236-237
+- **Performance tuning:** Use `ST_MONITORING.md` guide for optimization workflows
+- **Register reference:** See `MODBUS_REGISTER_MAP.md` for complete register documentation
+
+---
+
 ## [4.0.2] - 2025-12-11 🔐 (Telnet Auth Fix)
 
 ### FIXED

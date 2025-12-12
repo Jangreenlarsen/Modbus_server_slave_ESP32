@@ -366,6 +366,49 @@ Four independent timers with four modes.
 
 **Principle:** Uses millis() for timing (works identically to Mega2560).
 
+#### ST Logic Engine (v3.0+)
+Four independent Structured Text logic programs with deterministic timing.
+
+**Files:**
+- `src/st_logic_config.cpp/h` - Program config, upload, compile, persistence
+- `src/st_logic_engine.cpp/h` - Execution loop, fixed rate scheduler, timing monitoring
+- `src/st_compiler.cpp/h` - ST source → bytecode compiler
+- `src/st_parser.cpp/h` - ST syntax parser
+- `src/st_lexer.cpp/h` - ST tokenizer
+- `src/st_vm.cpp/h` - Virtual machine (bytecode executor)
+- `src/cli_commands_logic.cpp` - CLI commands for ST Logic
+- `src/gpio_mapping.cpp/h` - Unified variable mapping (GPIO + ST variables)
+
+**Architecture:**
+- **Fixed Rate Scheduler (v4.1.0):** Programs execute every 10ms (configurable)
+- **Sequential Execution:** Logic1 → Logic2 → Logic3 → Logic4
+- **3-Phase I/O:** Read inputs → Execute programs → Write outputs
+- **Unified Mapping:** ST variables bind to Modbus registers/coils via VariableMapping system
+- **Type Safety:** BOOL/INT/REAL type checking on variable bindings
+- **Timing Monitoring:** Warnings if individual program >100ms or cycle >10ms
+- **Modbus Integration:** Status/control registers 200-251
+
+**Timing Characteristics (v4.1.0):**
+- Execution interval: 10ms default (deterministic ±1ms jitter)
+- Debug monitoring: `set logic debug:true` to see `[ST_TIMING]` output
+- Automatic interval extension if total execution time >10ms
+- Per-program execution time stored in `last_execution_ms`
+
+**Important:**
+- If total execution time > `execution_interval_ms`, scheduler automatically extends interval
+- Programs are executed sequentially, not in parallel
+- See `TIMING_ANALYSIS.md` for detailed timing documentation
+- Use `set logic debug:true` to monitor cycle time and detect overruns
+
+**Modbus Registers:**
+- IR 200-203: Status (enabled, compiled, error)
+- IR 204-207: Execution count (16-bit, wraps at 65535)
+- IR 208-211: Error count
+- IR 212-215: Error code (0=no error)
+- IR 216-219: Variable binding count (cached)
+- IR 220-251: Variable values (8 vars × 4 programs)
+- HR 200-203: Control (enable/disable, reset error)
+
 ### Layer 6: Persistence (Config Management)
 Modular configuration system.
 
@@ -441,6 +484,44 @@ gcc -o test_frame src/modbus_frame.c test/test_frame.c -Iinclude
 ---
 
 ## Code Modification Guidelines
+
+### ⚠️ ALTID TJEK BUGS.MD FØR ÆNDRINGER
+
+**KRITISK REGEL:** Før du opretter, modificerer eller refaktorerer NOGEN funktion i denne kodebase, skal du ALTID konsultere `BUGS.md` filen først!
+
+**Hvorfor:**
+- `BUGS.md` indeholder kendte bugs med præcise funktionsreferences, linjenumre og signaturer
+- Du kan utilsigtet introducere samme bug igen hvis du ikke kender den
+- Eksisterende bugs kan påvirke din implementeringsstrategi
+- Funktionssignaturer i BUGS.md viser den aktuelle version af funktioner
+
+**Workflow:**
+1. **FØR ændring:** Læs relevante sektioner i `BUGS.md`
+2. **Under ændring:** Følg fixes beskrevet i `BUGS.md` hvis du rører ved påvirkede funktioner
+3. **EFTER ændring:** Opdater `BUGS.md` hvis du har fixed en bug (marker som ✅ FIXED)
+4. **Ved ny bug:** Tilføj til `BUGS.md` med samme format som eksisterende entries
+
+**Eksempel:**
+```
+Du skal modificere: registers_update_st_logic_status()
+
+STEP 1: Læs BUGS.md
+  → BUG-001: Denne funktion opdaterer IKKE IR 220-251 (kritisk!)
+  → BUG-003: Denne funktion mangler bounds checking
+
+STEP 2: Implementer fix for begge bugs samtidig
+
+STEP 3: Opdater BUGS.md:
+  BUG-001: Status ❌ OPEN → ✅ FIXED (2025-12-12)
+  BUG-003: Status ❌ OPEN → ✅ FIXED (2025-12-12)
+```
+
+**Husk:**
+- `BUGS.md` er single source of truth for kendte problemer
+- Ignorer ALDRIG BUGS.md når du arbejder med påvirkede filer
+- Ved version bump: Verificer at funktionssignaturer i BUGS.md stadig matcher koden
+
+---
 
 ### Adding a New Feature
 
@@ -532,6 +613,12 @@ gcc -o test_frame src/modbus_frame.c test/test_frame.c -Iinclude
 
 | File | Purpose |
 |------|---------|
+| `BUGS.md` | **Bug tracking - TJEK ALTID FØR ÆNDRINGER!** |
+| `CLAUDE.md` | **Project guidelines for Claude Code (this file)** |
+| `CHANGELOG.md` | Version history and release notes |
+| `MODBUS_REGISTER_MAP.md` | **Complete Modbus register reference (ALL registers)** |
+| `ST_MONITORING.md` | ST Logic performance monitoring & tuning guide |
+| `TIMING_ANALYSIS.md` | ST Logic timing deep dive & scheduler analysis |
 | `include/constants.h` | **ALL constants and enums** |
 | `include/types.h` | **ALL struct definitions** |
 | `platformio.ini` | Build configuration, ESP32 board selection |
@@ -676,4 +763,10 @@ All communication in this project:
 
 ---
 
-**Konklusion:** This is a complete redesign of the Mega2560 project with vastly improved modularity. Each .cpp file has ONE job. When debugging, find the file responsible and fix it there. No more spaghetti logic.
+## Vigtig Påmindelse
+
+**FØR DU ÆNDRER KODE:** Tjek altid `BUGS.md` for kendte problemer i de funktioner du skal arbejde med!
+
+---
+
+**Konklusion:** This is a complete redesign of the Mega2560 project with vastly improved modularity. Each .cpp file has ONE job. When debugging, find the file responsible and fix it there. No more spaghetti logic. **Remember: BUGS.md is your single source of truth for known issues - always consult it before making changes!**

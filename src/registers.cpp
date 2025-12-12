@@ -47,6 +47,11 @@ void registers_set_holding_register(uint16_t addr, uint16_t value) {
   if (addr >= ST_LOGIC_CONTROL_REG_BASE && addr < ST_LOGIC_CONTROL_REG_BASE + 4) {
     registers_process_st_logic_control(addr, value);
   }
+
+  // Process ST Logic execution interval (v4.1.0) - HR 236-237
+  if (addr == ST_LOGIC_EXEC_INTERVAL_RW_REG || addr == ST_LOGIC_EXEC_INTERVAL_RW_REG + 1) {
+    registers_process_st_logic_interval(addr, value);
+  }
 }
 
 uint16_t* registers_get_holding_regs(void) {
@@ -344,30 +349,22 @@ void registers_update_st_logic_status(void) {
     if (prog->error_count > 0) status_reg |= ST_LOGIC_STATUS_ERROR; // Bit 3
     registers_set_input_register(ST_LOGIC_STATUS_REG_BASE + prog_id, status_reg);
 
-    // 204-207: Execution Count (16-bit)
+    // 204-207: Execution Count (BUG-006 FIX: now uint16_t, no truncation needed)
     registers_set_input_register(ST_LOGIC_EXEC_COUNT_REG_BASE + prog_id,
-                                   (uint16_t)(prog->execution_count & 0xFFFF));
+                                   prog->execution_count);
 
-    // 208-211: Error Count (16-bit)
+    // 208-211: Error Count (BUG-006 FIX: now uint16_t, no truncation needed)
     registers_set_input_register(ST_LOGIC_ERROR_COUNT_REG_BASE + prog_id,
-                                   (uint16_t)(prog->error_count & 0xFFFF));
+                                   prog->error_count);
 
     // 212-215: Last Error Code (simple encoding of error string)
     // For now: 0 = no error, 1-255 = error present
     uint16_t error_code = (prog->last_error[0] != '\0') ? 1 : 0;
     registers_set_input_register(ST_LOGIC_ERROR_CODE_REG_BASE + prog_id, error_code);
 
-    // 216-219: Variable Count
-    // Count non-zero variable bindings for this program
-    uint16_t var_count = 0;
-    for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
-      const VariableMapping *map = &g_persist_config.var_maps[i];
-      if (map->source_type == MAPPING_SOURCE_ST_VAR &&
-          map->st_program_id == prog_id) {
-        var_count++;
-      }
-    }
-    registers_set_input_register(ST_LOGIC_VAR_COUNT_REG_BASE + prog_id, var_count);
+    // 216-219: Variable Count (BUG-005 FIX: use cached binding_count)
+    // Note: binding_count is updated by st_logic_update_binding_counts()
+    registers_set_input_register(ST_LOGIC_VAR_COUNT_REG_BASE + prog_id, prog->binding_count);
 
     // 220-251: Variable Values (32 registers total for 4 programs * 8 vars each)
     // Map ST Logic variables to registers
@@ -376,27 +373,79 @@ void registers_update_st_logic_status(void) {
       if (map->source_type == MAPPING_SOURCE_ST_VAR &&
           map->st_program_id == prog_id) {
 
-        // Get variable value from program bytecode
-        // Note: This requires access to the bytecode variables
-        // For now, we'll store variable values in the ST Logic program context
-        // This is a placeholder - the actual variable storage will be handled
-        // by the ST Logic VM during execution
+        // BUG-003 FIX: Bounds check before accessing variable array
+        if (!prog || map->st_var_index >= prog->bytecode.var_count) {
+          continue;  // Skip invalid mapping
+        }
 
         uint16_t var_reg_offset = ST_LOGIC_VAR_VALUES_REG_BASE +
                                   (prog_id * 8) +
                                   map->st_var_index;
 
         if (var_reg_offset < INPUT_REGS_SIZE) {
-          // Variable values should be updated by ST Logic engine during execution
-          // Here we just read/preserve them
-          // (actual update happens in st_logic_engine.cpp)
+          // BUG-001 FIX: Update input register with actual variable value from bytecode
+          int16_t var_value = prog->bytecode.variables[map->st_var_index].int_val;
+          registers_set_input_register(var_reg_offset, (uint16_t)var_value);
         }
       }
     }
 
     // =========================================================================
-    // HOLDING REGISTERS (Control - Read/Write)
+    // PERFORMANCE STATISTICS (v4.1.0) - Input Registers 252-293
     // =========================================================================
+
+    // 252-259: Min Execution Time (µs) - 32-bit, 2 registers per program
+    uint16_t min_reg_offset = ST_LOGIC_MIN_EXEC_TIME_REG_BASE + (prog_id * 2);
+    registers_set_input_register(min_reg_offset,     (uint16_t)(prog->min_execution_ms >> 16)); // High word
+    registers_set_input_register(min_reg_offset + 1, (uint16_t)(prog->min_execution_ms & 0xFFFF)); // Low word
+
+    // 260-267: Max Execution Time (µs) - 32-bit, 2 registers per program
+    uint16_t max_reg_offset = ST_LOGIC_MAX_EXEC_TIME_REG_BASE + (prog_id * 2);
+    registers_set_input_register(max_reg_offset,     (uint16_t)(prog->max_execution_ms >> 16));
+    registers_set_input_register(max_reg_offset + 1, (uint16_t)(prog->max_execution_ms & 0xFFFF));
+
+    // 268-275: Avg Execution Time (µs) - Calculated from total_execution_us / execution_count
+    uint32_t avg_execution_us = 0;
+    if (prog->execution_count > 0) {
+      avg_execution_us = prog->total_execution_us / prog->execution_count;
+    }
+    uint16_t avg_reg_offset = ST_LOGIC_AVG_EXEC_TIME_REG_BASE + (prog_id * 2);
+    registers_set_input_register(avg_reg_offset,     (uint16_t)(avg_execution_us >> 16));
+    registers_set_input_register(avg_reg_offset + 1, (uint16_t)(avg_execution_us & 0xFFFF));
+
+    // 276-283: Overrun Count - 32-bit, 2 registers per program
+    uint16_t overrun_reg_offset = ST_LOGIC_OVERRUN_COUNT_REG_BASE + (prog_id * 2);
+    registers_set_input_register(overrun_reg_offset,     (uint16_t)(prog->overrun_count >> 16));
+    registers_set_input_register(overrun_reg_offset + 1, (uint16_t)(prog->overrun_count & 0xFFFF));
+  }
+
+  // =========================================================================
+  // GLOBAL CYCLE STATISTICS (v4.1.0)
+  // =========================================================================
+
+  // 284-285: Global Cycle Min Time (ms)
+  registers_set_input_register(ST_LOGIC_CYCLE_MIN_REG,     (uint16_t)(st_state->cycle_min_ms >> 16));
+  registers_set_input_register(ST_LOGIC_CYCLE_MIN_REG + 1, (uint16_t)(st_state->cycle_min_ms & 0xFFFF));
+
+  // 286-287: Global Cycle Max Time (ms)
+  registers_set_input_register(ST_LOGIC_CYCLE_MAX_REG,     (uint16_t)(st_state->cycle_max_ms >> 16));
+  registers_set_input_register(ST_LOGIC_CYCLE_MAX_REG + 1, (uint16_t)(st_state->cycle_max_ms & 0xFFFF));
+
+  // 288-289: Global Cycle Overrun Count
+  registers_set_input_register(ST_LOGIC_CYCLE_OVERRUN_REG,     (uint16_t)(st_state->cycle_overrun_count >> 16));
+  registers_set_input_register(ST_LOGIC_CYCLE_OVERRUN_REG + 1, (uint16_t)(st_state->cycle_overrun_count & 0xFFFF));
+
+  // 290-291: Total Cycles Executed
+  registers_set_input_register(ST_LOGIC_TOTAL_CYCLES_REG,     (uint16_t)(st_state->total_cycles >> 16));
+  registers_set_input_register(ST_LOGIC_TOTAL_CYCLES_REG + 1, (uint16_t)(st_state->total_cycles & 0xFFFF));
+
+  // 292-293: Execution Interval (ms) - Read-only copy
+  registers_set_input_register(ST_LOGIC_EXEC_INTERVAL_RO_REG,     (uint16_t)(st_state->execution_interval_ms >> 16));
+  registers_set_input_register(ST_LOGIC_EXEC_INTERVAL_RO_REG + 1, (uint16_t)(st_state->execution_interval_ms & 0xFFFF));
+
+  // =========================================================================
+  // HOLDING REGISTERS (Control - Read/Write)
+  // =========================================================================
 
     // 200-203: Control Register (Control of Logic1-4)
     // This register is read-write and interpreted by the holding_reg write handler
@@ -454,5 +503,50 @@ void registers_process_st_logic_control(uint16_t addr, uint16_t value) {
       debug_print_uint(prog_id + 1);
       debug_println(" error cleared via Modbus");
     }
+
+    // BUG-004 FIX: Auto-clear bit 2 in control register (acknowledge command)
+    uint16_t ctrl_val = registers_get_holding_register(addr);
+    ctrl_val &= ~ST_LOGIC_CONTROL_RESET_ERROR;  // Clear bit 2
+    registers_set_holding_register(addr, ctrl_val);
   }
+}
+
+/* ============================================================================
+ * ST LOGIC EXECUTION INTERVAL HANDLER (v4.1.0)
+ * ============================================================================ */
+
+void registers_process_st_logic_interval(uint16_t addr, uint16_t value) {
+  // HR 236-237: Execution Interval (32-bit, ms)
+  // When EITHER register is written, reconstruct the 32-bit value and validate
+
+  st_logic_engine_state_t *st_state = st_logic_get_state();
+  if (!st_state) return;
+
+  // Read both registers (high word and low word)
+  uint16_t high_word = registers_get_holding_register(ST_LOGIC_EXEC_INTERVAL_RW_REG);
+  uint16_t low_word = registers_get_holding_register(ST_LOGIC_EXEC_INTERVAL_RW_REG + 1);
+  uint32_t new_interval = ((uint32_t)high_word << 16) | low_word;
+
+  // Validate: Only allow specific intervals (10, 20, 25, 50, 75, 100 ms)
+  if (new_interval != 10 && new_interval != 20 && new_interval != 25 &&
+      new_interval != 50 && new_interval != 75 && new_interval != 100) {
+    debug_print("[ST_LOGIC] Invalid interval via Modbus: ");
+    debug_print_uint(new_interval);
+    debug_println("ms (allowed: 10,20,25,50,75,100)");
+
+    // Reset registers to current valid interval
+    registers_set_holding_register(ST_LOGIC_EXEC_INTERVAL_RW_REG,     (uint16_t)(st_state->execution_interval_ms >> 16));
+    registers_set_holding_register(ST_LOGIC_EXEC_INTERVAL_RW_REG + 1, (uint16_t)(st_state->execution_interval_ms & 0xFFFF));
+    return;
+  }
+
+  // Apply new interval
+  st_state->execution_interval_ms = new_interval;
+
+  debug_print("[ST_LOGIC] Execution interval set to ");
+  debug_print_uint(new_interval);
+  debug_println("ms via Modbus");
+
+  // Note: Interval is not persisted to NVS automatically
+  // User must call config_save() or use CLI 'save' command to persist
 }

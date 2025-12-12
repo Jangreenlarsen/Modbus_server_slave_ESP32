@@ -80,8 +80,16 @@ static void gpio_mapping_read_inputs(void) {
             reg_value = registers_get_holding_register(map->input_reg);
           }
 
-          // Store as INT (simple type conversion)
-          prog->bytecode.variables[map->st_var_index].int_val = (int16_t)reg_value;
+          // BUG-002 FIX: Store value with correct type conversion
+          st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
+          if (var_type == ST_TYPE_BOOL) {
+            prog->bytecode.variables[map->st_var_index].bool_val = (reg_value != 0);
+          } else if (var_type == ST_TYPE_REAL) {
+            prog->bytecode.variables[map->st_var_index].real_val = (float)reg_value;
+          } else {
+            // ST_TYPE_INT or ST_TYPE_DWORD
+            prog->bytecode.variables[map->st_var_index].int_val = (int16_t)reg_value;
+          }
         }
       }
     }
@@ -130,7 +138,19 @@ static void gpio_mapping_write_outputs(void) {
 
       if (!map->is_input) {
         // OUTPUT mode: Read from ST variable, write to Modbus
-        int16_t var_value = prog->bytecode.variables[map->st_var_index].int_val;
+        // BUG-002 FIX: Read value with correct type conversion
+        st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
+        int16_t var_value;
+
+        if (var_type == ST_TYPE_BOOL) {
+          var_value = prog->bytecode.variables[map->st_var_index].bool_val ? 1 : 0;
+        } else if (var_type == ST_TYPE_REAL) {
+          // Convert float to scaled INT (or truncate)
+          var_value = (int16_t)prog->bytecode.variables[map->st_var_index].real_val;
+        } else {
+          // ST_TYPE_INT or ST_TYPE_DWORD
+          var_value = prog->bytecode.variables[map->st_var_index].int_val;
+        }
 
         // Check output_type to determine destination
         if (map->coil_reg != 65535) {

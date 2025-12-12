@@ -40,21 +40,51 @@ bool st_logic_execute_program(st_logic_engine_state_t *state, uint8_t program_id
   st_vm_t vm;
   st_vm_init(&vm, &prog->bytecode);
 
+  // BUG-007 FIX: Add timing wrapper for execution monitoring (use micros for precision)
+  uint32_t start_us = micros();
+
   // Execute until halt or error (max 10000 steps for safety)
   bool success = st_vm_run(&vm, 10000);
+
+  uint32_t elapsed_us = micros() - start_us;
+  uint32_t elapsed_ms = elapsed_us / 1000;
 
   // Copy variables back from VM to program config
   memcpy(prog->bytecode.variables, vm.variables, vm.var_count * sizeof(st_value_t));
 
-  // Update statistics
+  // BUG-007 FIX: Log warning if execution took too long (>100ms threshold)
+  if (elapsed_ms > 100) {
+    debug_printf("[WARN] Logic%d execution took %ums (slow!)\n",
+                 program_id + 1, (unsigned int)elapsed_ms);
+  }
+
+  // Update execution statistics
   prog->execution_count++;
+
+  // Performance monitoring (v4.1.0): Track min/max/avg execution time
+  prog->last_execution_ms = elapsed_us;  // Store in microseconds for precision
+  prog->total_execution_us += elapsed_us;
+
+  if (prog->execution_count == 1) {
+    // First execution
+    prog->min_execution_ms = elapsed_us;
+    prog->max_execution_ms = elapsed_us;
+  } else {
+    if (elapsed_us < prog->min_execution_ms) prog->min_execution_ms = elapsed_us;
+    if (elapsed_us > prog->max_execution_ms) prog->max_execution_ms = elapsed_us;
+  }
+
+  // Track overruns (execution time > target interval)
+  if (elapsed_ms > state->execution_interval_ms) {
+    prog->overrun_count++;
+  }
+
   if (!success || vm.error) {
     prog->error_count++;
     snprintf(prog->last_error, sizeof(prog->last_error), "%s", vm.error_msg);
     return false;
   }
 
-  prog->last_execution_ms = 0;  // TODO: Add timestamp
   return true;
 }
 
@@ -76,10 +106,23 @@ bool st_logic_engine_loop(st_logic_engine_state_t *state,
                            uint16_t *holding_regs, uint16_t *input_regs) {
   if (!state || !state->enabled) return true;  // Logic mode disabled
 
+  // FIXED RATE SCHEDULER: Check if enough time has elapsed since last execution
+  uint32_t now = millis();
+  uint32_t elapsed = now - state->last_run_time;
+
+  if (elapsed < state->execution_interval_ms) {
+    return true;  // Skip this iteration, too early (throttle execution)
+  }
+
+  // Update timestamp for next cycle
+  state->last_run_time = now;
+
   bool all_success = true;
 
   // Execute each program in sequence
   // NOTE: I/O is handled by gpio_mapping_update() in main loop, not here
+  uint32_t start_cycle = millis();
+
   for (int prog_id = 0; prog_id < 4; prog_id++) {
     st_logic_program_config_t *prog = &state->programs[prog_id];
 
@@ -90,6 +133,34 @@ bool st_logic_engine_loop(st_logic_engine_state_t *state,
     if (!success) {
       all_success = false;
       // Continue executing other programs despite error
+    }
+  }
+
+  // Performance monitoring (v4.1.0): Track global cycle statistics
+  uint32_t cycle_time = millis() - start_cycle;
+  state->total_cycles++;
+
+  if (state->total_cycles == 1) {
+    // First cycle
+    state->cycle_min_ms = cycle_time;
+    state->cycle_max_ms = cycle_time;
+  } else {
+    if (cycle_time < state->cycle_min_ms) state->cycle_min_ms = cycle_time;
+    if (cycle_time > state->cycle_max_ms) state->cycle_max_ms = cycle_time;
+  }
+
+  if (cycle_time > state->execution_interval_ms) {
+    state->cycle_overrun_count++;
+  }
+
+  // Debug: Log total cycle time if debug enabled
+  if (state->debug) {
+    if (cycle_time > state->execution_interval_ms) {
+      debug_printf("[ST_TIMING] WARNING: Cycle time %ums > target %ums (overrun!)\n",
+                   (unsigned int)cycle_time, (unsigned int)state->execution_interval_ms);
+    } else {
+      debug_printf("[ST_TIMING] Cycle time: %ums / %ums (OK)\n",
+                   (unsigned int)cycle_time, (unsigned int)state->execution_interval_ms);
     }
   }
 

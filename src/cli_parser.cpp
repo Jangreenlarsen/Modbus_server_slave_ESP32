@@ -761,6 +761,14 @@ bool cli_parser_execute(char* line) {
           cli_cmd_set_logic_debug(st_logic_get_state(), debug);
           return true;
         }
+
+        // set logic interval:X  (global execution interval - v4.1.0)
+        if (strstr(arg, "interval:")) {
+          const char* interval_str = strchr(arg, ':') + 1;
+          uint32_t interval_ms = atoi(interval_str);
+          cli_cmd_set_logic_interval(st_logic_get_state(), interval_ms);
+          return true;
+        }
       }
 
       // set logic <id> <subcommand> [params...]
@@ -776,6 +784,7 @@ bool cli_parser_execute(char* line) {
         debug_println("         set logic <id> delete");
         debug_println("         set logic <id> bind <var_name> reg:100|coil:10|input:5");
         debug_println("         set logic debug:true|false");
+        debug_println("         set logic interval:X  (X = 10,20,25,50,75,100 ms)");
         return false;
       }
 

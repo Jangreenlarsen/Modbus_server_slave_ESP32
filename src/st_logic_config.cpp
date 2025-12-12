@@ -177,6 +177,70 @@ st_logic_program_config_t *st_logic_get_program(st_logic_engine_state_t *state, 
   return &state->programs[program_id];
 }
 
+/**
+ * @brief Update binding_count cache for all programs (BUG-005 fix)
+ *
+ * Counts variable bindings from g_persist_config.var_maps and updates
+ * each program's cached binding_count field for performance optimization.
+ * This avoids O(n*m) nested loop in registers_update_st_logic_status().
+ */
+void st_logic_update_binding_counts(st_logic_engine_state_t *state) {
+  extern PersistConfig g_persist_config;
+
+  // Reset all binding counts
+  for (uint8_t prog_id = 0; prog_id < 4; prog_id++) {
+    state->programs[prog_id].binding_count = 0;
+  }
+
+  // Count bindings for each program
+  for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+    const VariableMapping *map = &g_persist_config.var_maps[i];
+    if (map->source_type == MAPPING_SOURCE_ST_VAR && map->st_program_id < 4) {
+      state->programs[map->st_program_id].binding_count++;
+    }
+  }
+}
+
+/**
+ * @brief Reset performance statistics for a program (v4.1.0)
+ * @param state Logic engine state
+ * @param program_id Program ID (0-3), or 0xFF for all programs
+ */
+void st_logic_reset_stats(st_logic_engine_state_t *state, uint8_t program_id) {
+  if (program_id == 0xFF) {
+    // Reset all programs
+    for (uint8_t i = 0; i < 4; i++) {
+      st_logic_program_config_t *prog = &state->programs[i];
+      prog->min_execution_ms = 0;
+      prog->max_execution_ms = 0;
+      prog->total_execution_us = 0;
+      prog->overrun_count = 0;
+      prog->execution_count = 0;
+      prog->error_count = 0;
+    }
+  } else if (program_id < 4) {
+    // Reset single program
+    st_logic_program_config_t *prog = &state->programs[program_id];
+    prog->min_execution_ms = 0;
+    prog->max_execution_ms = 0;
+    prog->total_execution_us = 0;
+    prog->overrun_count = 0;
+    prog->execution_count = 0;
+    prog->error_count = 0;
+  }
+}
+
+/**
+ * @brief Reset global cycle statistics (v4.1.0)
+ * @param state Logic engine state
+ */
+void st_logic_reset_cycle_stats(st_logic_engine_state_t *state) {
+  state->cycle_min_ms = 0;
+  state->cycle_max_ms = 0;
+  state->cycle_overrun_count = 0;
+  state->total_cycles = 0;
+}
+
 /* ============================================================================
  * PERSISTENCE (NVS STORAGE)
  * ============================================================================ */
@@ -325,6 +389,9 @@ bool st_logic_load_from_nvs(void) {
   debug_print("ST_LOGIC LOAD: Loaded ");
   debug_print_uint(loaded_count);
   debug_println(" programs");
+
+  // BUG-005 FIX: Update binding count cache after loading programs
+  st_logic_update_binding_counts(state);
 
   return true;
 }

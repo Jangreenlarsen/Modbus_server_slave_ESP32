@@ -164,6 +164,41 @@ int cli_cmd_set_logic_debug(st_logic_engine_state_t *logic_state, bool debug) {
 }
 
 /**
+ * @brief set logic interval:X
+ *
+ * Set global execution interval for all ST Logic programs
+ *
+ * Allowed values: 10, 20, 25, 50, 75, 100 ms
+ *
+ * Example:
+ *   set logic interval:10
+ *   set logic interval:50
+ *
+ * @param logic_state Logic engine state
+ * @param interval_ms Execution interval in milliseconds
+ * @return 0 on success, -1 on error
+ */
+int cli_cmd_set_logic_interval(st_logic_engine_state_t *logic_state, uint32_t interval_ms) {
+  if (!logic_state) {
+    debug_println("ERROR: Logic state not initialized");
+    return -1;
+  }
+
+  // Validate interval (only allow specific values)
+  if (interval_ms != 10 && interval_ms != 20 && interval_ms != 25 &&
+      interval_ms != 50 && interval_ms != 75 && interval_ms != 100) {
+    debug_printf("ERROR: Invalid interval %ums (allowed: 10, 20, 25, 50, 75, 100)\n",
+                 (unsigned int)interval_ms);
+    return -1;
+  }
+
+  logic_state->execution_interval_ms = interval_ms;
+  debug_printf("[OK] ST Logic execution interval set to %ums\n", (unsigned int)interval_ms);
+  debug_println("Note: Use 'save' command to persist to NVS");
+  return 0;
+}
+
+/**
  * @brief set logic <id> delete
  *
  * Delete a logic program
@@ -418,6 +453,9 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     }
   }
 
+  // BUG-005 FIX: Update binding count cache after modifying bindings
+  st_logic_update_binding_counts(logic_state);
+
   // Save config to NVS to make binding persistent
   // First, copy ST Logic programs to persistent config
   st_logic_save_to_persist_config(&g_persist_config);
@@ -645,5 +683,218 @@ int cli_cmd_show_logic_code_all(st_logic_engine_state_t *logic_state) {
   }
 
   debug_printf("========================================\n\n");
+  return 0;
+}
+
+/**
+ * @brief show logic stats - Display performance statistics for all programs (v4.1.0)
+ */
+int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
+  if (!logic_state) return -1;
+
+  debug_printf("\n======== ST Logic Performance Statistics ========\n\n");
+
+  // Global cycle statistics
+  debug_printf("Global Cycle Stats:\n");
+  debug_printf("  Total cycles:    %u\n", (unsigned int)logic_state->total_cycles);
+  debug_printf("  Cycle min:       %ums\n", (unsigned int)logic_state->cycle_min_ms);
+  debug_printf("  Cycle max:       %ums\n", (unsigned int)logic_state->cycle_max_ms);
+
+  if (logic_state->total_cycles > 0) {
+    uint32_t avg_cycle = logic_state->cycle_max_ms; // Simplified, actual avg needs all samples
+    debug_printf("  Cycle target:    %ums\n", (unsigned int)logic_state->execution_interval_ms);
+    debug_printf("  Overruns:        %u (%.1f%%)\n",
+                 (unsigned int)logic_state->cycle_overrun_count,
+                 (float)logic_state->cycle_overrun_count * 100.0 / logic_state->total_cycles);
+  }
+
+  debug_printf("\n");
+
+  // Per-program statistics
+  for (uint8_t i = 0; i < 4; i++) {
+    st_logic_program_config_t *prog = &logic_state->programs[i];
+
+    if (!prog->enabled && prog->execution_count == 0) {
+      continue;  // Skip disabled programs with no history
+    }
+
+    debug_printf("Logic%d (%s):\n", i + 1, prog->name);
+    debug_printf("  Status:        %s%s%s\n",
+                 prog->enabled ? "ENABLED" : "disabled",
+                 prog->compiled ? ", compiled" : "",
+                 prog->error_count > 0 ? ", HAS ERRORS" : "");
+
+    debug_printf("  Executions:    %u\n", (unsigned int)prog->execution_count);
+
+    if (prog->execution_count > 0) {
+      uint32_t avg_us = prog->total_execution_us / prog->execution_count;
+
+      debug_printf("  Min time:      %u.%03ums\n",
+                   (unsigned int)(prog->min_execution_ms / 1000),
+                   (unsigned int)(prog->min_execution_ms % 1000));
+      debug_printf("  Max time:      %u.%03ums\n",
+                   (unsigned int)(prog->max_execution_ms / 1000),
+                   (unsigned int)(prog->max_execution_ms % 1000));
+      debug_printf("  Avg time:      %u.%03ums\n",
+                   (unsigned int)(avg_us / 1000),
+                   (unsigned int)(avg_us % 1000));
+      debug_printf("  Last time:     %u.%03ums\n",
+                   (unsigned int)(prog->last_execution_ms / 1000),
+                   (unsigned int)(prog->last_execution_ms % 1000));
+
+      if (prog->overrun_count > 0) {
+        debug_printf("  Overruns:      %u (%.1f%%) ⚠️\n",
+                     (unsigned int)prog->overrun_count,
+                     (float)prog->overrun_count * 100.0 / prog->execution_count);
+      }
+
+      if (prog->error_count > 0) {
+        debug_printf("  Errors:        %u (%.1f%%) ❌\n",
+                     (unsigned int)prog->error_count,
+                     (float)prog->error_count * 100.0 / prog->execution_count);
+      }
+    }
+
+    debug_printf("\n");
+  }
+
+  debug_printf("Use 'show logic X timing' for detailed timing analysis\n");
+  debug_printf("Use 'set logic stats reset' to clear statistics\n");
+  debug_printf("=================================================\n\n");
+
+  return 0;
+}
+
+/**
+ * @brief show logic X timing - Display detailed timing analysis for specific program (v4.1.0)
+ */
+int cli_cmd_show_logic_timing(st_logic_engine_state_t *logic_state, uint8_t program_id) {
+  if (program_id >= 4) {
+    debug_printf("ERROR: Invalid program ID (1-4)\n");
+    return -1;
+  }
+
+  st_logic_program_config_t *prog = &logic_state->programs[program_id];
+
+  debug_printf("\n======== Logic%d Timing Analysis ========\n\n", program_id + 1);
+
+  if (!prog->enabled && prog->execution_count == 0) {
+    debug_printf("Program has never been executed.\n\n");
+    return 0;
+  }
+
+  debug_printf("Program: %s\n", prog->name);
+  debug_printf("Status:  %s%s\n",
+               prog->enabled ? "ENABLED" : "DISABLED",
+               prog->compiled ? " (compiled)" : " (not compiled)");
+  debug_printf("\n");
+
+  // Execution statistics
+  debug_printf("Execution Statistics:\n");
+  debug_printf("  Total executions:  %u\n", (unsigned int)prog->execution_count);
+  debug_printf("  Successful:        %u\n", (unsigned int)(prog->execution_count - prog->error_count));
+  debug_printf("  Failed:            %u\n", (unsigned int)prog->error_count);
+
+  if (prog->error_count > 0) {
+    debug_printf("  Success rate:      %.1f%%\n",
+                 (float)(prog->execution_count - prog->error_count) * 100.0 / prog->execution_count);
+    debug_printf("  Last error:        %s\n", prog->last_error);
+  }
+  debug_printf("\n");
+
+  // Timing statistics
+  if (prog->execution_count > 0) {
+    uint32_t avg_us = prog->total_execution_us / prog->execution_count;
+
+    debug_printf("Timing Performance:\n");
+    debug_printf("  Min:               %u.%03ums (%uµs)\n",
+                 (unsigned int)(prog->min_execution_ms / 1000),
+                 (unsigned int)(prog->min_execution_ms % 1000),
+                 (unsigned int)prog->min_execution_ms);
+    debug_printf("  Max:               %u.%03ums (%uµs)\n",
+                 (unsigned int)(prog->max_execution_ms / 1000),
+                 (unsigned int)(prog->max_execution_ms % 1000),
+                 (unsigned int)prog->max_execution_ms);
+    debug_printf("  Avg:               %u.%03ums (%uµs)\n",
+                 (unsigned int)(avg_us / 1000),
+                 (unsigned int)(avg_us % 1000),
+                 (unsigned int)avg_us);
+    debug_printf("  Last:              %u.%03ums (%uµs)\n",
+                 (unsigned int)(prog->last_execution_ms / 1000),
+                 (unsigned int)(prog->last_execution_ms % 1000),
+                 (unsigned int)prog->last_execution_ms);
+    debug_printf("\n");
+
+    // Performance analysis
+    debug_printf("Performance Analysis:\n");
+    debug_printf("  Target interval:   %ums\n", (unsigned int)logic_state->execution_interval_ms);
+
+    uint32_t avg_ms = avg_us / 1000;
+    if (avg_ms < logic_state->execution_interval_ms / 4) {
+      debug_printf("  Rating:            ✓ EXCELLENT (< 25%% of target)\n");
+    } else if (avg_ms < logic_state->execution_interval_ms / 2) {
+      debug_printf("  Rating:            ✓ GOOD (< 50%% of target)\n");
+    } else if (avg_ms < logic_state->execution_interval_ms) {
+      debug_printf("  Rating:            ⚠️  ACCEPTABLE (< 100%% of target)\n");
+    } else {
+      debug_printf("  Rating:            ❌ POOR (> 100%% of target) - REFACTOR NEEDED!\n");
+    }
+
+    if (prog->overrun_count > 0) {
+      debug_printf("  Overruns:          %u (%.1f%%) ⚠️\n",
+                   (unsigned int)prog->overrun_count,
+                   (float)prog->overrun_count * 100.0 / prog->execution_count);
+      debug_printf("                     Program exceeded target interval!\n");
+    } else {
+      debug_printf("  Overruns:          0 (0.0%%) ✓\n");
+    }
+    debug_printf("\n");
+
+    // Recommendations
+    if (avg_ms > logic_state->execution_interval_ms) {
+      debug_printf("⚠️  RECOMMENDATIONS:\n");
+      debug_printf("  - Simplify program logic (reduce loop iterations)\n");
+      debug_printf("  - Increase execution interval (set logic interval:20)\n");
+      debug_printf("  - Split program into smaller sub-programs\n");
+      debug_printf("  - Consider moving heavy computation outside ST Logic\n");
+    } else if (prog->overrun_count > 0) {
+      debug_printf("⚠️  RECOMMENDATIONS:\n");
+      debug_printf("  - Occasional overruns detected\n");
+      debug_printf("  - Check for conditional paths that take longer\n");
+      debug_printf("  - Monitor with 'set logic debug:true'\n");
+    }
+  }
+
+  debug_printf("==========================================\n\n");
+  return 0;
+}
+
+/**
+ * @brief set logic stats reset [X] - Reset statistics (v4.1.0)
+ */
+int cli_cmd_reset_logic_stats(st_logic_engine_state_t *logic_state, const char *target) {
+  if (!logic_state) return -1;
+
+  if (strcmp(target, "all") == 0) {
+    // Reset all program stats
+    st_logic_reset_stats(logic_state, 0xFF);
+    st_logic_reset_cycle_stats(logic_state);
+    debug_printf("All ST Logic statistics reset.\n");
+  } else if (strcmp(target, "cycle") == 0) {
+    // Reset only global cycle stats
+    st_logic_reset_cycle_stats(logic_state);
+    debug_printf("Global cycle statistics reset.\n");
+  } else {
+    // Parse program ID (1-4)
+    int prog_num = atoi(target);
+    if (prog_num < 1 || prog_num > 4) {
+      debug_printf("ERROR: Invalid target. Use: all, cycle, or 1-4\n");
+      return -1;
+    }
+
+    st_logic_reset_stats(logic_state, prog_num - 1);
+    debug_printf("Logic%d statistics reset.\n", prog_num);
+  }
+
   return 0;
 }
