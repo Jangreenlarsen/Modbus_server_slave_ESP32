@@ -442,19 +442,6 @@ void registers_update_st_logic_status(void) {
   // 292-293: Execution Interval (ms) - Read-only copy
   registers_set_input_register(ST_LOGIC_EXEC_INTERVAL_RO_REG,     (uint16_t)(st_state->execution_interval_ms >> 16));
   registers_set_input_register(ST_LOGIC_EXEC_INTERVAL_RO_REG + 1, (uint16_t)(st_state->execution_interval_ms & 0xFFFF));
-
-  // =========================================================================
-  // HOLDING REGISTERS (Control - Read/Write)
-  // =========================================================================
-
-    // 200-203: Control Register (Control of Logic1-4)
-    // This register is read-write and interpreted by the holding_reg write handler
-    // Bit 0: Enable/Disable
-    // Bit 1: Start/Stop
-    // Bit 2: Reset Error
-    // The actual control logic should be handled when these registers are written
-
-  }
 }
 
 /* ============================================================================

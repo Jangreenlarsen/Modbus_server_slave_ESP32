@@ -495,40 +495,6 @@ int cli_cmd_show_logic_all(st_logic_engine_state_t *logic_state) {
   return 0;
 }
 
-/**
- * @brief show logic stats
- *
- * Show execution statistics for logic mode
- */
-int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
-  debug_printf("\n=== Logic Engine Statistics ===\n");
-
-  uint32_t total_executions = 0;
-  uint32_t total_errors = 0;
-  uint32_t enabled_count = 0;
-  uint32_t compiled_count = 0;
-
-  for (int i = 0; i < 4; i++) {
-    st_logic_program_config_t *prog = &logic_state->programs[i];
-    total_executions += prog->execution_count;
-    total_errors += prog->error_count;
-    if (prog->enabled) enabled_count++;
-    if (prog->compiled) compiled_count++;
-  }
-
-  debug_printf("Programs Compiled: %d/4\n", compiled_count);
-  debug_printf("Programs Enabled: %d/4\n", enabled_count);
-  debug_printf("Total Executions: %u\n", total_executions);
-  debug_printf("Total Errors: %u\n", total_errors);
-
-  if (total_executions > 0) {
-    float error_rate = (float)total_errors / total_executions * 100.0f;
-    debug_printf("Error Rate: %.2f%%\n", error_rate);
-  }
-
-  debug_printf("\n");
-  return 0;
-}
 
 /**
  * @brief show logic program
@@ -701,7 +667,6 @@ int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
   debug_printf("  Cycle max:       %ums\n", (unsigned int)logic_state->cycle_max_ms);
 
   if (logic_state->total_cycles > 0) {
-    uint32_t avg_cycle = logic_state->cycle_max_ms; // Simplified, actual avg needs all samples
     debug_printf("  Cycle target:    %ums\n", (unsigned int)logic_state->execution_interval_ms);
     debug_printf("  Overruns:        %u (%.1f%%)\n",
                  (unsigned int)logic_state->cycle_overrun_count,

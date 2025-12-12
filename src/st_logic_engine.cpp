@@ -5,6 +5,7 @@
  * Main execution loop integrating ST bytecode with Modbus I/O.
  */
 
+#include <Arduino.h>
 #include "st_logic_engine.h"
 #include "st_compiler.h"
 #include "st_parser.h"
