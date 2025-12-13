@@ -578,10 +578,12 @@ memcpy(prog->bytecode.variables, vm.variables, vm.var_count * sizeof(st_value_t)
 ---
 
 ### BUG-008: IR 220-251 opdateres for tidligt (1 iteration latency)
-**Status:** ❌ OPEN
+**Status:** ✅ FIXED
 **Prioritet:** 🟠 MEDIUM
 **Opdaget:** 2025-12-13
+**Fixed:** 2025-12-13
 **Version:** v4.1.0
+**Fixed in:** v4.2.0
 
 #### Beskrivelse
 `registers_update_st_logic_status()` kaldes FØR `st_logic_engine_loop()` i main loop, hvilket betyder at Input Registers 220-251 (ST Logic variable values) opdateres med værdier fra forrige iteration i stedet for aktuelle værdier.
@@ -640,6 +642,20 @@ void loop() {
   delay(1);
 }
 ```
+
+#### Implementeret Fix (2025-12-13)
+
+**Fil:** `src/main.cpp` linjer 151-171
+
+**Ændring:**
+Flyttet `registers_update_st_logic_status()` fra linje 156 (før ST Logic execution) til efter linje 164 (efter gpio_mapping_write_after_st_logic).
+
+**Commit:** 135b1b1 "FIX: BUG-008 - ST Logic status registers stale data"
+
+**Resultat:**
+- ✅ IR 200-251 opdateres efter ST Logic execution (zero latency)
+- ✅ ST Logic variable værdier synliggøres øjeblikkeligt i IR 220-251
+- ✅ Konsistent med OUTPUT flow (alle data frisk samme iteration)
 
 #### Dependencies
 - `src/main.cpp`: loop() funktion ordre
