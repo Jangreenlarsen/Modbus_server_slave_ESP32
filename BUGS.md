@@ -1071,10 +1071,105 @@ debug_printf("\nBindings (sorted by index):\n");
 
 ---
 
+### BUG-014: ST Logic execution_interval_ms bliver ikke gemt persistent
+**Status:** ❌ OPEN
+**Prioritet:** 🟡 HIGH
+**Opdaget:** 2025-12-13
+**Version:** v4.1.0
+
+#### Beskrivelse
+Når bruger kører `set logic interval:2` og derefter `save`, bliver intervallet **IKKE** gemt til NVS. Efter reboot nulstilles det til default 10ms.
+
+**Reproduktion:**
+```
+set logic interval:2
+save
+# Reboot ESP32
+show config    # ← Viser interval: 10 ms (ikke 2 ms!)
+```
+
+**Impact:**
+- Persistent konfiguration går tabt
+- Bruger skal sætte interval igen hver gang efter reboot
+- Feature `set logic interval:X` fungerer runtime, men ikke persistent
+
+#### Påvirkede Funktioner
+
+**Funktion 1:** `bool st_logic_save_to_nvs(void)`
+**Fil:** `src/st_logic_config.cpp`
+**Linjer:** 252-315
+**Problem:** Funktion gemmer kun programkildekode og enabled flag, IKKE `execution_interval_ms`
+
+**Funktion 2:** `bool st_logic_load_from_nvs(void)`
+**Fil:** `src/st_logic_config.cpp`
+**Linjer:** 321-397
+**Problem:** Funktion loader kun programkildekode, IKKE `execution_interval_ms`
+
+**Root cause:** `execution_interval_ms` er del af `st_logic_engine_state_t` (runtime state), men er IKKE inkluderet i `PersistConfig` struct, så den kan ikke gemmes/loades via normal config persistence.
+
+#### Foreslået Fix
+
+**Option 1: Tilføj execution_interval_ms til PersistConfig struct** (ANBEFALET)
+1. I `include/types.h`, tilføj felt til PersistConfig:
+```cpp
+typedef struct __attribute__((packed)) {
+  // ... existing fields ...
+
+  // ST Logic configuration (v4.1+)
+  uint32_t st_logic_interval_ms;  // Execution interval for all ST Logic programs
+
+  // Reserved for future features
+  uint8_t reserved[8];
+  uint16_t crc16;
+} PersistConfig;
+```
+
+2. I `src/config_struct.cpp`, initialize default:
+```cpp
+config->st_logic_interval_ms = 10;  // Default 10ms
+```
+
+3. I `src/cli_commands_logic.cpp`, update config når interval sættes:
+```cpp
+logic_state->execution_interval_ms = interval_ms;
+g_persist_config.st_logic_interval_ms = interval_ms;  // Also update persistent config
+```
+
+4. I `src/config_load.cpp`, load interval efter reboot:
+```cpp
+if (config->st_logic_interval_ms >= 2 && config->st_logic_interval_ms <= 100) {
+  st_logic_engine_state_t *state = st_logic_get_state();
+  state->execution_interval_ms = config->st_logic_interval_ms;
+}
+```
+
+**Option 2: Tilføj til st_logic save/load funktioner**
+Gem `execution_interval_ms` som separat NVS key i `st_logic_save_to_nvs()` og `st_logic_load_from_nvs()`.
+
+**Anbefaling:** Option 1 er cleanere - alt persistent config på ét sted.
+
+#### Dependencies
+- `include/types.h`: PersistConfig struct
+- `src/config_struct.cpp`: Default initialization
+- `src/cli_commands_logic.cpp`: Update persistent config når interval sættes
+- `src/config_load.cpp`: Load interval efter reboot
+
+#### Test Plan
+1. Kør: `set logic interval:2`
+2. Kør: `show config` → Verify interval: 2 ms
+3. Kør: `save`
+4. Reboot ESP32
+5. Kør: `show config`
+6. **Forventet (før fix):** interval: 10 ms (nulstillet)
+7. **Forventet (efter fix):** interval: 2 ms (persistent)
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-13 | 1 ny bug tilføjet (BUG-014) fra ST Logic persistent save analyse | Claude Code |
 | 2025-12-13 | 2 nye bugs tilføjet (BUG-012, BUG-013) fra ST Logic binding visning analyse | Claude Code |
 | 2025-12-13 | 4 nye bugs tilføjet (BUG-008 til BUG-011) fra ST Logic Modbus integration analyse | Claude Code |
 | 2025-12-12 | Alle 7 bugs fixed (BUG-001 til BUG-007) | Claude Code |
