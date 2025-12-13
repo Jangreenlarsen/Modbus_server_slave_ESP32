@@ -152,9 +152,6 @@ void loop() {
   registers_update_dynamic_registers();
   registers_update_dynamic_coils();
 
-  // Update ST Logic status registers (200-251)
-  registers_update_st_logic_status();
-
   // UNIFIED VARIABLE MAPPING: Read INPUT bindings (GPIO + ST variables)
   // This must happen BEFORE st_logic_engine_loop() to provide fresh inputs
   gpio_mapping_read_before_st_logic();
@@ -165,6 +162,10 @@ void loop() {
   // UNIFIED VARIABLE MAPPING: Write OUTPUT bindings (GPIO + ST variables)
   // This must happen AFTER st_logic_engine_loop() to push results to registers
   gpio_mapping_write_after_st_logic();
+
+  // Update ST Logic status registers (200-251) - MUST be after execution to get fresh values
+  // BUG-008 FIX: Moved here to ensure IR 220-251 contain current iteration's results
+  registers_update_st_logic_status();
 
   // Heartbeat LED
   heartbeat_loop();
