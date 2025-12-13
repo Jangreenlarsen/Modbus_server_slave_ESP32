@@ -577,6 +577,308 @@ memcpy(prog->bytecode.variables, vm.variables, vm.var_count * sizeof(st_value_t)
 
 ---
 
+### BUG-008: IR 220-251 opdateres for tidligt (1 iteration latency)
+**Status:** ❌ OPEN
+**Prioritet:** 🟠 MEDIUM
+**Opdaget:** 2025-12-13
+**Version:** v4.1.0
+
+#### Beskrivelse
+`registers_update_st_logic_status()` kaldes FØR `st_logic_engine_loop()` i main loop, hvilket betyder at Input Registers 220-251 (ST Logic variable values) opdateres med værdier fra forrige iteration i stedet for aktuelle værdier.
+
+**Impact:**
+- Modbus master læser IR 220-251 og får data med 1 loop cycle latency (1-10ms delay)
+- ST Logic variable ændringer synliggøres først i næste iteration
+- Forvirrende debugging via Modbus reads (værdier er "bagud")
+- Inkonsistent med OUTPUT flow (HR/coils opdateres EFTER execution)
+
+#### Påvirkede Funktioner
+
+**Funktion:** `void loop(void)`
+**Fil:** `src/main.cpp`
+**Linjer:** 134-177
+**Problematisk sekvens (linjer 156-167):**
+```cpp
+156:  registers_update_st_logic_status();    // ← Opdaterer IR 220-251 med GAMLE værdier!
+160:  gpio_mapping_read_before_st_logic();   // Read inputs
+163:  st_logic_engine_loop(...);             // Execute programs, update variables
+167:  gpio_mapping_write_after_st_logic();   // Write outputs
+```
+
+**Forventet sekvens:**
+```cpp
+160:  gpio_mapping_read_before_st_logic();   // 1. Read inputs
+163:  st_logic_engine_loop(...);             // 2. Execute programs
+167:  gpio_mapping_write_after_st_logic();   // 3. Write outputs
+???:  registers_update_st_logic_status();    // 4. Update IR 200-293 med FRISKE værdier
+```
+
+#### Foreslået Fix
+
+**Flyt linje 156 til EFTER linje 167:**
+```cpp
+void loop() {
+  // ... network, modbus, cli ...
+
+  counter_engine_loop();
+  timer_engine_loop();
+
+  // Update DYNAMIC registers (counters/timers)
+  registers_update_dynamic_registers();
+  registers_update_dynamic_coils();
+
+  // UNIFIED VARIABLE MAPPING + ST LOGIC EXECUTION
+  gpio_mapping_read_before_st_logic();   // 1. Read inputs
+  st_logic_engine_loop(...);             // 2. Execute programs
+  gpio_mapping_write_after_st_logic();   // 3. Write outputs
+
+  // UPDATE ST LOGIC STATUS REGISTERS (flyttet hertil!)
+  registers_update_st_logic_status();    // 4. Update IR 200-293 med aktuelle værdier
+
+  heartbeat_loop();
+  watchdog_feed();
+  delay(1);
+}
+```
+
+#### Dependencies
+- `src/main.cpp`: loop() funktion ordre
+- `src/registers.cpp`: registers_update_st_logic_status()
+
+#### Test Plan
+1. Upload ST program: `VAR x: INT; END_VAR; x := x + 1;`
+2. Enable program
+3. Læs IR 220 kontinuerligt via Modbus FC04
+4. **Forventet (efter fix):** x incrementer synkront med execution
+5. **Actual (før fix):** x værdier er 1 iteration forsinkede
+
+---
+
+### BUG-009: Inkonsistent type handling i IR 220-251 vs gpio_mapping
+**Status:** ❌ OPEN
+**Prioritet:** 🔵 LOW
+**Opdaget:** 2025-12-13
+**Version:** v4.1.0
+
+#### Beskrivelse
+BUG-002 fix implementerer type-aware variable læsning i `gpio_mapping.cpp`, men `registers_update_st_logic_status()` læser ALTID `.int_val` fra bytecode union, selv når variablen er BOOL eller REAL type.
+
+**Impact:**
+- BOOL variables: Kan vise forkerte værdier i IR 220-251 hvis internal representation ikke er 0/1
+- REAL variables: Konverteres forkert (læser int_val i stedet for real_val → garbage data)
+- INT variables: Fungerer korrekt
+- Inkonsistens mellem INPUT/OUTPUT flow (gpio_mapping bruger korrekt type check)
+
+#### Påvirkede Funktioner
+
+**Funktion:** `void registers_update_st_logic_status(void)`
+**Fil:** `src/registers.cpp`
+**Linjer:** 331-445
+**Problematisk kode (linje 387):**
+```cpp
+// BUG-001 FIX: Update input register with actual variable value from bytecode
+int16_t var_value = prog->bytecode.variables[map->st_var_index].int_val;  ← ALTID INT!
+registers_set_input_register(var_reg_offset, (uint16_t)var_value);
+```
+
+**Korrekt implementering i gpio_mapping.cpp (linjer 142-153):**
+```cpp
+st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
+if (var_type == ST_TYPE_BOOL) {
+  var_value = prog->bytecode.variables[map->st_var_index].bool_val ? 1 : 0;
+} else if (var_type == ST_TYPE_REAL) {
+  var_value = (int16_t)prog->bytecode.variables[map->st_var_index].real_val;
+} else {
+  var_value = prog->bytecode.variables[map->st_var_index].int_val;
+}
+```
+
+#### Foreslået Fix
+
+**Refactor linje 387-388 i registers.cpp:**
+```cpp
+if (var_reg_offset < INPUT_REGS_SIZE) {
+  // BUG-001 FIX: Update input register with actual variable value from bytecode
+  // BUG-009 FIX: Use type-aware reading (samme som gpio_mapping.cpp)
+  st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
+  int16_t var_value;
+
+  if (var_type == ST_TYPE_BOOL) {
+    var_value = prog->bytecode.variables[map->st_var_index].bool_val ? 1 : 0;
+  } else if (var_type == ST_TYPE_REAL) {
+    var_value = (int16_t)prog->bytecode.variables[map->st_var_index].real_val;
+  } else {
+    // ST_TYPE_INT or ST_TYPE_DWORD
+    var_value = prog->bytecode.variables[map->st_var_index].int_val;
+  }
+
+  registers_set_input_register(var_reg_offset, (uint16_t)var_value);
+}
+```
+
+#### Dependencies
+- `st_types.h`: `st_datatype_t` enum (ST_TYPE_BOOL, ST_TYPE_INT, ST_TYPE_REAL)
+- `st_types.h`: `st_bytecode_program_t.var_types[]` array
+
+#### Test Plan
+1. Upload ST program: `VAR flag: BOOL; temp: REAL; END_VAR; flag := TRUE; temp := 42.7;`
+2. Bind `flag` og `temp` til outputs
+3. Enable program
+4. Læs IR 220-221 via Modbus FC04
+5. **Forventet (efter fix):** IR 220 = 1 (BOOL), IR 221 = 42 (REAL truncated)
+6. **Actual (før fix):** Afhænger af internal union representation (potentielt garbage)
+
+---
+
+### BUG-010: Forkert bounds check for INPUT bindings (DI limiteret til HR size)
+**Status:** ❌ OPEN
+**Prioritet:** 🔵 LOW
+**Opdaget:** 2025-12-13
+**Version:** v4.1.0
+
+#### Beskrivelse
+INPUT bindings kan mappe til enten Holding Registers (input_type==0) eller Discrete Inputs (input_type==1), men bounds check bruger ALTID `HOLDING_REGS_SIZE` konstanten, hvilket unødvendigt begrænser DI input bindings.
+
+**Impact:**
+- Hvis bruger mapper DI #300 (over HOLDING_REGS_SIZE=256), skippes bindinget selv om DI array er større
+- Kunstig begrænsning på DI input bindings
+- Ingen funktionel påvirkning hvis DI array også er 256 (men stadig inkorrekt)
+
+#### Påvirkede Funktioner
+
+**Funktion:** `static void gpio_mapping_read_inputs(void)`
+**Fil:** `src/gpio_mapping.cpp`
+**Linjer:** 26-97
+**Problematisk kode (linje 71):**
+```cpp
+if (map->input_reg != 65535 && map->input_reg < HOLDING_REGS_SIZE) {  ← FORKERT FOR DI!
+  uint16_t reg_value;
+
+  // Check input_type: 0 = Holding Register (HR), 1 = Discrete Input (DI)
+  if (map->input_type == 1) {
+    // Discrete Input: read as BOOL (0 or 1)
+    reg_value = registers_get_discrete_input(map->input_reg) ? 1 : 0;  ← Skal bruge DISCRETE_INPUTS_SIZE!
+  } else {
+    // Holding Register: read as INT
+    reg_value = registers_get_holding_register(map->input_reg);  ← OK, bruger HR
+  }
+```
+
+#### Foreslået Fix
+
+**Refactor linje 71-93 med type-aware bounds check:**
+```cpp
+if (map->input_reg != 65535) {
+  // BUG-010 FIX: Type-aware bounds check
+  if (map->input_type == 1) {
+    // Discrete Input - check DI array size
+    if (map->input_reg >= DISCRETE_INPUTS_SIZE * 8) continue;
+  } else {
+    // Holding Register - check HR array size
+    if (map->input_reg >= HOLDING_REGS_SIZE) continue;
+  }
+
+  uint16_t reg_value;
+
+  if (map->input_type == 1) {
+    // Discrete Input: read as BOOL (0 or 1)
+    reg_value = registers_get_discrete_input(map->input_reg) ? 1 : 0;
+  } else {
+    // Holding Register: read as INT
+    reg_value = registers_get_holding_register(map->input_reg);
+  }
+
+  // ... rest of type conversion code ...
+}
+```
+
+#### Dependencies
+- `constants.h`: `HOLDING_REGS_SIZE`, `DISCRETE_INPUTS_SIZE`
+- `types.h`: `VariableMapping.input_type` field
+
+#### Test Plan
+1. Prøv at binde ST variable til DI #300 (over HOLDING_REGS_SIZE)
+2. **Forventet (før fix):** Binding ignoreres
+3. **Forventet (efter fix):** Binding fungerer hvis DISCRETE_INPUTS_SIZE > 300
+4. Verify at HR bindings stadig bounds-checkes korrekt
+
+---
+
+### BUG-011: Forvirrende variabelnavn `coil_reg` bruges til HR også
+**Status:** ❌ OPEN
+**Prioritet:** 🔵 LOW (COSMETIC)
+**Opdaget:** 2025-12-13
+**Version:** v4.1.0
+
+#### Beskrivelse
+`VariableMapping` struct bruger feltet `coil_reg` til BÅDE coils (output_type==1) og holding registers (output_type==0), hvilket er forvirrende når man læser koden.
+
+**Impact:**
+- Forvirrende når man debugger eller læser kildekode
+- Ingen funktionel påvirkning
+- Gør koden sværere at vedligeholde
+
+#### Påvirkede Funktioner
+
+**Funktion:** `static void gpio_mapping_write_outputs(void)`
+**Fil:** `src/gpio_mapping.cpp`
+**Linjer:** 106-170
+**Forvirrende kode (linje 156-165):**
+```cpp
+// Check output_type to determine destination
+if (map->coil_reg != 65535) {
+  // output_type: 0 = Holding Register, 1 = Coil
+  if (map->output_type == 1) {
+    // Output to COIL (BOOL variables)
+    uint8_t coil_value = (var_value != 0) ? 1 : 0;
+    registers_set_coil(map->coil_reg, coil_value);  ← OK, coil
+  } else {
+    // Output to HOLDING REGISTER (INT variables)
+    registers_set_holding_register(map->coil_reg, (uint16_t)var_value);  ← Misleading name!
+  }
+}
+```
+
+**Også brugt i:**
+- `src/gpio_mapping.cpp`: Linje 121 (GPIO output mode)
+- `include/types.h`: `VariableMapping` struct definition
+
+#### Foreslået Fix
+
+**Omdøb `coil_reg` → `output_reg` i types.h:**
+```cpp
+// types.h - VariableMapping struct
+typedef struct {
+  // ... existing fields ...
+
+  // OUTPUT destination (old name: coil_reg)
+  uint16_t output_reg;  // Coil address (if output_type==1) or HR address (if output_type==0)
+
+  // ... rest of fields ...
+} VariableMapping;
+```
+
+**Opdater ALLE references:**
+- `src/gpio_mapping.cpp`: Alle `map->coil_reg` → `map->output_reg`
+- `src/cli_commands_logic.cpp`: Bind/unbind commands
+- `src/config_struct.cpp`: Initialization
+- Alle andre steder hvor `VariableMapping.coil_reg` bruges
+
+**Alternativ (mindre breaking):** Tilføj comment i types.h der forklarer at `coil_reg` bruges til både coils og HR.
+
+#### Dependencies
+- `types.h`: `VariableMapping` struct
+- Alle filer der bruger `VariableMapping.coil_reg`
+
+#### Test Plan
+1. Find-and-replace `coil_reg` → `output_reg` i hele codebase
+2. Compile og verify ingen compile errors
+3. Test at bindings stadig fungerer (både coil og HR outputs)
+
+**Note:** Dette er en COSMETIC fix, prioritet kan vente til større refactoring.
+
+---
+
 ## Conventions & References
 
 ### Function Signature Format
@@ -626,10 +928,155 @@ Se `include/constants.h` for alle register addresses:
 
 ---
 
+### BUG-012: ST Logic "both" mode binding skaber dobbelt output i 'show logic'
+**Status:** ❌ OPEN
+**Prioritet:** 🟡 HIGH
+**Opdaget:** 2025-12-13
+**Version:** v4.1.0
+
+#### Beskrivelse
+Når bruger gør `set logic 1 bind timer reg:100`, bliver det oprettet som "both" mode binding, hvilket skaber **2 separate VariableMapping entries**:
+1. INPUT mapping: `timer ← HR#100`
+2. OUTPUT mapping: `timer → Reg#100`
+
+Resultatet er at `show logic 1` viser begge mappings, hvilket giver intryk af **11 bindings fra 6 kommandoer** (hver kommando skaber 2 bindings).
+
+**Impact:**
+- Forvirrende output for brugeren (tæller dobbelt)
+- Modbus I/O virker korrekt (input læses, output skrives), men visningen er misvisende
+- Bytes-forbrug øges unødvendigt (hver binding bruger VariableMapping struct)
+
+#### Påvirkede Funktioner
+
+**Funktion:** `int cli_cmd_set_logic_bind_by_name(...)`
+**Fil:** `src/cli_commands_logic.cpp`
+**Linjer:** 234-321
+**Problematisk kode (linjer 283-294):**
+```cpp
+if (strncmp(binding_spec, "reg:", 4) == 0) {
+  // Holding register (16-bit integer)
+  register_addr = atoi(binding_spec + 4);
+  direction = "both";  // ← ALTID "both" for reg:
+  input_type = 0;  // HR
+  output_type = 0;  // HR
+} else if (strncmp(binding_spec, "coil:", 5) == 0) {
+  // Coil (BOOL read/write)
+  register_addr = atoi(binding_spec + 5);
+  direction = "both";  // ← ALTID "both" for coil:
+  input_type = 1;  // DI
+  output_type = 1;  // Coil
+}
+```
+
+**Og derefter (linjer 399-424):**
+```cpp
+if (is_input && is_output) {
+  // "both" mode: Create TWO mappings (INPUT + OUTPUT)
+  // ... skaber map_in og map_out som separate entries
+}
+```
+
+#### Foreslået Fix
+
+**Option 1: Skift til "output" mode som default**
+Hvis bruger ikke specificerer input/output, antag "output" mode for `reg:` og `coil:`:
+```cpp
+if (strncmp(binding_spec, "reg:", 4) == 0) {
+  register_addr = atoi(binding_spec + 4);
+  direction = "output";  // ← ÆNDRET fra "both"
+  input_type = 0;
+  output_type = 0;
+} else if (strncmp(binding_spec, "coil:", 5) == 0) {
+  register_addr = atoi(binding_spec + 5);
+  direction = "output";  // ← ÆNDRET fra "both"
+  input_type = 1;
+  output_type = 1;
+}
+```
+
+**Option 2: Tilføj explicit direction syntax**
+Tillad bruger at specificere retning:
+```
+set logic 1 bind timer reg:100 output      # Kun output
+set logic 1 bind sensor reg:100 input      # Kun input
+set logic 1 bind data reg:100 both         # Både input og output (2 mappings)
+```
+
+**Anbefaling:** Option 1 er enklere og matcher intuition - registre bruges typisk til OUTPUT.
+
+#### Test Plan
+1. Gør: `set logic 1 bind timer reg:100`
+2. Kør: `show logic 1`
+3. **Forventet (før fix):** 2 bindings (timer ← HR#100 og timer → Reg#100)
+4. **Forventet (efter fix, option 1):** 1 binding (timer → Reg#100)
+
+---
+
+### BUG-013: Visnings-rækkefølge af ST Logic bindings matcher ikke variabel indeks rækkefølge
+**Status:** ✔️ IKKE EN BUG - DESIGN
+**Prioritet:** 🔵 LOW (KOSMETISK)
+**Opdaget:** 2025-12-13
+**Version:** v4.1.0
+
+#### Beskrivelse
+Når bindings vises med `show logic 1`, vises de i den rækkefølge de ligger i `var_maps[]` array, ikke sorteret efter variabel indeks. Dette kan være forvirrende når indekserne ikke stiger 0,1,2,3,...
+
+**Eksempel:**
+```
+VAR definition (viser indekser):
+  [0] state: INT
+  [1] red: BOOL
+  [2] yellow: BOOL
+  [3] green: BOOL
+  [4] timer: INT
+  [5] status: BOOL
+  [6] blink_timer: INT
+  [7] blink_on: BOOL
+
+show logic 1 output (viser i var_maps rækkefølge, ikke indeks rækkefølge):
+  [4] timer ← HR#100
+  [0] state ← HR#101
+  [1] red ← Input-dis#10
+  [2] yellow ← Input-dis#11
+  [3] green ← Input-dis#12
+  [5] status ← Input-dis#15
+```
+
+**Analyse:** Indekserne [4], [0], [1], [2], [3], [5] er KORREKTE - de matcher VAR definition. De vises bare i anden rækkefølge fordi `var_maps[]` er ikke sorteret.
+
+**Impact:**
+- Ikke kritisk (indekserne er korrekte)
+- Kan være forvirrende visuelt (hoppende indekser)
+- Intet funktionelt problem
+
+#### Foreslået Fix (VALGFRI, KOSMETIK)
+
+**Metode 1: Sorter output efter variabel indeks**
+```cpp
+// I st_logic_print_program(), sorter alle bindings efter st_var_index før output
+```
+
+**Metode 2: Vis variabel reference først**
+```cpp
+debug_printf("Variable Index Reference:\n");
+for (uint8_t i = 0; i < prog->bytecode.var_count; i++) {
+  debug_printf("  [%d] %s\n", i, prog->bytecode.var_names[i]);
+}
+
+debug_printf("\nBindings (sorted by index):\n");
+// ... print sorted
+```
+
+**Status:** ✔️ IKKE EN BUG - Dette er design choice. Indekserne er korrekte. Hvis bruger ønsker bedre visning, kan vi implementere Metode 2.
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-13 | 2 nye bugs tilføjet (BUG-012, BUG-013) fra ST Logic binding visning analyse | Claude Code |
+| 2025-12-13 | 4 nye bugs tilføjet (BUG-008 til BUG-011) fra ST Logic Modbus integration analyse | Claude Code |
 | 2025-12-12 | Alle 7 bugs fixed (BUG-001 til BUG-007) | Claude Code |
 | 2025-12-12 | Initial bug tracking fil oprettet med 7 bugs | Claude Code |
 

@@ -276,21 +276,21 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
 
   // Parse binding spec: reg:100, coil:10, or input-dis:5
   uint16_t register_addr = 0;
-  const char *direction = "both";  // default
+  const char *direction = "output";  // default: output mode for ST variables (typically write to Modbus)
   uint8_t input_type = 0;  // 0 = Holding Register (HR), 1 = Discrete Input (DI)
   uint8_t output_type = 0;  // 0 = Holding Register (HR), 1 = Coil
 
   if (strncmp(binding_spec, "reg:", 4) == 0) {
-    // Holding register (16-bit integer)
+    // Holding register (16-bit integer) - OUTPUT mode (ST var → HR)
     register_addr = atoi(binding_spec + 4);
-    direction = "both";  // INT variables work as input/output
-    input_type = 0;  // HR
+    direction = "output";  // BUG-012 FIX: Changed from "both" to "output" (only 1 mapping, not 2)
+    input_type = 0;  // HR (unused in output mode)
     output_type = 0;  // HR
   } else if (strncmp(binding_spec, "coil:", 5) == 0) {
-    // Coil output (BOOL write)
+    // Coil (BOOL read/write) - OUTPUT mode (ST var → Coil)
     register_addr = atoi(binding_spec + 5);
-    direction = "output";
-    input_type = 0;  // N/A for output
+    direction = "output";  // BUG-012 FIX: Changed from "both" to "output" (only 1 mapping, not 2)
+    input_type = 1;  // DI (unused in output mode)
     output_type = 1;  // Coil
   } else if (strncmp(binding_spec, "input-dis:", 10) == 0 || strncmp(binding_spec, "input:", 6) == 0) {
     // Discrete input (BOOL read) - supports both "input-dis:5" and "input:5" shortcuts
@@ -399,24 +399,24 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
   if (is_input && is_output) {
     // "both" mode: Create TWO mappings (INPUT + OUTPUT)
 
-    // Mapping 1: INPUT (Modbus HR → ST var)
+    // Mapping 1: INPUT (Modbus → ST var)
     VariableMapping *map_in = &g_persist_config.var_maps[g_persist_config.var_map_count++];
     memset(map_in, 0xff, sizeof(*map_in));
     map_in->source_type = MAPPING_SOURCE_ST_VAR;
     map_in->st_program_id = program_id;
     map_in->st_var_index = var_index;
     map_in->is_input = 1;
-    map_in->input_type = 0;  // HR
+    map_in->input_type = input_type;  // Use parameter (0=HR, 1=DI/Coil)
     map_in->input_reg = modbus_reg;
 
-    // Mapping 2: OUTPUT (ST var → Modbus HR)
+    // Mapping 2: OUTPUT (ST var → Modbus)
     VariableMapping *map_out = &g_persist_config.var_maps[g_persist_config.var_map_count++];
     memset(map_out, 0xff, sizeof(*map_out));
     map_out->source_type = MAPPING_SOURCE_ST_VAR;
     map_out->st_program_id = program_id;
     map_out->st_var_index = var_index;
     map_out->is_input = 0;
-    map_out->output_type = 0;  // HR
+    map_out->output_type = output_type;  // Use parameter (0=HR, 1=Coil)
     map_out->coil_reg = modbus_reg;
 
     debug_printf("[OK] Logic%d: var[%d] (%s) <-> Modbus HR#%d (2 mappings created)\n",
