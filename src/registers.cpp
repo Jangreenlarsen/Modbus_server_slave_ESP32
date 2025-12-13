@@ -31,6 +31,14 @@ static uint8_t coils[COILS_SIZE] = {0};                     // Packed bits (8 pe
 static uint8_t discrete_inputs[DISCRETE_INPUTS_SIZE] = {0}; // Packed bits (8 per byte)
 
 /* ============================================================================
+ * FORWARD DECLARATIONS (handlers called from registers_set_holding_register)
+ * ============================================================================ */
+
+void registers_process_st_logic_control(uint16_t addr, uint16_t value);
+void registers_process_st_logic_interval(uint16_t addr, uint16_t value);
+void registers_process_st_logic_var_input(uint16_t addr, uint16_t value);
+
+/* ============================================================================
  * HOLDING REGISTERS (Read/Write)
  * ============================================================================ */
 
@@ -51,6 +59,11 @@ void registers_set_holding_register(uint16_t addr, uint16_t value) {
   // Process ST Logic execution interval (v4.1.0) - HR 236-237
   if (addr == ST_LOGIC_EXEC_INTERVAL_RW_REG || addr == ST_LOGIC_EXEC_INTERVAL_RW_REG + 1) {
     registers_process_st_logic_interval(addr, value);
+  }
+
+  // Process ST Logic variable input (v4.2.0) - HR 204-235
+  if (addr >= ST_LOGIC_VAR_INPUT_REG_BASE && addr < ST_LOGIC_VAR_INPUT_REG_BASE + 32) {
+    registers_process_st_logic_var_input(addr, value);
   }
 }
 
@@ -396,13 +409,13 @@ void registers_update_st_logic_status(void) {
 
     // 252-259: Min Execution Time (µs) - 32-bit, 2 registers per program
     uint16_t min_reg_offset = ST_LOGIC_MIN_EXEC_TIME_REG_BASE + (prog_id * 2);
-    registers_set_input_register(min_reg_offset,     (uint16_t)(prog->min_execution_ms >> 16)); // High word
-    registers_set_input_register(min_reg_offset + 1, (uint16_t)(prog->min_execution_ms & 0xFFFF)); // Low word
+    registers_set_input_register(min_reg_offset,     (uint16_t)(prog->min_execution_us >> 16)); // High word
+    registers_set_input_register(min_reg_offset + 1, (uint16_t)(prog->min_execution_us & 0xFFFF)); // Low word
 
     // 260-267: Max Execution Time (µs) - 32-bit, 2 registers per program
     uint16_t max_reg_offset = ST_LOGIC_MAX_EXEC_TIME_REG_BASE + (prog_id * 2);
-    registers_set_input_register(max_reg_offset,     (uint16_t)(prog->max_execution_ms >> 16));
-    registers_set_input_register(max_reg_offset + 1, (uint16_t)(prog->max_execution_ms & 0xFFFF));
+    registers_set_input_register(max_reg_offset,     (uint16_t)(prog->max_execution_us >> 16));
+    registers_set_input_register(max_reg_offset + 1, (uint16_t)(prog->max_execution_us & 0xFFFF));
 
     // 268-275: Avg Execution Time (µs) - Calculated from total_execution_us / execution_count
     uint32_t avg_execution_us = 0;
@@ -536,4 +549,61 @@ void registers_process_st_logic_interval(uint16_t addr, uint16_t value) {
 
   // Note: Interval is not persisted to NVS automatically
   // User must call config_save() or use CLI 'save' command to persist
+}
+
+/* ============================================================================
+ * ST LOGIC VARIABLE INPUT HANDLER (v4.2.0)
+ * ============================================================================
+ *
+ * Direct write to ST Logic variables via Modbus (HR 204-235)
+ * Maps deterministically: prog_id = offset / 8, var_index = offset % 8
+ *
+ * HR 204-211: Logic1 variables [0-7]
+ * HR 212-219: Logic2 variables [0-7]
+ * HR 220-227: Logic3 variables [0-7]
+ * HR 228-235: Logic4 variables [0-7]
+ */
+
+void registers_process_st_logic_var_input(uint16_t addr, uint16_t value) {
+  // Validate address range
+  if (addr < ST_LOGIC_VAR_INPUT_REG_BASE || addr >= ST_LOGIC_VAR_INPUT_REG_BASE + 32) {
+    return;  // Not a ST Logic variable input register
+  }
+
+  // Calculate program ID (0-3) and variable index (0-7)
+  uint8_t offset = addr - ST_LOGIC_VAR_INPUT_REG_BASE;
+  uint8_t prog_id = offset / 8;
+  uint8_t var_index = offset % 8;
+
+  // Get program state
+  st_logic_engine_state_t *st_state = st_logic_get_state();
+  if (!st_state) return;
+
+  st_logic_program_config_t *prog = st_logic_get_program(st_state, prog_id);
+  if (!prog) return;
+
+  // Bounds checking: program must be compiled and variable must exist
+  if (!prog->compiled || var_index >= prog->bytecode.var_count) {
+    // Silently ignore writes to non-existent variables or uncompiled programs
+    return;
+  }
+
+  // Type-aware conversion (matches gpio_mapping.cpp pattern)
+  st_datatype_t var_type = prog->bytecode.var_types[var_index];
+  if (var_type == ST_TYPE_BOOL) {
+    // BOOL: Convert value to 0 or 1
+    prog->bytecode.variables[var_index].bool_val = (value != 0);
+  } else if (var_type == ST_TYPE_REAL) {
+    // REAL: Cast 16-bit integer to float
+    prog->bytecode.variables[var_index].real_val = (float)value;
+  } else {
+    // INT or DWORD: Direct 16-bit signed integer
+    prog->bytecode.variables[var_index].int_val = (int16_t)value;
+  }
+
+  // Optional: Debug output if enabled
+  if (st_state->debug) {
+    debug_printf("[ST_VAR_INPUT] Logic%d var[%d] = %d (type=%d)\n",
+                 prog_id + 1, var_index, value, var_type);
+  }
 }

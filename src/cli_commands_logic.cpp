@@ -708,17 +708,17 @@ int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
       uint32_t avg_us = prog->total_execution_us / prog->execution_count;
 
       debug_printf("  Min time:      %u.%03ums\n",
-                   (unsigned int)(prog->min_execution_ms / 1000),
-                   (unsigned int)(prog->min_execution_ms % 1000));
+                   (unsigned int)(prog->min_execution_us / 1000),
+                   (unsigned int)(prog->min_execution_us % 1000));
       debug_printf("  Max time:      %u.%03ums\n",
-                   (unsigned int)(prog->max_execution_ms / 1000),
-                   (unsigned int)(prog->max_execution_ms % 1000));
+                   (unsigned int)(prog->max_execution_us / 1000),
+                   (unsigned int)(prog->max_execution_us % 1000));
       debug_printf("  Avg time:      %u.%03ums\n",
                    (unsigned int)(avg_us / 1000),
                    (unsigned int)(avg_us % 1000));
       debug_printf("  Last time:     %u.%03ums\n",
-                   (unsigned int)(prog->last_execution_ms / 1000),
-                   (unsigned int)(prog->last_execution_ms % 1000));
+                   (unsigned int)(prog->last_execution_us / 1000),
+                   (unsigned int)(prog->last_execution_us % 1000));
 
       if (prog->overrun_count > 0) {
         debug_printf("  Overruns:      %u (%.1f%%) ⚠️\n",
@@ -786,21 +786,21 @@ int cli_cmd_show_logic_timing(st_logic_engine_state_t *logic_state, uint8_t prog
 
     debug_printf("Timing Performance:\n");
     debug_printf("  Min:               %u.%03ums (%uµs)\n",
-                 (unsigned int)(prog->min_execution_ms / 1000),
-                 (unsigned int)(prog->min_execution_ms % 1000),
-                 (unsigned int)prog->min_execution_ms);
+                 (unsigned int)(prog->min_execution_us / 1000),
+                 (unsigned int)(prog->min_execution_us % 1000),
+                 (unsigned int)prog->min_execution_us);
     debug_printf("  Max:               %u.%03ums (%uµs)\n",
-                 (unsigned int)(prog->max_execution_ms / 1000),
-                 (unsigned int)(prog->max_execution_ms % 1000),
-                 (unsigned int)prog->max_execution_ms);
+                 (unsigned int)(prog->max_execution_us / 1000),
+                 (unsigned int)(prog->max_execution_us % 1000),
+                 (unsigned int)prog->max_execution_us);
     debug_printf("  Avg:               %u.%03ums (%uµs)\n",
                  (unsigned int)(avg_us / 1000),
                  (unsigned int)(avg_us % 1000),
                  (unsigned int)avg_us);
     debug_printf("  Last:              %u.%03ums (%uµs)\n",
-                 (unsigned int)(prog->last_execution_ms / 1000),
-                 (unsigned int)(prog->last_execution_ms % 1000),
-                 (unsigned int)prog->last_execution_ms);
+                 (unsigned int)(prog->last_execution_us / 1000),
+                 (unsigned int)(prog->last_execution_us % 1000),
+                 (unsigned int)prog->last_execution_us);
     debug_printf("\n");
 
     // Performance analysis

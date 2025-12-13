@@ -211,8 +211,8 @@ void st_logic_reset_stats(st_logic_engine_state_t *state, uint8_t program_id) {
     // Reset all programs
     for (uint8_t i = 0; i < 4; i++) {
       st_logic_program_config_t *prog = &state->programs[i];
-      prog->min_execution_ms = 0;
-      prog->max_execution_ms = 0;
+      prog->min_execution_us = 0;
+      prog->max_execution_us = 0;
       prog->total_execution_us = 0;
       prog->overrun_count = 0;
       prog->execution_count = 0;
@@ -221,8 +221,8 @@ void st_logic_reset_stats(st_logic_engine_state_t *state, uint8_t program_id) {
   } else if (program_id < 4) {
     // Reset single program
     st_logic_program_config_t *prog = &state->programs[program_id];
-    prog->min_execution_ms = 0;
-    prog->max_execution_ms = 0;
+    prog->min_execution_us = 0;
+    prog->max_execution_us = 0;
     prog->total_execution_us = 0;
     prog->overrun_count = 0;
     prog->execution_count = 0;

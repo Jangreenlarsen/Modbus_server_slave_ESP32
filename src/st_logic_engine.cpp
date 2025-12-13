@@ -63,16 +63,16 @@ bool st_logic_execute_program(st_logic_engine_state_t *state, uint8_t program_id
   prog->execution_count++;
 
   // Performance monitoring (v4.1.0): Track min/max/avg execution time
-  prog->last_execution_ms = elapsed_us;  // Store in microseconds for precision
+  prog->last_execution_us = elapsed_us;  // Store in microseconds for precision
   prog->total_execution_us += elapsed_us;
 
   if (prog->execution_count == 1) {
     // First execution
-    prog->min_execution_ms = elapsed_us;
-    prog->max_execution_ms = elapsed_us;
+    prog->min_execution_us = elapsed_us;
+    prog->max_execution_us = elapsed_us;
   } else {
-    if (elapsed_us < prog->min_execution_ms) prog->min_execution_ms = elapsed_us;
-    if (elapsed_us > prog->max_execution_ms) prog->max_execution_ms = elapsed_us;
+    if (elapsed_us < prog->min_execution_us) prog->min_execution_us = elapsed_us;
+    if (elapsed_us > prog->max_execution_us) prog->max_execution_us = elapsed_us;
   }
 
   // Track overruns (execution time > target interval)

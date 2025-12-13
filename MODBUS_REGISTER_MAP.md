@@ -287,17 +287,39 @@ write_register(202, 0x0000)  # Clear bit 0
 
 ---
 
-### **HR 204-235: Variable Input (Reserved)**
+### **HR 204-235: Variable Input - Direct Write to ST Logic Variables (v4.2.0)**
 | Register Range | Program | Variables | Access | Beskrivelse |
 |----------------|---------|-----------|--------|-------------|
-| **204-211** | Logic1 | Var[0]-Var[7] | R/W | Input values for Logic1 (future use) |
-| **212-219** | Logic2 | Var[0]-Var[7] | R/W | Input values for Logic2 |
-| **220-227** | Logic3 | Var[0]-Var[7] | R/W | Input values for Logic3 |
-| **228-235** | Logic4 | Var[0]-Var[7] | R/W | Input values for Logic4 |
+| **204-211** | Logic1 | Var[0]-Var[7] | W | Direct write to Logic1 variables (bytecode) |
+| **212-219** | Logic2 | Var[0]-Var[7] | W | Direct write to Logic2 variables (bytecode) |
+| **220-227** | Logic3 | Var[0]-Var[7] | W | Direct write to Logic3 variables (bytecode) |
+| **228-235** | Logic4 | Var[0]-Var[7] | W | Direct write to Logic4 variables (bytecode) |
 
-**Status:** Reserved for future direct variable write funktionalitet.
+**Status:** Implementeret i v4.2.0 - DIREKTE mapping uden variable binding lookup.
 
-**Note:** Brug i stedet variable bindings (`set logic X bind var_name reg:Y`) for at mappe ST variables til Modbus registre.
+**Funktionalitet:**
+- Modbus master skriver direkte til ST Logic variabel bytecode
+- **Deterministisk mapping:** `prog_id = (addr - 204) / 8`, `var_index = (addr - 204) % 8`
+- **Type-aware konvertering:**
+  - `ST_TYPE_BOOL`: Value ≠ 0 konverteres til bool `true`/`false`
+  - `ST_TYPE_REAL`: 16-bit integer castes til float
+  - `ST_TYPE_INT/DWORD`: 16-bit signed integer
+- **Bounds checking:** Writes ignoreres hvis program ikke compiled eller var_index >= var_count
+- **Debug output:** `[ST_VAR_INPUT] Logic# var[#] = value (type=#)` hvis debug enabled
+
+**Eksempler:**
+```
+# Skriv Logic1 var[0] (address 204) værdi 42
+Write HR 204 = 42
+
+# Skriv Logic2 var[3] (address 215) værdi 1 (BOOL)
+Write HR 215 = 1 (true)
+
+# Skriv Logic4 var[7] (address 235) værdi 255
+Write HR 235 = 255
+```
+
+**Alternativ:** Variable bindings via CLI (`set logic X bind var_name reg:Y`) for permanent mapping med CLI kontrol.
 
 ---
 

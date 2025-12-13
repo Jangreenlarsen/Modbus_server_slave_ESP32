@@ -37,15 +37,15 @@ typedef struct {
   // BUG-006 FIX: Changed to uint16_t to match register size (65535 max, saves 8 bytes RAM)
   uint16_t execution_count;   // Number of times executed (wraps at 65535)
   uint16_t error_count;       // Number of execution errors (wraps at 65535)
-  uint32_t last_execution_ms; // Last execution time (milliseconds)
+  uint32_t last_execution_us; // Last execution time (microseconds)
   char last_error[128];       // Last error message
 
   // BUG-005 FIX: Cache variable binding count (performance optimization)
   uint8_t binding_count;      // Number of variable bindings for this program
 
   // Performance monitoring (v4.1.0)
-  uint32_t min_execution_ms;  // Minimum execution time (microseconds for precision)
-  uint32_t max_execution_ms;  // Maximum execution time (microseconds)
+  uint32_t min_execution_us;  // Minimum execution time (microseconds)
+  uint32_t max_execution_us;  // Maximum execution time (microseconds)
   uint32_t total_execution_us;// Total execution time for average calculation (microseconds)
   uint32_t overrun_count;     // Number of times execution > target interval
 

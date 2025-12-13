@@ -4,6 +4,31 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [4.2.0] - 2025-12-13 ✨ (HR 204-235 Direct Variable Write & Timing Fix)
+
+### ADDED
+- **HR 204-235: Direct Write to ST Logic Variables (v4.2.0)**
+  - Modbus FC06/FC10 can now write directly to ST Logic variables
+  - **Deterministic mapping:** HR 204-211 = Logic1 vars[0-7], HR 212-219 = Logic2 vars[0-7], etc.
+  - **Type-aware conversion:** BOOL/INT/REAL types handled correctly
+  - Bounds checking: Writes ignored if program not compiled or var out of range
+  - Debug output: `[ST_VAR_INPUT] Logic# var[#] = value (type=#)` when enabled
+  - No variable mapping setup needed - direct bytecode write
+  - Impact: Faster Modbus variable updates, no setup overhead
+
+### FIXED
+- **Field naming:** Timing measurement fields now correctly named with *_us suffix
+  - Renamed `min_execution_ms` → `min_execution_us`
+  - Renamed `max_execution_ms` → `max_execution_us`
+  - Renamed `last_execution_ms` → `last_execution_us`
+  - Data was always in microseconds, names are now accurate
+  - Impact: No confusion about timing units, clearer code intent
+
+### CHANGED
+- MODBUS_REGISTER_MAP.md: HR 204-235 section updated from "Reserved" to "Implemented"
+
+---
+
 ## [4.1.1] - 2025-12-13 🔧 (ST Logic Bindings & Persistent Configuration)
 
 ### ADDED
