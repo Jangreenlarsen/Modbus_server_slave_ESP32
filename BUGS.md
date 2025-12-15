@@ -1728,10 +1728,120 @@ if (cfg.reset_on_read && cfg.enabled) {
 
 ---
 
+---
+
+## IMPROVEMENT-001: Smart Counter Register Defaults (v4.2.0)
+
+**Status:** ✅ IMPLEMENTED
+**Prioritet:** 🟢 ENHANCEMENT
+**Implementeret:** 2025-12-15
+**Version:** v4.2.0
+
+### Beskrivelse
+
+Counter register adresser får nu automatiske logiske defaults hvis ikke specificeret af bruger.
+
+**Før (Ulogisk):**
+```
+Counter 1: index-reg=50, raw-reg=60, freq-reg=70, overload-reg=90, ctrl-reg=80
+  → Kaotisk spacing uden mønster
+```
+
+**Efter (Logisk):**
+```
+Counter 1: index-reg=100, raw-reg=101, freq-reg=102, overload-reg=103, ctrl-reg=104
+Counter 2: index-reg=110, raw-reg=111, freq-reg=112, overload-reg=113, ctrl-reg=114
+Counter 3: index-reg=120, raw-reg=121, freq-reg=122, overload-reg=123, ctrl-reg=124
+Counter 4: index-reg=130, raw-reg=131, freq-reg=132, overload-reg=133, ctrl-reg=134
+  → Klart mønster, let at huske og debugge
+```
+
+### Implementering
+
+**Fil:** `src/counter_config.cpp` linje 47-55
+**Funktion:** `counter_config_defaults(uint8_t id)`
+
+```cpp
+// IMPROVEMENT: Smart register defaults (v4.2.0)
+// Assign logical spacing: Counter 1 → 100-104, Counter 2 → 110-114, etc.
+uint16_t base = 100 + ((id - 1) * 10);
+cfg.index_reg = base + 0;     // 100, 110, 120, 130
+cfg.raw_reg = base + 1;       // 101, 111, 121, 131
+cfg.freq_reg = base + 2;      // 102, 112, 122, 132
+cfg.overload_reg = base + 3;  // 103, 113, 123, 133
+cfg.ctrl_reg = base + 4;      // 104, 114, 124, 134
+```
+
+### Fordele
+
+- ✅ Brugere behøver IKKE at sætte register adresser manuelt
+- ✅ Logisk spacing gør debugging lettere
+- ✅ Skalerbart (næste counter = +10 offset)
+- ✅ Backward compatible (brugerdefinerede værdier overrides defaults)
+
+### Backward Compatibility
+
+**Eksisterende config påvirkes IKKE:**
+- Hvis bruger allerede har sat registers eksplicit → bevares
+- Kun nye counters får smart defaults
+- Konfiguration loadet fra NVS respekteres fuldt
+
+### Test Plan
+
+1. Reset ESP32 til defaults
+2. Konfigurér counter: `set counter 1 mode 1 hw-mode:hw hw-gpio:25`
+3. Verificer defaults: `show config`
+4. Forventet output: `index-reg=100, raw-reg=101, freq-reg=102, overload-reg=103, ctrl-reg=104`
+
+---
+
+## IMPROVEMENT-002: Counter Configuration Templates (v4.2.0)
+
+**Status:** ✅ IMPLEMENTED
+**Prioritet:** 🟢 DOCUMENTATION
+**Implementeret:** 2025-12-15
+**Version:** v4.2.0
+
+### Fil
+
+`docs/COUNTER_CONFIG_TEMPLATES.md` - Komplet guide til counter setup
+
+### Indhold
+
+- **Template 1:** HW Counter (PCNT Mode) - højeste præcision
+- **Template 2:** SW Mode Counter - polling
+- **Template 3:** SW-ISR Mode Counter - interrupt-driven
+- **Template 4:** Prescaler setup - overflow-håndtering
+- **Template 5:** Compare feature - alarm ved værdi
+- **Template 6:** Reset-on-read - periodisk reset
+- **Template 7:** Scale factor - unit conversion
+- **Template 8:** Full setup - alle 4 counters
+- **Troubleshooting:** Løsninger til almindelige problemer
+- **Best Practices:** Anbefalinger
+
+### Fordele
+
+- ✅ Copy-paste templates til almindelige setups
+- ✅ Bruger ved hvad der er "best practice"
+- ✅ Reducerer fejl ved konfiguration
+- ✅ Dokumentation af alle features
+
+### Eksempel
+
+```bash
+# Minimal HW counter setup (klar til at køre)
+set counter 1 mode 1 hw-mode:hw hw-gpio:25 edge:rising prescaler:1
+set counter 1 control running:on auto-start:on
+save
+```
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-15 | IMPROVEMENT-001, IMPROVEMENT-002 - Smart defaults & templates (v4.2.0) | Claude Code |
 | 2025-12-15 | ISSUE-1, ISSUE-2, ISSUE-3 FIXED - Atomic writes, reconfiguration, reset-on-read (FASE 3) | Claude Code |
 | 2025-12-15 | BUG-CLI-1, BUG-CLI-2 FIXED - CLI documentation og GPIO validation | Claude Code |
 | 2025-12-15 | BUG-016, BUG-017, BUG-015 FIXED - Counter control system (running bit, auto-start, PCNT validation) | Claude Code |

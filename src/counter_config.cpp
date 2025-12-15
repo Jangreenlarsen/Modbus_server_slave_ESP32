@@ -44,11 +44,15 @@ CounterConfig counter_config_defaults(uint8_t id) {
   cfg.bit_width = 32;
   cfg.scale_factor = 1.0f;
 
-  cfg.index_reg = 0;
-  cfg.raw_reg = 0;
-  cfg.freq_reg = 0;
-  cfg.overload_reg = 0;
-  cfg.ctrl_reg = 0;
+  // IMPROVEMENT: Smart register defaults (v4.2.0)
+  // Assign logical spacing: Counter 1 → 100-104, Counter 2 → 110-114, etc.
+  // This ensures counters have sane defaults without explicit CLI configuration
+  uint16_t base = 100 + ((id - 1) * 10);
+  cfg.index_reg = base + 0;     // 100, 110, 120, 130
+  cfg.raw_reg = base + 1;       // 101, 111, 121, 131
+  cfg.freq_reg = base + 2;      // 102, 112, 122, 132
+  cfg.overload_reg = base + 3;  // 103, 113, 123, 133
+  cfg.ctrl_reg = base + 4;      // 104, 114, 124, 134
 
   cfg.start_value = 0;
   cfg.debounce_enabled = 1;
