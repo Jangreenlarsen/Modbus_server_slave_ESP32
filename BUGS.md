@@ -1982,6 +1982,163 @@ Counter 1: en=0 ✓ DISABLED!
 
 ---
 
+## BUG-022: Auto-Enable Counter When Setting running:on (v4.2.0)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🟡 HIGH
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+### Beskrivelse
+
+Efter `delete counter 1` (som sætter `enabled=0`), forsøg på `set counter 1 control running:on` virker ikke! Counter forbliver `en=0` selvom user forsøgte at starte den.
+
+**Problem eksempel:**
+```bash
+> delete counter 1
+Counter 1 deleted (disabled)
+
+> set counter 1 control running:on
+Counter 1 control updated: ctrl-reg[104] = 131
+  running: YES ✓
+
+> sh counter 1
+Counter 1: en=0 ❌ STADIG DISABLED!
+  running bit IS set in ctrl-reg, men counter er IKKE kørende
+```
+
+**Root Cause:** `running:on` opdaterer kun ctrl-reg bit 7, men hvis `cfg.enabled=0`, virker counteren IKKE selvom bit 7 er sat.
+
+### Implementeret Fix
+
+**Fil:** `src/cli_commands.cpp` (linjer 412-420)
+
+```cpp
+// BUG-022 FIX: Auto-enable counter if running:on is set
+bool running = (ctrl_value & 0x80) != 0;
+if (running && cfg.enabled == 0) {
+  cfg.enabled = 1;  // Auto-enable if running is requested
+  counter_engine_configure(id, &cfg);
+  debug_println("  NOTE: Counter auto-enabled (was disabled)");
+}
+```
+
+**Workflow:**
+1. User gør `set counter 1 control running:on`
+2. CLI parser sætter bit 7 i ctrl-reg
+3. BUG-022 FIX: Check hvis bit 7 sættes OG counter er disabled
+4. Auto-enable counteren med `cfg.enabled = 1`
+5. Brugeren får debug besked: "NOTE: Counter auto-enabled (was disabled)"
+
+### Resultat
+
+- ✅ `running:on` nu AUTOMATIC auto-enabler disabled counters
+- ✅ Brugere får debug feedback når auto-enable sker
+- ✅ Ingen mere forvirring: "why doesn't running:on work?"
+- ✅ Backward compatible: users who expect manual enable:on still can
+
+### Test Plan
+
+1. Slet counter: `delete counter 1`
+2. Verificer disabled: `sh counter 1` (en=0)
+3. Sæt running: `set counter 1 control running:on`
+4. **Forventet:** Debug output: "Counter auto-enabled (was disabled)"
+5. Verificer enabled: `sh counter 1` (en=1)
+6. Verificer running: ctrl-reg bit 7 sæt, counter tæller
+
+---
+
+## BUG-023: Compare Feature Disabled When Counter Disabled (v4.2.0)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🟡 HIGH
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+### Beskrivelse
+
+Compare feature virker IKKE når counter er disabled (`en=0`). Hele `counter_engine_loop()` springes over hvis counteren er disabled, så compare-check'et kører aldrig.
+
+**Problem eksempel:**
+```bash
+> set counter 1 mode 2 compare:on compare-value:1000 compare-mode:0
+> delete counter 1  (now en=0)
+
+> show counter 1
+Counter 1: en=0, cmp-en=yes, cmp-val=1000
+  Suppose GPIO25 gets 5000 pulses...
+
+Expected: ctrl-reg bit 4 sættes (compare triggered)
+Actual: ctrl-reg bit 4 forbliver 0 (compare NEVER runs!)
+
+User: "Why doesn't compare work when counter is disabled?" ❌
+```
+
+### Root Cause
+
+**Fil:** `src/counter_engine.cpp` linje 88-90 (før fix)
+
+```cpp
+// WRONG: Skip entire loop if counter disabled
+if (!counter_config_get(id, &cfg) || !cfg.enabled) {
+  continue;  // Skips compare_engine_check_compare()!
+}
+```
+
+**Impact:** Compare logic skipped komplet, så bit 4 i ctrl-reg opdateres aldrig.
+
+### Implementeret Fix
+
+**Fil:** `src/counter_engine.cpp` (linjer 85-100)
+
+```cpp
+void counter_engine_loop(void) {
+  for (uint8_t id = 1; id <= 4; id++) {
+    CounterConfig cfg;
+    if (!counter_config_get(id, &cfg)) {
+      continue;
+    }
+
+    // BUG-023 FIX: Check compare feature even if counter is disabled
+    // Compare logic should work independently of enabled flag
+    uint64_t counter_value = counter_engine_get_value(id);
+    counter_engine_check_compare(id, counter_value);
+
+    // Only run counter if enabled
+    if (!cfg.enabled) {
+      continue;  // Skip counter loop, but compare was already checked!
+    }
+
+    // Rest of counter loop...
+  }
+}
+```
+
+**Workflow:**
+1. Loop gennem alle counters (en=0 eller en=1)
+2. **ALTID** check compare feature først (uafhængig af enabled)
+3. Hvis counter disabled, skip resten af loop
+4. Hvis counter enabled, kør normal loop
+
+### Resultat
+
+- ✅ Compare feature virker **ALTID**, uanset enabled flag
+- ✅ Users kan monitorere counter-værdier selvom counter er stopped
+- ✅ Bit 4 i ctrl-reg opdateres korrekt
+- ✅ No performance impact (same getter calls, just reordered)
+
+### Test Plan
+
+1. Konfigurér counter med compare: `set counter 1 mode 2 compare:on compare-value:1000`
+2. Disable counter: `delete counter 1` (en=0)
+3. Simulér GPIO pulses (5000+ counts)
+4. Check ctrl-reg: `show counter 1`
+5. **Forventet:** ctrl-reg bit 4 sæt (compare triggered) selvom en=0 ✓
+
+---
+
 ## BUG-019: Show Counters Display Race Condition (v4.2.0)
 
 **Status:** ✅ FIXED
@@ -2246,6 +2403,7 @@ save
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-15 | BUG-022, BUG-023 FIXED - Auto-enable counter on running:on, compare works when disabled (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-021 FIXED - Add delete counter command and enable/disable parameters (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-020 FIXED - Disable manual register configuration (force smart defaults) (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-019 FIXED - Show counters race condition (atomic reading) (v4.2.0) | Claude Code |
