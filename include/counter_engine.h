@@ -108,5 +108,13 @@ uint64_t counter_engine_get_value(uint8_t id);
  */
 void counter_engine_set_value(uint8_t id, uint64_t value);
 
+/**
+ * @brief Check if counter is currently locked for atomic write (ISSUE-1 FIX)
+ * Used by Modbus FC handlers to respect write-lock during multi-word updates
+ * @param id Counter ID (1-4)
+ * @return 1 if write-locked, 0 if available
+ */
+uint8_t counter_engine_is_write_locked(uint8_t id);
+
 #endif // COUNTER_ENGINE_H
 

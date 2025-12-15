@@ -10,6 +10,7 @@
 #include "modbus_serializer.h"
 #include "registers.h"
 #include "counter_config.h"
+#include "counter_engine.h"
 #include "constants.h"
 #include "debug.h"
 #include <string.h>
@@ -26,31 +27,70 @@
  *
  * This implements the auto-clear behavior: when Modbus master reads the control register,
  * the compare status bit (bit 4) is automatically cleared for next comparison cycle.
+ *
+ * ISSUE-3 ENHANCEMENT: Also handles reset-on-read for counter VALUE registers
+ * If index_reg or raw_reg is read and reset-on-read is enabled, resets counter to start_value.
  */
 static void modbus_fc03_handle_reset_on_read(uint16_t starting_address, uint16_t quantity) {
+  uint16_t ending_address = starting_address + quantity;
+
   // Iterate through all counters to find those with reset-on-read enabled
   for (uint8_t id = 1; id <= 4; id++) {
     CounterConfig cfg;
     if (!counter_config_get(id, &cfg)) continue;
-    if (!cfg.compare_enabled || !cfg.reset_on_read) continue;
+    if (!cfg.reset_on_read) continue;
 
-    // Check if this counter's control register was read
-    uint16_t ctrl_reg = cfg.ctrl_reg;
-    if (ctrl_reg >= HOLDING_REGS_SIZE) continue;  // Invalid register
-    if (ctrl_reg < starting_address || ctrl_reg >= starting_address + quantity) {
-      continue;  // Control register not in read range
+    // ORIGINAL BEHAVIOR: Clear compare status bit (bit 4) if control register was read
+    if (cfg.compare_enabled) {
+      uint16_t ctrl_reg = cfg.ctrl_reg;
+      if (ctrl_reg < HOLDING_REGS_SIZE &&
+          ctrl_reg >= starting_address && ctrl_reg < ending_address) {
+        // Control register was read - clear bit 4 (compare status bit)
+        uint16_t ctrl_val = registers_get_holding_register(ctrl_reg);
+        ctrl_val &= ~(1 << 4);  // Clear bit 4
+        registers_set_holding_register(ctrl_reg, ctrl_val);
+
+        debug_print("FC03 reset-on-read: Counter ");
+        debug_print_uint(id);
+        debug_print(" compare bit cleared (ctrl-reg ");
+        debug_print_uint(ctrl_reg);
+        debug_println(")");
+      }
     }
 
-    // Clear bit 4 (compare status bit) in control register
-    uint16_t ctrl_val = registers_get_holding_register(ctrl_reg);
-    ctrl_val &= ~(1 << 4);  // Clear bit 4
-    registers_set_holding_register(ctrl_reg, ctrl_val);
+    // ISSUE-3 FIX: Reset counter if index_reg or raw_reg was read
+    // This allows Modbus master to read counter value and auto-reset it
+    if (cfg.reset_on_read && cfg.enabled) {
+      uint8_t reset_counter = 0;
 
-    debug_print("FC03 reset-on-read: Counter ");
-    debug_print_uint(id);
-    debug_print(" compare bit cleared (ctrl-reg ");
-    debug_print_uint(ctrl_reg);
-    debug_println(")");
+      // Check if index register was read (could be 1-4 words depending on bit_width)
+      if (cfg.index_reg < HOLDING_REGS_SIZE) {
+        uint8_t index_words = (cfg.bit_width <= 16) ? 1 : (cfg.bit_width == 32) ? 2 : 4;
+        uint16_t index_end = cfg.index_reg + index_words;
+        if (cfg.index_reg < ending_address && index_end > starting_address) {
+          reset_counter = 1;  // Index register was in read range
+        }
+      }
+
+      // Check if raw register was read (could be 1-4 words depending on bit_width)
+      if (!reset_counter && cfg.raw_reg < HOLDING_REGS_SIZE) {
+        uint8_t raw_words = (cfg.bit_width <= 16) ? 1 : (cfg.bit_width == 32) ? 2 : 4;
+        uint16_t raw_end = cfg.raw_reg + raw_words;
+        if (cfg.raw_reg < ending_address && raw_end > starting_address) {
+          reset_counter = 1;  // Raw register was in read range
+        }
+      }
+
+      // Reset counter if value register was read
+      if (reset_counter) {
+        extern void counter_engine_reset(uint8_t id);
+        counter_engine_reset(id);
+
+        debug_print("ISSUE-3 FIX: Counter ");
+        debug_print_uint(id);
+        debug_println(" value reset (read-on-reset)");
+      }
+    }
   }
 }
 

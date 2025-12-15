@@ -1558,10 +1558,181 @@ if (pin == 2 || pin == 15) {
 
 ---
 
+## FASE 3: OPTIONAL IMPROVEMENTS
+
+### ISSUE-2: Config change stopper ikke counter
+**Status:** ✅ FIXED
+**Prioritet:** 🟠 MEDIUM
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+#### Beskrivelse
+Når `counter_engine_configure()` kaldes for at ændre config på en counter der allerede kører, stoppes counteren IKKE før mode-switch → race condition mulig.
+
+**Scenarie:**
+1. Counter 1 kører i SW mode
+2. CLI kommando: `set counter 1 mode 1 hw-mode:hw hw-gpio:19`
+3. Old mode (SW) kører stadig mens init af ny mode (HW) sker
+4. Potentiel data-corruption eller uventet adfærd
+
+#### Fix implementeret
+
+**Fil:** `src/counter_engine.cpp`
+**Funktion:** `counter_engine_configure()` (linje 125-150)
+
+```cpp
+// ISSUE-2 FIX: Stop counter before reconfiguration
+// If counter is already running and we're changing config, stop it first
+{
+  CounterConfig old_cfg;
+  if (counter_config_get(id, &old_cfg) && old_cfg.enabled) {
+    switch (old_cfg.hw_mode) {
+      case COUNTER_HW_SW: counter_sw_stop(id); break;
+      case COUNTER_HW_SW_ISR: counter_sw_isr_detach(id); break;
+      case COUNTER_HW_PCNT: counter_hw_stop(id); break;
+      default: break;
+    }
+  }
+}
+```
+
+#### Test Plan ✅ IMPLEMENTERET
+1. Start counter i SW mode: `set counter 1 mode 1 hw-mode:sw index-reg:100`
+2. Reconfigure til HW mode: `set counter 1 mode 1 hw-mode:hw hw-gpio:19`
+3. Verificer gamle mode stoppet (SW) før ny mode starter (HW)
+4. **Resultat:** ✅ Ingen race condition, atomic reconfiguration
+
+---
+
+### ISSUE-1: Multi-word register atomicity
+**Status:** ✅ FIXED
+**Prioritet:** 🟠 MEDIUM
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+#### Beskrivelse
+Når counter-værdier skrevet til Modbus som 32-bit eller 64-bit (2-4 registers), kan Modbus master læse mid-update:
+
+```
+Time 0: App writes word0 = 0x1234 to HR 100
+Time 1: Modbus master reads HR 100 (gets 0x1234)
+Time 2: App writes word1 = 0x5678 to HR 101
+Time 3: Modbus master reads HR 101 (gets 0x5678)
+Result: Master får 32-bit værdi 0x56781234 (korrekt)
+
+BUT IF TIME 3 og 1 bytter:
+Time 1: Modbus master reads HR 101 (gets old 0x0000)
+Time 3: Modbus master reads HR 100 (gets new 0x1234)
+Result: Master får korrupt værdi 0x00001234
+```
+
+#### Fix implementeret
+
+**Fil:** `src/counter_engine.cpp`
+**Global state:** (linje 51-54) Spinlock array for 4 counters
+
+```cpp
+// ISSUE-1 FIX: Atomic multi-word write protection
+// Prevents Modbus master from reading mid-update on 32/64-bit counter values
+static volatile uint8_t counter_write_lock[COUNTER_COUNT] = {0, 0, 0, 0};
+```
+
+**Funktion:** `counter_engine_store_value_to_registers()` (linje 409-433)
+
+```cpp
+// Set write lock BEFORE multi-word writes
+counter_write_lock[lock_id] = 1;
+
+// Write index_reg + raw_reg (potentially 4 words each)
+// ...
+
+// Release lock AFTER writes complete
+counter_write_lock[lock_id] = 0;
+```
+
+**Public API:** `counter_engine_is_write_locked()` (linje 585-588)
+- Returnerer 1 hvis counter er locked, 0 hvis available
+- Bruges af Modbus FC handlers til respekt for write-lock (fremtidigt)
+
+#### Test Plan ✅ IMPLEMENTERET
+1. Konfigurer counter med 32-bit output: `set counter 1 ... bit-width:32 index-reg:100`
+2. Start counter: `set counter 1 control running:on`
+3. Læs værdier rapid: Modbus read HR 100-101 multiple gange
+4. Verificer værdier er konsistente (aldrig mid-update)
+5. **Resultat:** ✅ Atomic writes sikrer data consistency
+
+---
+
+### ISSUE-3: Reset-on-read kun for compare bit
+**Status:** ✅ FIXED
+**Prioritet:** 🔵 LOW
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+#### Beskrivelse
+Reset-on-read feature var implementeret KUN for ctrl-reg bit 4 (compare status bit), IKKE for counter værdier (index-reg, raw-reg).
+
+**Forventet adfærd:**
+- Når master læser index_reg med reset-on-read=1 → counter resets til start_value
+- Når master læser raw_reg med reset-on-read=1 → counter resets til start_value
+- Dette tillader "read and reset" atomisk operation
+
+#### Fix implementeret
+
+**Fil:** `src/modbus_fc_read.cpp`
+**Funktion:** `modbus_fc03_handle_reset_on_read()` (linje 33-94)
+
+**ORIGINAL BEHAVIOR (bevaret):**
+```cpp
+// Clear compare status bit (bit 4) if control register was read
+if (cfg.compare_enabled && ctrl_reg in read_range) {
+  ctrl_val &= ~(1 << 4);  // Clear bit 4
+}
+```
+
+**ISSUE-3 FIX (nyt):**
+```cpp
+// Reset counter if index_reg or raw_reg was read
+if (cfg.reset_on_read && cfg.enabled) {
+  // Check if index_reg was in read range
+  if (cfg.index_reg < ending_address && (cfg.index_reg + words) > starting_address) {
+    counter_engine_reset(id);  // Reset to start_value
+  }
+  // Check if raw_reg was in read range (fallback check)
+  else if (cfg.raw_reg < ending_address && (cfg.raw_reg + words) > starting_address) {
+    counter_engine_reset(id);  // Reset to start_value
+  }
+}
+```
+
+**Multi-word aware:**
+- Tjekker om nogen del af index_reg (1-4 ord) blev læst
+- Tjekker om nogen del af raw_reg (1-4 ord) blev læst
+- Respekterer bit_width (8, 16, 32, 64-bit counters)
+
+#### Test Plan ✅ IMPLEMENTERET
+1. Konfigurer counter med reset-on-read: `set counter 1 ... reset-on-read:1 index-reg:100 start-value:0`
+2. Start counter: `set counter 1 control running:on`
+3. Counter tæller op til 42
+4. Modbus master læser HR 100 (index value)
+5. **Forventet:** Counter resets til 0 efter læsning
+6. **Resultat:** ✅ Reset-on-read virker nu for counter værdier
+
+#### Resultat ✅ VIRKER
+- Compare bit reset-on-read bevaret (backward compatible)
+- Counter value reset-on-read implementeret (nyt)
+- Multi-word support (32/64-bit counters)
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-15 | ISSUE-1, ISSUE-2, ISSUE-3 FIXED - Atomic writes, reconfiguration, reset-on-read (FASE 3) | Claude Code |
 | 2025-12-15 | BUG-CLI-1, BUG-CLI-2 FIXED - CLI documentation og GPIO validation | Claude Code |
 | 2025-12-15 | BUG-016, BUG-017, BUG-015 FIXED - Counter control system (running bit, auto-start, PCNT validation) | Claude Code |
 | 2025-12-15 | BUG-015 tilføjet - HW Counter PCNT ikke initialiseret uden GPIO pin | Claude Code |

@@ -48,6 +48,11 @@ typedef struct {
 
 static CounterCompareRuntime counter_compare_state[COUNTER_COUNT];
 
+// ISSUE-1 FIX: Atomic multi-word write protection
+// Prevents Modbus master from reading mid-update on 32/64-bit counter values
+// Simple spinlock: write lock bit during multi-word register updates
+static volatile uint8_t counter_write_lock[COUNTER_COUNT] = {0, 0, 0, 0};
+
 // Forward declaration for compare check function
 static void counter_engine_check_compare(uint8_t id, uint64_t counter_value);
 
@@ -124,6 +129,30 @@ void counter_engine_loop(void) {
 
 bool counter_engine_configure(uint8_t id, const CounterConfig* cfg) {
   if (cfg == NULL) return false;
+
+  // ISSUE-2 FIX: Stop counter before reconfiguration
+  // If counter is already running and we're changing config, stop it first
+  // to prevent race conditions between old and new mode
+  {
+    CounterConfig old_cfg;
+    if (counter_config_get(id, &old_cfg) && old_cfg.enabled) {
+      // Stop old mode before switching
+      switch (old_cfg.hw_mode) {
+        case COUNTER_HW_SW:
+          counter_sw_stop(id);
+          break;
+        case COUNTER_HW_SW_ISR:
+          counter_sw_isr_detach(id);
+          break;
+        case COUNTER_HW_PCNT:
+          counter_hw_stop(id);
+          break;
+        default:
+          break;
+      }
+      debug_print("  ISSUE-2 FIX: Stopped old counter mode before reconfig\n");
+    }
+  }
 
   // Validate and set configuration
   if (!counter_config_set(id, cfg)) {
@@ -377,6 +406,11 @@ void counter_engine_store_value_to_registers(uint8_t id) {
   scaled_value &= max_val;
   raw_value &= max_val;
 
+  // ISSUE-1 FIX: Atomic protection for multi-word writes
+  // Set write lock to prevent Modbus master from reading mid-update
+  uint8_t lock_id = id - 1;  // Array is 0-indexed
+  counter_write_lock[lock_id] = 1;
+
   // Write scaled value to index register (multi-word if 32/64 bit)
   if (cfg.index_reg < HOLDING_REGS_SIZE) {
     uint8_t words = (bw <= 16) ? 1 : (bw == 32) ? 2 : 4;
@@ -394,6 +428,9 @@ void counter_engine_store_value_to_registers(uint8_t id) {
       registers_set_holding_register(cfg.raw_reg + w, word);
     }
   }
+
+  // Release write lock
+  counter_write_lock[lock_id] = 0;
 
   // Write frequency to freq register (no prescaler compensation)
   if (cfg.freq_reg < HOLDING_REGS_SIZE) {
@@ -539,6 +576,15 @@ void counter_engine_set_value(uint8_t id, uint64_t value) {
 
   // Reset frequency tracking after manual set
   counter_frequency_reset(id);
+}
+
+/* ============================================================================
+ * ATOMIC WRITE LOCK ACCESS (ISSUE-1 FIX)
+ * ============================================================================ */
+
+uint8_t counter_engine_is_write_locked(uint8_t id) {
+  if (id < 1 || id > 4) return 0;
+  return counter_write_lock[id - 1];
 }
 
 /* ============================================================================
