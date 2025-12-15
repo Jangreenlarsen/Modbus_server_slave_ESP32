@@ -1833,6 +1833,155 @@ ERROR: Manual register configuration is disabled!
 
 ---
 
+## BUG-021: No Delete Counter Command - Cannot Fully Disable Counters (v4.2.0)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🟡 HIGH
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+### Beskrivelse
+
+Der var INGEN kommando til at helt slette/disable en counter. Kommandoen `reset counter <id>` nulstillede værdien, men counterens `enabled` flag forblev 1 (aktiveret). Brugere kunne ikke helt fjerne en counter fra systemet uden at geninstallere firmware.
+
+**Problem eksempel:**
+```bash
+> reset counter 1
+Counter 1 reset to start value
+
+> show counter 1
+Counter 1: en=1 ✓ (STADIG AKTIVERET!)
+  Index: 0, Raw: 0
+  Freq: 0 Hz
+  Overload: 0
+
+User: "Hvordan delete jeg en counter?" ❌
+Svar: "Der er ingen delete kommando!" ❌
+```
+
+### Root Cause
+
+**Fil:** `src/cli_commands.cpp`
+
+**Manglende funktionalitet:**
+- `reset counter` kalder `counter_engine_reset()` (nulstiller værdier kun)
+- Ingen `delete counter` kommando eksisterede
+- Ingen `enable:off` / `disable:on` parametre til kontrol
+
+### Implementeret Fix
+
+**Fil 1: src/cli_commands.cpp (linjer 297-317)**
+
+Ny funktion `cli_cmd_delete_counter()`:
+```cpp
+void cli_cmd_delete_counter(uint8_t argc, char* argv[]) {
+  if (argc < 1) {
+    debug_println("DELETE COUNTER: missing counter ID");
+    return;
+  }
+
+  uint8_t id = atoi(argv[0]);
+  if (id < 1 || id > 4) {
+    debug_println("DELETE COUNTER: invalid counter ID");
+    return;
+  }
+
+  // Disable counter by setting enabled=0
+  CounterConfig cfg = counter_config_defaults(id);
+  cfg.enabled = 0;  // DISABLE counter
+  counter_engine_configure(id, &cfg);
+
+  debug_print("Counter ");
+  debug_print_uint(id);
+  debug_println(" deleted (disabled)");
+}
+```
+
+**Fil 2: src/cli_commands.cpp (linjer 172-175)**
+
+Nye parametre til `set counter ... control`:
+```cpp
+} else if (!strcmp(key, "enable")) {
+  cfg.enabled = (!strcmp(value, "on") || !strcmp(value, "1")) ? 1 : 0;
+} else if (!strcmp(key, "disable")) {
+  cfg.enabled = (!strcmp(value, "on") || !strcmp(value, "1")) ? 0 : 1;
+}
+```
+
+**Fil 3: src/cli_parser.cpp (linjer 932-947)**
+
+Ny DELETE command handler:
+```cpp
+} else if (!strcmp(cmd, "DELETE")) {
+  // delete counter <id>
+  if (argc < 2) {
+    debug_println("DELETE: missing argument");
+    return false;
+  }
+
+  const char* what = normalize_alias(argv[1]);
+
+  if (!strcmp(what, "COUNTER")) {
+    cli_cmd_delete_counter(argc - 2, argv + 2);
+    return true;
+  } else {
+    debug_println("DELETE: unknown argument");
+    return false;
+  }
+}
+```
+
+**Fil 4: include/cli_commands.h (linjer 65-69)**
+
+Funktion deklaration:
+```cpp
+/**
+ * @brief Handle "delete counter" command (disable and reset)
+ */
+void cli_cmd_delete_counter(uint8_t argc, char* argv[]);
+```
+
+### Resultat
+
+- ✅ `delete counter <id>` - Slet counter helt (disable)
+- ✅ `set counter <id> control enable:on|off` - Enable/disable uden reset
+- ✅ `set counter <id> control disable:on|off` - Inverse kontrol
+- ✅ Counter viser `en=0` efter delete i `sh counters`
+- ✅ Brugere kan helt fjerne counter uden at reboot
+
+### Bruger Oplevelse
+
+**Før (Ingen delete):**
+```bash
+> reset counter 1
+Counter 1 reset
+
+> show counter 1
+Counter 1: en=1  ✓ STADIG AKTIVERET!
+```
+
+**Efter (Med delete):**
+```bash
+> delete counter 1
+Counter 1 deleted (disabled)
+
+> show counter 1
+Counter 1: en=0 ✓ DISABLED!
+```
+
+### Test Plan
+
+1. Opret counter: `set counter 1 mode 1 hw-mode:hw hw-gpio:25 edge:rising prescaler:1`
+2. Start counter: `set counter 1 control running:on`
+3. Verificer aktivt: `show counter 1` (en=1)
+4. Delete counter: `delete counter 1`
+5. **Forventet:** `show counter 1` viser `en=0` ✓
+6. Prøv enable igen: `set counter 1 control enable:on`
+7. **Forventet:** `show counter 1` viser `en=1` ✓
+
+---
+
 ## BUG-019: Show Counters Display Race Condition (v4.2.0)
 
 **Status:** ✅ FIXED
@@ -2097,6 +2246,7 @@ save
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-15 | BUG-021 FIXED - Add delete counter command and enable/disable parameters (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-020 FIXED - Disable manual register configuration (force smart defaults) (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-019 FIXED - Show counters race condition (atomic reading) (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-018 FIXED - Show counters display respects bit-width (v4.2.0) | Claude Code |
