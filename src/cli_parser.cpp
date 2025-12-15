@@ -278,7 +278,7 @@ static void print_counter_help(void) {
   debug_println("");
   debug_println("Control commands:");
   debug_println("  reset counter <id>         - Nulstil counter værdi");
-  debug_println("  delete counter <id>        - Slet counter (disable)");
+  debug_println("  no set counter <id>        - Slet counter (disable)");
   debug_println("  clear counters             - Nulstil alle counters");
   debug_println("");
   debug_println("Example:");
@@ -903,8 +903,12 @@ bool cli_parser_execute(char* line) {
       if (!strcmp(what, "GPIO")) {
         cli_cmd_no_set_gpio(argc - 3, argv + 3);
         return true;
+      } else if (!strcmp(what, "COUNTER")) {
+        // no set counter <id>
+        cli_cmd_delete_counter(argc - 3, argv + 3);
+        return true;
       } else {
-        debug_println("NO SET: unknown argument (only GPIO supported)");
+        debug_println("NO SET: unknown argument (supported: GPIO, COUNTER)");
         return false;
       }
     } else {
@@ -926,23 +930,6 @@ bool cli_parser_execute(char* line) {
       return true;
     } else {
       debug_println("RESET: unknown argument");
-      return false;
-    }
-
-  } else if (!strcmp(cmd, "DELETE")) {
-    // delete counter <id>
-    if (argc < 2) {
-      debug_println("DELETE: missing argument");
-      return false;
-    }
-
-    const char* what = normalize_alias(argv[1]);
-
-    if (!strcmp(what, "COUNTER")) {
-      cli_cmd_delete_counter(argc - 2, argv + 2);
-      return true;
-    } else {
-      debug_println("DELETE: unknown argument");
       return false;
     }
 
