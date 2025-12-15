@@ -409,6 +409,16 @@ void cli_cmd_set_counter_control(uint8_t argc, char* argv[]) {
     }
   }
 
+  // BUG-022 FIX: Auto-enable counter if running:on is set
+  // When user sets running:on, they expect counter to actually run
+  // So if it was deleted (en=0), re-enable it automatically
+  bool running = (ctrl_value & 0x80) != 0;
+  if (running && cfg.enabled == 0) {
+    cfg.enabled = 1;  // Auto-enable if running is requested
+    counter_engine_configure(id, &cfg);
+    debug_println("  NOTE: Counter auto-enabled (was disabled)");
+  }
+
   // Write updated ctrl-reg value
   registers_set_holding_register(cfg.ctrl_reg, ctrl_value);
 
@@ -423,7 +433,7 @@ void cli_cmd_set_counter_control(uint8_t argc, char* argv[]) {
   // Show status
   bool reset_on_read = (ctrl_value & 0x01) != 0;
   bool auto_start = (ctrl_value & 0x02) != 0;
-  bool running = (ctrl_value & 0x80) != 0;
+  running = (ctrl_value & 0x80) != 0;
 
   debug_print("  reset-on-read: ");
   debug_println(reset_on_read ? "ENABLED" : "DISABLED");

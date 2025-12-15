@@ -85,7 +85,17 @@ void counter_engine_init(void) {
 void counter_engine_loop(void) {
   for (uint8_t id = 1; id <= 4; id++) {
     CounterConfig cfg;
-    if (!counter_config_get(id, &cfg) || !cfg.enabled) {
+    if (!counter_config_get(id, &cfg)) {
+      continue;
+    }
+
+    // BUG-023 FIX: Check compare feature even if counter is disabled
+    // Compare logic should work independently of enabled flag
+    uint64_t counter_value = counter_engine_get_value(id);
+    counter_engine_check_compare(id, counter_value);
+
+    // Only run counter if enabled
+    if (!cfg.enabled) {
       continue;
     }
 
