@@ -247,7 +247,7 @@ static void print_wifi_help(void) {
 static void print_counter_help(void) {
   debug_println("");
   debug_println("Available 'set counter' commands:");
-  debug_println("  set counter <id> mode 1 parameter <key:value> ...");
+  debug_println("  set counter <id> mode 1 <key:value> ...");
   debug_println("");
   debug_println("Parameters (key:value format):");
   debug_println("  hw-mode:<sw|sw-isr|hw>     - Hardware mode");
@@ -277,14 +277,14 @@ static void print_counter_help(void) {
   debug_println("  clear counters             - Nulstil alle counters");
   debug_println("");
   debug_println("Example:");
-  debug_println("  set counter 1 mode 1 parameter hw-mode:hw edge:rising prescaler:10 hw-gpio:19");
+  debug_println("  set counter 1 mode 1 hw-mode:hw edge:rising prescaler:10 hw-gpio:19");
   debug_println("");
 }
 
 static void print_timer_help(void) {
   debug_println("");
   debug_println("Available 'set timer' commands:");
-  debug_println("  set timer <id> mode <1|2|3|4> parameter <key:value> ...");
+  debug_println("  set timer <id> mode <1|2|3|4> <key:value> ...");
   debug_println("");
   debug_println("Timer Modes:");
   debug_println("  1 - One-shot (3-phase sequence)");
@@ -319,7 +319,7 @@ static void print_timer_help(void) {
   debug_println("  enabled:<on|off>    - Enable/disable timer");
   debug_println("");
   debug_println("Example:");
-  debug_println("  set timer 1 mode 3 parameter on-ms:1000 off-ms:500 output-coil:0");
+  debug_println("  set timer 1 mode 3 on-ms:1000 off-ms:500 output-coil:0");
   debug_println("");
 }
 

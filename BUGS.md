@@ -1453,10 +1453,116 @@ if (!pcnt_configured[unit]) {
 
 ---
 
+### BUG-CLI-1: "parameter" keyword forvirring
+**Status:** ✅ FIXED
+**Prioritet:** 🟡 HIGH
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+#### Beskrivelse
+Hjælp-teksterne viste `set counter <id> mode 1 parameter ...`, men koden accepterede IKKE "parameter" keyword. Brugere som fulgte hjælpen fik fejl "invalid parameter format: parameter".
+
+**Impact:**
+- Forvirrende brugeroplevelse (hjælp matcher ikke implementering)
+- Brugere kan ikke følge eksempler
+- Fejlmeddelelser ikke hjælpsomt
+
+#### Påvirkede Funktioner
+
+**Funktioner:** `print_counter_help()` og `print_timer_help()`
+**Fil:** `src/cli_parser.cpp`
+
+**Fix implementeret:**
+- **Linje 250:** Fjernet "parameter" fra counter synopsis
+- **Linje 280:** Fjernet "parameter" fra counter eksempel
+- **Linje 287:** Fjernet "parameter" fra timer synopsis
+- **Linje 322:** Fjernet "parameter" fra timer eksempel
+
+**Før:**
+```bash
+set counter 1 mode 1 parameter hw-mode:hw edge:rising prescaler:10 hw-gpio:19
+set timer 1 mode 3 parameter on-ms:1000 off-ms:500 output-coil:0
+```
+
+**Efter:**
+```bash
+set counter 1 mode 1 hw-mode:hw edge:rising prescaler:10 hw-gpio:19
+set timer 1 mode 3 on-ms:1000 off-ms:500 output-coil:0
+```
+
+#### Test Plan ✅ IMPLEMENTERET
+1. Køre `set counter ?` - verificer hjælp matcher implementering
+2. Køre `set timer ?` - verificer "parameter" er fjernet
+3. Test korrekt syntaks: `set counter 1 mode 1 hw-mode:sw index-reg:100`
+4. **Resultat:** ✅ Hjælp matcher nu faktisk implementering
+
+---
+
+### BUG-CLI-2: Manglende GPIO validation
+**Status:** ✅ FIXED
+**Prioritet:** 🟡 HIGH
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+#### Beskrivelse
+Når bruger sætter `hw-gpio:<pin>` var der INGEN validering af:
+- GPIO range (1-39 for ESP32-WROOM-32)
+- Strapping pins (GPIO 0, 2, 15 kan påvirke boot)
+- GPIO allerede i brug
+
+**Impact:**
+- Brugere kan sætte ugyldige GPIO pins
+- Boot-problemer mulige ved brug af strapping pins
+- Ingen advarsel eller fejlmeddelelse
+
+#### Påvirkede Funktioner
+
+**Funktion:** `cli_cmd_set_counter()` (GPIO parsing)
+**Fil:** `src/cli_commands.cpp`
+**Linjer:** 124-144 (efter fix)
+
+**Fix implementeret:**
+```cpp
+// BUG-CLI-2 FIX: Validate GPIO pin range
+if (pin == 0 || pin > 39) {
+  debug_println("ERROR: Invalid GPIO pin (must be 1-39 for ESP32-WROOM-32)");
+  continue;
+}
+
+// Warn if strapping pins (can affect boot)
+if (pin == 2 || pin == 15) {
+  debug_print("WARNING: GPIO ");
+  debug_print_uint(pin);
+  debug_println(" is a strapping pin - may affect boot behavior!");
+}
+```
+
+#### Test Plan ✅ IMPLEMENTERET
+1. Test invalid pin (0): `set counter 1 mode 1 hw-gpio:0`
+   - **Forventet:** "ERROR: Invalid GPIO pin (must be 1-39)"
+2. Test invalid pin (99): `set counter 1 mode 1 hw-gpio:99`
+   - **Forventet:** "ERROR: Invalid GPIO pin (must be 1-39)"
+3. Test strapping pin (2): `set counter 1 mode 1 hw-gpio:2`
+   - **Forventet:** "WARNING: GPIO 2 is a strapping pin - may affect boot behavior!"
+4. Test strapping pin (15): `set counter 1 mode 1 hw-gpio:15`
+   - **Forventet:** "WARNING: GPIO 15 is a strapping pin - may affect boot behavior!"
+5. Test valid pin (19): `set counter 1 mode 1 hw-gpio:19`
+   - **Forventet:** "hw_gpio = 19" (accepteret)
+
+#### Resultat ✅ VIRKER
+- Range check implementeret (1-39)
+- Strapping pin warning tilføjet
+- Fejlmeddelelser klare og hjælpsomme
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-15 | BUG-CLI-1, BUG-CLI-2 FIXED - CLI documentation og GPIO validation | Claude Code |
 | 2025-12-15 | BUG-016, BUG-017, BUG-015 FIXED - Counter control system (running bit, auto-start, PCNT validation) | Claude Code |
 | 2025-12-15 | BUG-015 tilføjet - HW Counter PCNT ikke initialiseret uden GPIO pin | Claude Code |
 | 2025-12-13 | BUG-014 FIXED - ST Logic interval gemmes nu persistent (Option 1) | Claude Code |

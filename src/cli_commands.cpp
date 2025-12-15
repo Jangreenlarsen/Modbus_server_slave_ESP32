@@ -122,8 +122,23 @@ void cli_cmd_set_counter(uint8_t argc, char* argv[]) {
       debug_print_uint(cfg.interrupt_pin);
       debug_println("");
     } else if (!strcmp(key, "hw-gpio")) {
-      cfg.hw_gpio = atoi(value);  // BUG FIX 1.9: Parse hw-gpio parameter
-      debug_print("  DEBUG: hw_gpio = ");
+      uint8_t pin = atoi(value);
+
+      // BUG-CLI-2 FIX: Validate GPIO pin range
+      if (pin == 0 || pin > 39) {
+        debug_println("ERROR: Invalid GPIO pin (must be 1-39 for ESP32-WROOM-32)");
+        continue;
+      }
+
+      // Warn if strapping pins (can affect boot)
+      if (pin == 2 || pin == 15) {
+        debug_print("WARNING: GPIO ");
+        debug_print_uint(pin);
+        debug_println(" is a strapping pin - may affect boot behavior!");
+      }
+
+      cfg.hw_gpio = pin;
+      debug_print("  hw_gpio = ");
       debug_print_uint(cfg.hw_gpio);
       debug_println("");
     }
