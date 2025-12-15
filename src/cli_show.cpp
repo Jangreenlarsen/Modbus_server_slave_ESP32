@@ -664,11 +664,11 @@ void cli_cmd_show_counters(void) {
     p += snprintf(p, sizeof(line) - (p - line), "%5u ", freq);
     p += snprintf(p, sizeof(line) - (p - line), "| ");
 
-    // Scaled value (9 chars right-aligned)
-    uint64_t raw_value = counter_engine_get_value(id);
-    uint64_t scaled_value = (uint64_t)(raw_value * cfg.scale_factor);
+    // BUG-019 FIX: Atomic counter value read to avoid race condition
+    // Get counter value ONCE and calculate scaled/raw from same value
+    uint64_t counter_value = counter_engine_get_value(id);
 
-    // FIX: Clamp scaled_value to bit-width (8, 16, 32, 64-bit)
+    // Calculate bit-width max value ONCE for clamping
     uint64_t max_val = 0;
     switch (cfg.bit_width) {
       case 8:  max_val = 0xFFULL; break;
@@ -677,15 +677,18 @@ void cli_cmd_show_counters(void) {
       case 64:
       default: max_val = 0xFFFFFFFFFFFFFFFFULL; break;
     }
+
+    // Scaled value (9 chars right-aligned)
+    // CORRECT: scaled = counter × scale (not raw × scale!)
+    uint64_t scaled_value = (uint64_t)(counter_value * cfg.scale_factor);
     scaled_value &= max_val;
 
     p += snprintf(p, sizeof(line) - (p - line), "%9llu ", (unsigned long long)scaled_value);
     p += snprintf(p, sizeof(line) - (p - line), "| ");
 
     // Raw value (prescaled, 7 chars right-aligned)
-    uint64_t raw_prescaled = raw_value / cfg.prescaler;
-
-    // FIX: Clamp raw_prescaled to bit-width (8, 16, 32, 64-bit)
+    // CORRECT: raw = counter / prescaler (same counter_value!)
+    uint64_t raw_prescaled = counter_value / cfg.prescaler;
     raw_prescaled &= max_val;
 
     p += snprintf(p, sizeof(line) - (p - line), "%7llu ", (unsigned long long)raw_prescaled);
