@@ -1730,6 +1730,109 @@ if (cfg.reset_on_read && cfg.enabled) {
 
 ---
 
+## BUG-020: Manual Counter Register Configuration Causes Confusion (v4.2.0)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🟡 HIGH
+**Opdaget:** 2025-12-15
+**Fixet:** 2025-12-15
+**Version:** v4.2.0
+
+### Beskrivelse
+
+Users kunne manuelt sætte register adresser via CLI, hvilket skabte forvirring og register overlap-problemer. Registrene skulle være **auto-assigned** med logisk spacing, ikke manuelt konfigureret.
+
+**Problem eksempel:**
+```bash
+User input:
+set counter 1 mode 1 hw-mode:hw hw-gpio:25 index-reg:50 raw-reg:60
+
+Resultat:
+- Scaled value: HR50-51 ✓
+- Raw value: HR60-61 ✓
+- Pattern: Random spacing, no logic!
+
+Smart default skulle være:
+- Counter 1: HR100-104 ✓ (logisk, konsistent)
+```
+
+### Root Cause
+
+**Fil:** `src/cli_commands.cpp` linje 94-103
+
+**Tilladt (men problematisk):**
+```cpp
+} else if (!strcmp(key, "index-reg") || !strcmp(key, "reg")) {
+  cfg.index_reg = atoi(value);  // Allows arbitrary value!
+} else if (!strcmp(key, "raw-reg")) {
+  cfg.raw_reg = atoi(value);    // Allows arbitrary value!
+```
+
+### Implementeret Fix
+
+**Fil 1: src/cli_commands.cpp (linje 94-121)**
+
+```cpp
+// BUG-020 FIX: Disable manual register configuration
+} else if (!strcmp(key, "index-reg") || !strcmp(key, "reg")) {
+  debug_println("ERROR: Manual register configuration is disabled!");
+  debug_println("  Registers are AUTO-ASSIGNED by smart defaults:");
+  debug_println("  Counter 1 → HR100-104");
+  debug_println("  Counter 2 → HR110-114");
+  debug_println("  Cannot override register addresses.");
+  continue;  // Skip this parameter
+```
+
+**Fil 2: src/cli_parser.cpp (linje 270-275)**
+
+```cpp
+debug_println("NOTE: Register addresses are AUTO-ASSIGNED (v4.2.0+):");
+debug_println("  Counter 1 → HR100-104 (index, raw, freq, overload, ctrl)");
+debug_println("  Counter 2 → HR110-114");
+debug_println("  Counter 3 → HR120-124");
+debug_println("  Counter 4 → HR130-134");
+debug_println("  Manual register configuration is DISABLED for safety.");
+```
+
+### Resultat
+
+- ✅ Manual register configuration FJERNET
+- ✅ Brugere TVUNGET til smart defaults
+- ✅ Consistent, predictable register layout
+- ✅ Ingen register overlap muligt
+- ✅ Klar fejlmeddelelse hvis bruger forsøger manual
+
+### Bruger oplevelse
+
+**Før (Tilladt - Forvirrende):**
+```bash
+> set counter 1 mode 1 hw-mode:hw hw-gpio:25 index-reg:50 raw-reg:60
+# Virker... men registre ligger vilkårligt
+```
+
+**Efter (Tvunget Smart Defaults - Klar):**
+```bash
+> set counter 1 mode 1 hw-mode:hw hw-gpio:25
+# Registre auto-assigned: HR100-104 ✓
+
+> set counter 1 mode 1 hw-mode:hw hw-gpio:25 index-reg:50
+ERROR: Manual register configuration is disabled!
+  Registers are AUTO-ASSIGNED by smart defaults:
+  Counter 1 → HR100-104
+  Counter 2 → HR110-114
+  Cannot override register addresses.
+```
+
+### Test Plan
+
+1. Forsøg at sætte manuel register: `set counter 1 mode 1 index-reg:50`
+2. **Forventet:** Error message (manual disabled)
+3. Konfigurér counter normalt: `set counter 1 mode 1 hw-mode:hw hw-gpio:25`
+4. Verificer registers auto-assigned: `show config`
+5. **Forventet:** Counter 1 → HR100-104 ✓
+
+---
+
 ## BUG-019: Show Counters Display Race Condition (v4.2.0)
 
 **Status:** ✅ FIXED
@@ -1994,6 +2097,7 @@ save
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-15 | BUG-020 FIXED - Disable manual register configuration (force smart defaults) (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-019 FIXED - Show counters race condition (atomic reading) (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-018 FIXED - Show counters display respects bit-width (v4.2.0) | Claude Code |
 | 2025-12-15 | IMPROVEMENT-001, IMPROVEMENT-002 - Smart defaults & templates (v4.2.0) | Claude Code |
