@@ -2843,12 +2843,46 @@ Test scenarios:
 - [x] "both" mode allocation (single register allocated)
 - [x] "input/output" mode allocation (register allocated only for HR bindings)
 
+#### Extension (v4.2.2): Persistent Counter Cleanup
+
+**Problem Discovered:** Initial v4.2.1 fix only freed registers from **RAM allocator**. But:
+- On next boot: `register_allocator_init()` reads persistent counter config
+- Counter's persistent config still claims ownership of old register
+- Register gets re-allocated to counter, **conflict happens again!**
+
+**Solution (v4.2.2):** When freeing a register from ST Logic binding:
+1. Free from RAM allocator (v4.2.1 fix)
+2. Disable persistent counters using that register (NEW in v4.2.2)
+3. Changes persisted via `config_save_to_nvs()`
+4. On next boot: register is fully free, no conflicts
+
+**Implementation:**
+- `cleanup_counters_using_register()` function in `cli_commands_logic.cpp`
+- Checks all 4 counters for use of freed register
+- Disables counter in RAM + persistent config if conflict detected
+- Called immediately after register freed in Step 1
+
+**Example:**
+```
+Counter 1: enabled, uses HR100
+ST Logic 1: bind state to HR100
+
+→ cleanup_counters_using_register(100) disables Counter 1
+→ config_save_to_nvs() persists disabled state
+→ Next boot: HR100 free for ST Logic binding
+```
+
+Build #617: ✅ Compiled successfully
+- No errors, no warnings
+- Persistent cleanup integrated seamlessly
+
 ---
 
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-16 | BUG-026 EXTENDED - Persistent counter cleanup on binding change (v4.2.2) - prevents register conflicts across reboots | Claude Code |
 | 2025-12-16 | BUG-026 FIXED - ST Logic binding register allocator cleanup on binding change (v4.2.1) | Claude Code |
 | 2025-12-15 | BUG-025 FIXED - Global register overlap checker (centralized allocation map) (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-024 FIXED - PCNT counter truncated to 16-bit, raw register limited to 2000 (v4.2.0) | Claude Code |
