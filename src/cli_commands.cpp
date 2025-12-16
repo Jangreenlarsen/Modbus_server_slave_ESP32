@@ -257,8 +257,30 @@ void cli_cmd_set_counter(uint8_t argc, char* argv[]) {
         debug_print("=HR");
         debug_print_uint(counter_regs[i]);
         debug_println(" already allocated!");
+
+        // Print owner type and description (with fallback if description is empty)
         debug_print("  Owner: ");
-        debug_println(owner.description);
+        if (owner.type == REG_OWNER_COUNTER) {
+          debug_print("Counter ");
+          debug_print_uint(owner.subsystem_id);
+        } else if (owner.type == REG_OWNER_TIMER) {
+          debug_print("Timer ");
+          debug_print_uint(owner.subsystem_id);
+        } else if (owner.type == REG_OWNER_ST_VAR) {
+          debug_print("ST Logic var");
+        } else if (owner.type == REG_OWNER_ST_FIXED) {
+          debug_print("ST Logic (fixed)");
+        } else {
+          debug_print("Unknown");
+        }
+
+        // Add description if available
+        if (owner.description[0] != '\0') {
+          debug_print(" (");
+          debug_print(owner.description);
+          debug_print(")");
+        }
+        debug_println("");
         return;  // Abort configuration
       }
     }
