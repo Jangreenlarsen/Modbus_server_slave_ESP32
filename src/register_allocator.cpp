@@ -76,8 +76,33 @@ void register_allocator_init(void) {
   }
 
   // 5. Pre-allocate ST variable bindings (from VariableMapping array)
-  // This requires reading g_persist_config.var_maps
-  // Handled separately in gpio_mapping_init() or during variable binding creation
+  // BUG FIX: Must be done here at boot to prevent conflicts with counters
+  // Register bindings from persistent config before system fully starts
+  extern PersistConfig g_persist_config;
+  for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+    VariableMapping *map = &g_persist_config.var_maps[i];
+
+    // Only allocate holding register bindings (input_type=0 or output_type=0)
+    if (map->source_type == MAPPING_SOURCE_ST_VAR) {
+      // Check INPUT bindings
+      if (map->is_input && map->input_type == 0 && map->input_reg < 100) {
+        char desc[32];
+        snprintf(desc, sizeof(desc), "Logic%d var%d (input)",
+                 map->st_program_id + 1, map->st_var_index);
+        register_allocator_allocate(map->input_reg, REG_OWNER_ST_VAR,
+                                   map->st_program_id + 1, desc);
+      }
+
+      // Check OUTPUT bindings (only allocate if different from input)
+      if (!map->is_input && map->output_type == 0 && map->coil_reg < 100) {
+        char desc[32];
+        snprintf(desc, sizeof(desc), "Logic%d var%d (output)",
+                 map->st_program_id + 1, map->st_var_index);
+        register_allocator_allocate(map->coil_reg, REG_OWNER_ST_VAR,
+                                   map->st_program_id + 1, desc);
+      }
+    }
+  }
 
   allocator_initialized = true;
 
