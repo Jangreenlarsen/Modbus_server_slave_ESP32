@@ -393,6 +393,15 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     if (map->source_type == MAPPING_SOURCE_ST_VAR &&
         map->st_program_id == program_id &&
         map->st_var_index == var_index) {
+      // BUG-EXTENSION: Free old registers from allocation map before deleting binding
+      // (Only for holding registers in the tracked range 0-99)
+      if (map->is_input && map->input_type == 0 && map->input_reg < 100) {
+        register_allocator_free(map->input_reg);
+      }
+      if (!map->is_input && map->output_type == 0 && map->coil_reg < 100) {
+        register_allocator_free(map->coil_reg);
+      }
+
       // Delete this mapping by shifting all subsequent mappings down
       for (uint8_t j = i; j < g_persist_config.var_map_count - 1; j++) {
         g_persist_config.var_maps[j] = g_persist_config.var_maps[j + 1];
@@ -464,6 +473,13 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
 
     debug_printf("[OK] Logic%d: var[%d] (%s) <-> Modbus HR#%d (2 mappings created)\n",
                  program_id + 1, var_index, prog->bytecode.var_names[var_index], modbus_reg);
+
+    // BUG-EXTENSION: Allocate register in global allocator (for both INPUT and OUTPUT modes)
+    if (input_type == 0 && modbus_reg < 100) {
+      char desc[32];
+      snprintf(desc, sizeof(desc), "Logic%d var%d (both)", program_id + 1, var_index);
+      register_allocator_allocate(modbus_reg, REG_OWNER_ST_VAR, program_id + 1, desc);
+    }
   } else {
     // "input" or "output" mode: Create ONE mapping
     VariableMapping *map = &g_persist_config.var_maps[g_persist_config.var_map_count++];
@@ -493,6 +509,13 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
       debug_printf("-> Modbus COIL#%d\n", modbus_reg);
     } else {
       debug_printf("-> Modbus HR#%d\n", modbus_reg);
+    }
+
+    // BUG-EXTENSION: Allocate register in global allocator (for holding register bindings only)
+    if (((is_input && input_type == 0) || (!is_input && output_type == 0)) && modbus_reg < 100) {
+      char desc[32];
+      snprintf(desc, sizeof(desc), "Logic%d var%d", program_id + 1, var_index);
+      register_allocator_allocate(modbus_reg, REG_OWNER_ST_VAR, program_id + 1, desc);
     }
   }
 

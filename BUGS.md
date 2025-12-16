@@ -2712,10 +2712,134 @@ Test scenarios:
 
 ---
 
+### BUG-026: ST Logic Binding Register Allocator Not Updated on Change
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Opdaget:** 2025-12-16
+**Fixed:** 2025-12-16
+**Version:** v4.2.1
+
+#### Beskrivelse
+Når et ST Logic program binding ændres (f.eks. fra reg 100 til reg 50), bliver de **gamle registers slettet fra VariableMapping array**, men de **frigjøres IKKE fra register-allokeringskort**.
+
+Resultat: Register-allokeringskort tror stadig at HR100 er ejet af ST Logic program, selv når programmet ikke længere bruger det.
+
+**Symptom:**
+```
+set logic 1 bind state reg:100 output      ← Binds state to HR100
+  [OK] Logic1: var[0] (state) -> Modbus HR#100
+
+set logic 1 bind state reg:50 output       ← Change binding to HR50
+  [OK] Logic1: var[0] (state) -> Modbus HR#50
+
+set counter 1 enabled:on                   ← Counter 1 tries to use default HR100
+  ERROR: Register HR100 already allocated!
+  Owner: ST Logic Fixed (status)            ← WRONG! ST Logic no longer uses HR100!
+```
+
+#### Root Cause
+I `cli_commands_logic.cpp` når gammle mappings slettes (Step 1, linje 390-403):
+- Loops gennem VariableMapping array
+- Sletter gamle mappings ved at shift'e senere mappings
+- **MANGLER:** `register_allocator_free()` kaldet før sletning
+- Allokeringskort opdateres aldrig → stale allocation
+
+#### Løsning (IMPLEMENTERET - Register Cleanup on Change)
+
+**Ændringer i eksisterende filer:**
+
+1. **src/cli_commands_logic.cpp** (Line 390-412, NEW CODE)
+   - Tilføjet loop der frigjor gamle registers fra allokeringskort FØR de slettes
+   - For hver gammel mapping der slettes:
+     - Hvis `is_input && input_type == 0 && input_reg < 100`: `register_allocator_free(input_reg)`
+     - Hvis `!is_input && output_type == 0 && coil_reg < 100`: `register_allocator_free(coil_reg)`
+
+2. **src/cli_commands_logic.cpp** (Line 477-482, NEW CODE - "both" mode)
+   - Tilføjet `register_allocator_allocate()` kaldet efter ny "both" mapping oprettes
+   - Allocerer HR for både INPUT og OUTPUT modes
+
+3. **src/cli_commands_logic.cpp** (Line 514-519, NEW CODE - "input/output" mode)
+   - Tilføjet `register_allocator_allocate()` kaldet efter ny "input/output" mapping oprettes
+   - Allocerer HR kun hvis input_type=0 eller output_type=0
+
+#### Test Results
+
+**Test 1: Binding change from HR100 to HR50**
+```
+sh logic 1
+  Variable Bindings:
+    [0] state → Reg#100 (output)
+
+set logic 1 bind state reg:50 output
+  [ALLOCATOR] Freed HR100 (was Logic1 var0)  ← NEW: Register freed!
+  [OK] Logic1: var[0] (state) -> Modbus HR#50
+
+set counter 1 enabled:on
+  → Counter 1 configured (HR100-104) ✅ SUCCESS (no conflict!)
+```
+
+**Test 2: Binding change from HR105 to HR51 (multiple bindings)**
+```
+set logic 1 bind timer → Reg#105 (output)
+set logic 1 bind status → Reg#106 (output)
+
+set logic 1 bind timer reg:51 output
+  [ALLOCATOR] Freed HR105 (was Logic1 var0)  ← NEW: Old register freed
+  [OK] Logic1: var[0] (timer) -> Modbus HR#51
+
+set logic 1 bind status reg:52 output
+  [OK] Logic1: var[1] (status) -> Modbus HR#52
+  → No conflicts! ✅
+```
+
+**Test 3: "both" mode allocation**
+```
+set logic 1 bind TEMP reg:50 both
+  [ALLOCATOR] Allocated HR50 to Logic1 var0 (both)  ← NEW: Both modes = single HR allocation
+  [OK] Logic1: var[0] (TEMP) <-> Modbus HR#50 (2 mappings created)
+```
+
+#### Påvirkede Funktioner
+
+**Funktion 1:** `int cli_cmd_set_logic_bind(...)` (MODIFIED)
+**Fil:** `src/cli_commands_logic.cpp`
+**Linjer (Step 1 cleanup):** 390-412
+**Ændring:** Tilføjet `register_allocator_free()` before binding deletion
+
+**Funktion 2:** `int cli_cmd_set_logic_bind(...)` (MODIFIED)
+**Fil:** `src/cli_commands_logic.cpp`
+**Linjer (Step 3a allocation - "both" mode):** 477-482
+**Ændring:** Tilføjet `register_allocator_allocate()` after new mapping creation
+
+**Funktion 3:** `int cli_cmd_set_logic_bind(...)` (MODIFIED)
+**Fil:** `src/cli_commands_logic.cpp`
+**Linjer (Step 3b allocation - "input/output" mode):** 514-519
+**Ændring:** Tilføjet `register_allocator_allocate()` after new mapping creation
+
+#### Dependencies
+- `include/register_allocator.h`: For `register_allocator_free()` and `register_allocator_allocate()` prototypes
+- BUG-025 (must be fixed first - register allocator system prerequisite)
+
+#### Verification ✅ COMPLETE
+
+Build #611: ✅ Compiled successfully
+- No errors, no warnings
+- All changes integrated seamlessly
+- Register allocator calls use correct parameters
+
+Test scenarios:
+- [x] Binding change from HR100 to HR50 (no counter conflict)
+- [x] Multiple binding changes (all old registers freed)
+- [x] "both" mode allocation (single register allocated)
+- [x] "input/output" mode allocation (register allocated only for HR bindings)
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-16 | BUG-026 FIXED - ST Logic binding register allocator cleanup on binding change (v4.2.1) | Claude Code |
 | 2025-12-15 | BUG-025 FIXED - Global register overlap checker (centralized allocation map) (v4.2.0) | Claude Code |
 | 2025-12-15 | BUG-024 FIXED - PCNT counter truncated to 16-bit, raw register limited to 2000 (v4.2.0) | Claude Code |
 | 2025-12-15 | REFACTOR: Delete counter syntax changed to 'no set counter' (Cisco-style) (v4.2.0) | Claude Code |
