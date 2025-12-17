@@ -1533,16 +1533,17 @@ void cli_cmd_show_wifi(void) {
  * ============================================================================ */
 
 void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
-  // read reg <id> <antal>
-  if (argc < 2) {
+  // read reg <id> [antal]  (antal er optional, default = 1)
+  if (argc < 1) {
     debug_println("READ REG: manglende parametre");
-    debug_println("  Brug: read reg <id> <antal>");
-    debug_println("  Eksempel: read reg 90 10");
+    debug_println("  Brug: read reg <id> [antal]");
+    debug_println("  Eksempel: read reg 90     (l\u00e6ser 1 register)");
+    debug_println("  Eksempel: read reg 90 10  (l\u00e6ser 10 registre)");
     return;
   }
 
   uint16_t start_addr = atoi(argv[0]);
-  uint16_t count = atoi(argv[1]);
+  uint16_t count = (argc >= 2) ? atoi(argv[1]) : 1;  // Default: 1 register
 
   // Validate parameters
   if (start_addr >= HOLDING_REGS_SIZE) {
@@ -1596,16 +1597,17 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
  * ============================================================================ */
 
 void cli_cmd_read_input_reg(uint8_t argc, char* argv[]) {
-  // read input-reg <start> <count> - Read Input Registers (0-1023)
-  if (argc < 2) {
+  // read input-reg <start> [count] - Read Input Registers (0-1023)
+  if (argc < 1) {
     debug_println("READ INPUT-REG: manglende parametre");
-    debug_println("  Brug: read input-reg <start> <count>");
+    debug_println("  Brug: read input-reg <start> [count]");
+    debug_println("  Eksempel: read input-reg 252     (l\u00e6ser 1 register)");
     debug_println("  Eksempel: read input-reg 252 8   (ST Logic stats)");
     return;
   }
 
   uint16_t start_addr = atoi(argv[0]);
-  uint16_t count = atoi(argv[1]);
+  uint16_t count = (argc >= 2) ? atoi(argv[1]) : 1;  // Default: 1 register
   uint16_t *input_regs = registers_get_input_regs();
 
   // Validate parameters (input registers can be larger than holding regs)
@@ -1659,16 +1661,17 @@ void cli_cmd_read_input_reg(uint8_t argc, char* argv[]) {
  * ============================================================================ */
 
 void cli_cmd_read_coil(uint8_t argc, char* argv[]) {
-  // read coil <id> <antal>
-  if (argc < 2) {
+  // read coil <id> [antal]
+  if (argc < 1) {
     debug_println("READ COIL: manglende parametre");
-    debug_println("  Brug: read coil <id> <antal>");
-    debug_println("  Eksempel: read coil 0 16");
+    debug_println("  Brug: read coil <id> [antal]");
+    debug_println("  Eksempel: read coil 0      (l\u00e6ser 1 coil)");
+    debug_println("  Eksempel: read coil 0 16   (l\u00e6ser 16 coils)");
     return;
   }
 
   uint16_t start_addr = atoi(argv[0]);
-  uint16_t count = atoi(argv[1]);
+  uint16_t count = (argc >= 2) ? atoi(argv[1]) : 1;  // Default: 1 coil
 
   // Validate parameters
   if (start_addr >= (COILS_SIZE * 8)) {
@@ -1717,16 +1720,17 @@ void cli_cmd_read_coil(uint8_t argc, char* argv[]) {
  * ============================================================================ */
 
 void cli_cmd_read_input(uint8_t argc, char* argv[]) {
-  // read input <id> <antal>
-  if (argc < 2) {
+  // read input <id> [antal]
+  if (argc < 1) {
     debug_println("READ INPUT: manglende parametre");
-    debug_println("  Brug: read input <id> <antal>");
-    debug_println("  Eksempel: read input 0 16");
+    debug_println("  Brug: read input <id> [antal]");
+    debug_println("  Eksempel: read input 0      (l\u00e6ser 1 input)");
+    debug_println("  Eksempel: read input 0 16   (l\u00e6ser 16 inputs)");
     return;
   }
 
   uint16_t start_addr = atoi(argv[0]);
-  uint16_t count = atoi(argv[1]);
+  uint16_t count = (argc >= 2) ? atoi(argv[1]) : 1;  // Default: 1 input
 
   // Validate parameters
   if (start_addr >= (DISCRETE_INPUTS_SIZE * 8)) {
