@@ -44,6 +44,7 @@
 | BUG-036 | SW-ISR underflow wrapper ikke (inkonsistent med SW) | ❌ OPEN | 🟠 MEDIUM | v4.2.5 | DOWN mode stopper ved 0 i ISR mode |
 | BUG-037 | Jump patch grænse 512 i stedet for 1024 | ❌ OPEN | 🟠 MEDIUM | v4.2.5 | Store CASE statements kan fejle |
 | BUG-038 | ST Logic variable memcpy uden synchronization | ✅ FIXED | 🟡 HIGH | v4.2.6 | Race condition mellem execute og I/O |
+| BUG-039 | CLI compare-enabled parameter ikke genkendt | ✅ FIXED | 🟠 MEDIUM | v4.2.7 | Kun "compare:1" virker, ikke "compare-enabled:1" |
 
 ## Quick Lookup by Category
 
@@ -87,6 +88,7 @@
 - **BUG-027:** Counter display overflow clamping
 - **BUG-036:** SW-ISR underflow wrapper inkonsistent
 - **BUG-037:** Jump patch grænse forkert (512 vs 1024)
+- **BUG-039:** CLI compare-enabled parameter (FIXED v4.2.7)
 
 ### 🔵 LOW Priority (COSMETIC)
 - **BUG-006:** Counter wrapping at 65535

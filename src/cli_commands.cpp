@@ -162,7 +162,7 @@ void cli_cmd_set_counter(uint8_t argc, char* argv[]) {
       debug_println("");
     }
     // COMPARE FEATURE (v2.3+) - Status stored in ctrl_reg bit 4
-    else if (!strcmp(key, "compare")) {
+    else if (!strcmp(key, "compare") || !strcmp(key, "compare-enabled")) {
       cfg.compare_enabled = (!strcmp(value, "on") || !strcmp(value, "1")) ? 1 : 0;
     } else if (!strcmp(key, "compare-value")) {
       cfg.compare_value = atoll(value);  // 64-bit value

@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v4.2.6 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v4.2.7 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med avancerede features inklusiv ST Structured Text Logic programmering med **performance monitoring**, Wi-Fi netværk, telnet CLI interface, og **komplet Modbus register dokumentation**.
 
@@ -1513,6 +1513,10 @@ if client.connect():
 ---
 
 ## 📝 Version History
+
+- **v4.2.7** (2025-12-18) - 🐛 CLI Parameter Fix
+  - **BUG-039 FIXED:** CLI now accepts both "compare:1" and "compare-enabled:1" syntax
+  - **Improvement:** Better parameter name compatibility for counter compare configuration
 
 - **v4.2.6** (2025-12-18) - 🔧 Race Condition & ISR Fixes
   - **BUG-034 FIXED:** ISR state access now uses volatile pointers (prevents missed pulses at high frequency)
