@@ -425,6 +425,6 @@ If unsure:
 
 ---
 
-**Last Updated:** 2025-12-16
-**Version:** v4.2.1
+**Last Updated:** 2025-12-18
+**Version:** v4.2.5
 **Status:** ✅ Active & Required Reading

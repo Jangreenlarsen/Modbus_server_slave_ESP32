@@ -99,6 +99,7 @@ Each layer has **ONE responsibility**. No circular dependencies.
 | `coils.cpp/h` | Coil/discrete input bit arrays, access functions |
 | `gpio_mapping.cpp/h` | GPIO ↔ coil/discrete input bindings |
 | `register_allocator.cpp/h` | Global register allocation tracking (BUG-025, BUG-026, BUG-028) |
+| `registers_persist.cpp/h` | Persistent register storage (NVS backup/restore) |
 
 **Key Principle:** All register access goes through these files. Can add validation here.
 
@@ -211,11 +212,32 @@ gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
 |------|---------|
 | `cli_parser.cpp/h` | Tokenize input, dispatch to handler |
 | `cli_commands.cpp/h` | All `set` command implementations |
+| `cli_commands_logic.cpp/h` | ST Logic specific commands |
 | `cli_show.cpp/h` | All `show` command implementations |
 | `cli_history.cpp/h` | Command history, arrow key navigation |
 | `cli_shell.cpp/h` | Serial I/O, state machine, main CLI loop |
+| `cli_config_regs.cpp/h` | Register configuration commands |
+| `cli_config_coils.cpp/h` | Coil configuration commands |
+| `cli_remote.cpp/h` | Remote CLI access handling |
 
 **Key Principle:** One file per concern. Adding new command = one function, no cross-file changes.
+
+---
+
+### Layer 7.5: Network & Console (v3.0+)
+
+| File | Purpose |
+|------|---------|
+| `wifi_driver.cpp/h` | ESP32 Wi-Fi HAL, connect/disconnect |
+| `network_manager.cpp/h` | Network state machine, reconnection |
+| `network_config.cpp/h` | Wi-Fi/network configuration handling |
+| `tcp_server.cpp/h` | TCP server for remote connections |
+| `telnet_server.cpp/h` | Telnet protocol implementation |
+| `console_serial.cpp/h` | Serial console I/O abstraction |
+| `console_telnet.cpp/h` | Telnet console I/O abstraction |
+| `console.h` | Unified console interface |
+
+**Key Principle:** Network is optional. CLI works on both serial and telnet transparently.
 
 ---
 
@@ -227,6 +249,17 @@ gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
 | `heartbeat.cpp/h` | LED blink, watchdog timer |
 | `version.cpp/h` | Version string, changelog |
 | `debug.cpp/h` | Debug output helpers, printf wrappers |
+| `debug_flags.cpp/h` | Runtime debug flag management |
+| `watchdog_monitor.cpp/h` | Watchdog timer, crash recovery |
+
+---
+
+### ST Logic Builtins (v4.0+)
+
+| File | Purpose |
+|------|---------|
+| `st_builtins.cpp/h` | Built-in ST functions (ABS, MIN, MAX, etc.) |
+| `st_builtin_persist.cpp/h` | Persistent ST variable storage |
 
 ---
 
@@ -431,5 +464,5 @@ pio clean && pio run # Clean rebuild
 ---
 
 **Last Updated:** 2025-12-16
-**Version:** v4.2.1
+**Version:** v4.2.5
 **Status:** ✅ Active & Complete

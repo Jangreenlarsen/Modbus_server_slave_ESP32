@@ -1108,7 +1108,9 @@ void cli_parser_execute_st_upload(uint8_t program_id, const char* source_code) {
  * ============================================================================ */
 
 void cli_parser_print_help(void) {
-  debug_println("\n=== Modbus RTU Server v4.2.0 (ESP32) ===\n");
+  debug_print("\n=== Modbus RTU Server v");
+  debug_print(PROJECT_VERSION);
+  debug_println(" (ESP32) ===\n");
   debug_println("Commands:");
   debug_println("  show config         - Display full configuration");
   debug_println("  show counters       - Display counter status");

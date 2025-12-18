@@ -201,7 +201,9 @@ static st_ast_node_t *parser_parse_primary(st_parser_t *parser) {
   // Variable
   if (parser_match(parser, ST_TOK_IDENT)) {
     st_ast_node_t *node = ast_node_alloc(ST_AST_VARIABLE, line);
-    strcpy(node->data.variable.var_name, parser->current_token.value);
+    // BUG-032 FIX: Use strncpy to prevent buffer overflow (var_name is 64 bytes, token is 256)
+    strncpy(node->data.variable.var_name, parser->current_token.value, 63);
+    node->data.variable.var_name[63] = '\0';
     parser_advance(parser);
     return node;
   }
@@ -363,7 +365,9 @@ static st_ast_node_t *parser_parse_assignment(st_parser_t *parser) {
     return NULL;
   }
 
-  strcpy(var_name, parser->current_token.value);
+  // BUG-032 FIX: Use strncpy to prevent buffer overflow
+  strncpy(var_name, parser->current_token.value, 63);
+  var_name[63] = '\0';
   parser_advance(parser);
 
   if (!parser_expect(parser, ST_TOK_ASSIGN)) {
@@ -375,7 +379,9 @@ static st_ast_node_t *parser_parse_assignment(st_parser_t *parser) {
   if (!expr) return NULL;
 
   st_ast_node_t *node = ast_node_alloc(ST_AST_ASSIGNMENT, line);
-  strcpy(node->data.assignment.var_name, var_name);
+  // BUG-032 FIX: Use strncpy to prevent buffer overflow
+  strncpy(node->data.assignment.var_name, var_name, 63);
+  node->data.assignment.var_name[63] = '\0';
   node->data.assignment.expr = expr;
 
   // Consume optional semicolon
@@ -580,7 +586,9 @@ static st_ast_node_t *parser_parse_for_statement(st_parser_t *parser) {
   }
 
   char var_name[64] = {0};
-  strcpy(var_name, parser->current_token.value);
+  // BUG-032 FIX: Use strncpy to prevent buffer overflow
+  strncpy(var_name, parser->current_token.value, 63);
+  var_name[63] = '\0';
   parser_advance(parser);
 
   if (!parser_expect(parser, ST_TOK_ASSIGN)) {
@@ -634,7 +642,9 @@ static st_ast_node_t *parser_parse_for_statement(st_parser_t *parser) {
   }
 
   st_ast_node_t *node = ast_node_alloc(ST_AST_FOR, line);
-  strcpy(node->data.for_stmt.var_name, var_name);
+  // BUG-032 FIX: Use strncpy to prevent buffer overflow
+  strncpy(node->data.for_stmt.var_name, var_name, 63);
+  node->data.for_stmt.var_name[63] = '\0';
   node->data.for_stmt.start = start;
   node->data.for_stmt.end = end;
   node->data.for_stmt.step = step;
@@ -852,8 +862,15 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
         return false;
       }
 
+      // BUG-033 FIX: Check bounds BEFORE incrementing to prevent buffer overflow
+      if (*var_count >= 32) {
+        parser_error(parser, "Too many variables (max 32)");
+        return false;
+      }
       st_variable_decl_t *var = &variables[(*var_count)++];
-      strcpy(var->name, parser->current_token.value);
+      // BUG-032 FIX: Use strncpy to prevent buffer overflow (name is 64 bytes, token is 256)
+      strncpy(var->name, parser->current_token.value, 63);
+      var->name[63] = '\0';
       parser_advance(parser);
 
       // Expect colon

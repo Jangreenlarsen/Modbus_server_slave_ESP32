@@ -14,6 +14,7 @@
 #include "constants.h"
 #include "debug.h"
 #include <string.h>
+#include <Arduino.h>  // BUG-031 FIX: delayMicroseconds for write lock wait
 
 /* ============================================================================
  * HELPER FUNCTION: RESET-ON-READ HANDLING
@@ -198,6 +199,21 @@ bool modbus_fc03_read_holding_registers(const ModbusFrame* request_frame, Modbus
     modbus_serialize_error_response(response_frame, request_frame->slave_id,
                                      FC_READ_HOLDING_REGS, MODBUS_EXCEPTION_ILLEGAL_DATA_ADDRESS);
     return false;
+  }
+
+  // BUG-031 FIX: Wait for any counter write locks before reading
+  // This prevents reading corrupted 64-bit counter values mid-update
+  // Check all 4 counters for write lock (max ~10us wait per counter)
+  for (uint8_t retry = 0; retry < 10; retry++) {
+    uint8_t any_locked = 0;
+    for (uint8_t id = 1; id <= 4; id++) {
+      if (counter_engine_is_write_locked(id)) {
+        any_locked = 1;
+        break;
+      }
+    }
+    if (!any_locked) break;
+    delayMicroseconds(10);  // Short wait, counter update is fast
   }
 
   // Read holding registers from storage

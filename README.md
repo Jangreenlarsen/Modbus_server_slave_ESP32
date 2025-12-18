@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v4.2.4 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v4.2.5 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med avancerede features inklusiv ST Structured Text Logic programmering med **performance monitoring**, Wi-Fi netværk, telnet CLI interface, og **komplet Modbus register dokumentation**.
 
@@ -1513,6 +1513,17 @@ if client.connect():
 ---
 
 ## 📝 Version History
+
+- **v4.2.5** (2025-12-18) - 🔒 Security & Stability Fixes
+  - **BUG-031 FIXED:** Counter write lock now used by Modbus FC03 (prevents 64-bit read corruption)
+  - **BUG-032 FIXED:** ST parser buffer overflow fixed (strcpy → strncpy with bounds)
+  - **BUG-033 FIXED:** Variable declaration bounds check moved before array access
+  - **NEW BUGS DOCUMENTED:** BUG-034 to BUG-038 (ISR volatile, overflow clear, etc.)
+  - **Documentation updates:**
+    - CLAUDE_ARCH.md: Added 15+ missing modules (Network, Console, Watchdog, ST Builtins)
+    - All CLAUDE_*.md files updated to v4.2.5
+    - BUGS_INDEX.md: 8 new bug entries added
+  - **Code quality:** Dynamic version in CLI help banner (no more hardcoded version)
 
 - **v4.2.4** (2025-12-17) - ⭐ Counter Compare Edge Detection & Modbus Control
   - **BUG-030 FIXED:** Compare value accessible via Modbus register (runtime modifiable)

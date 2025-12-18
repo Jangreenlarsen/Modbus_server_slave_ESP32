@@ -36,6 +36,14 @@
 | BUG-028 | Register spacing too small for 64-bit counters | ✅ FIXED | 🔴 CRITICAL | v4.2.3 | Counter 1 overlaps Counter 2 registers |
 | BUG-029 | Compare modes use continuous check instead of edge detection | ✅ FIXED | 🔴 CRITICAL | v4.2.4 | Reset-on-read doesn't work, bit4 always set |
 | BUG-030 | Compare value not accessible via Modbus | ✅ FIXED | 🔴 CRITICAL | v4.2.4 | Threshold only settable via CLI, not SCADA |
+| BUG-031 | Counter write lock ikke brugt af Modbus FC handlers | ✅ FIXED | 🔴 CRITICAL | v4.2.5 | 64-bit counter read kan give korrupt data |
+| BUG-032 | Buffer overflow i ST parser (strcpy uden bounds) | ✅ FIXED | 🔴 CRITICAL | v4.2.5 | Stack corruption ved lange variabelnavne |
+| BUG-033 | Variable declaration bounds check efter increment | ✅ FIXED | 🔴 CRITICAL | v4.2.5 | Buffer overflow på 33. variable |
+| BUG-034 | ISR state læsning uden volatile cast | ❌ OPEN | 🟡 HIGH | v4.2.5 | Sporadisk manglende pulser ved høj frekvens |
+| BUG-035 | Overflow flag aldrig clearet automatisk | ❌ OPEN | 🟡 HIGH | v4.2.5 | Sticky overflow kræver manuel reset |
+| BUG-036 | SW-ISR underflow wrapper ikke (inkonsistent med SW) | ❌ OPEN | 🟠 MEDIUM | v4.2.5 | DOWN mode stopper ved 0 i ISR mode |
+| BUG-037 | Jump patch grænse 512 i stedet for 1024 | ❌ OPEN | 🟠 MEDIUM | v4.2.5 | Store CASE statements kan fejle |
+| BUG-038 | ST Logic variable memcpy uden synchronization | ❌ OPEN | 🟡 HIGH | v4.2.5 | Race condition mellem execute og I/O |
 
 ## Quick Lookup by Category
 
@@ -52,6 +60,9 @@
 - **BUG-028:** Register spacing for 64-bit counters
 - **BUG-029:** Compare edge detection
 - **BUG-030:** Compare value Modbus access
+- **BUG-031:** Counter write lock i Modbus handlers (FIXED v4.2.5)
+- **BUG-032:** ST parser buffer overflow (FIXED v4.2.5)
+- **BUG-033:** Variable declaration bounds (FIXED v4.2.5)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
@@ -63,6 +74,9 @@
 - **BUG-021:** Delete counter command
 - **BUG-022:** Auto-enable counter
 - **BUG-023:** Compare after disable
+- **BUG-034:** ISR state volatile cast mangler
+- **BUG-035:** Overflow flag auto-clear mangler
+- **BUG-038:** ST Logic variable race condition
 - **BUG-CLI-1:** Parameter keyword clarification
 - **BUG-CLI-2:** GPIO validation
 
@@ -71,6 +85,8 @@
 - **BUG-007:** Execution timeout protection
 - **BUG-008:** IR update latency
 - **BUG-027:** Counter display overflow clamping
+- **BUG-036:** SW-ISR underflow wrapper inkonsistent
+- **BUG-037:** Jump patch grænse forkert (512 vs 1024)
 
 ### 🔵 LOW Priority (COSMETIC)
 - **BUG-006:** Counter wrapping at 65535
