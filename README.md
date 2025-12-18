@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v4.2.5 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v4.2.6 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med avancerede features inklusiv ST Structured Text Logic programmering med **performance monitoring**, Wi-Fi netværk, telnet CLI interface, og **komplet Modbus register dokumentation**.
 
@@ -1513,6 +1513,15 @@ if client.connect():
 ---
 
 ## 📝 Version History
+
+- **v4.2.6** (2025-12-18) - 🔧 Race Condition & ISR Fixes
+  - **BUG-034 FIXED:** ISR state access now uses volatile pointers (prevents missed pulses at high frequency)
+  - **BUG-035 FIXED:** Overflow flag auto-cleared on counter reset (eliminates sticky flags)
+  - **BUG-038 FIXED:** ST Logic variable access protected with spinlock (prevents race condition between execute and I/O)
+  - **Improvements:**
+    - All ISR state access functions use volatile pointer pattern
+    - Counter reset now clears internal overflow flags and compare state
+    - ST variable synchronization via portMUX_TYPE spinlock
 
 - **v4.2.5** (2025-12-18) - 🔒 Security & Stability Fixes
   - **BUG-031 FIXED:** Counter write lock now used by Modbus FC03 (prevents 64-bit read corruption)

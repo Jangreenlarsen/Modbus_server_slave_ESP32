@@ -76,4 +76,21 @@ void st_logic_print_status(st_logic_engine_state_t *state);
  */
 void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id);
 
+/* ============================================================================
+ * BUG-038 FIX: Variable access synchronization
+ * Use these to protect ST variable access in gpio_mapping.cpp
+ * ============================================================================ */
+
+/**
+ * @brief Lock ST variables for exclusive access
+ * Call before reading/writing ST program variables from outside st_logic_engine
+ */
+void st_logic_lock_variables(void);
+
+/**
+ * @brief Unlock ST variables after access
+ * Call after reading/writing ST program variables
+ */
+void st_logic_unlock_variables(void);
+
 #endif // ST_LOGIC_ENGINE_H

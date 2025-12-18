@@ -15,6 +15,7 @@
 #include "gpio_driver.h"
 #include "registers.h"
 #include "st_logic_config.h"
+#include "st_logic_engine.h"  // BUG-038 FIX: For variable locking
 
 /**
  * @brief Read all INPUT mappings (GPIO + ST variables)
@@ -80,6 +81,9 @@ static void gpio_mapping_read_inputs(void) {
             reg_value = registers_get_holding_register(map->input_reg);
           }
 
+          // BUG-038 FIX: Lock before writing to ST variable
+          st_logic_lock_variables();
+
           // BUG-002 FIX: Store value with correct type conversion
           st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
           if (var_type == ST_TYPE_BOOL) {
@@ -90,6 +94,8 @@ static void gpio_mapping_read_inputs(void) {
             // ST_TYPE_INT or ST_TYPE_DWORD
             prog->bytecode.variables[map->st_var_index].int_val = (int16_t)reg_value;
           }
+
+          st_logic_unlock_variables();
         }
       }
     }
@@ -138,6 +144,9 @@ static void gpio_mapping_write_outputs(void) {
 
       if (!map->is_input) {
         // OUTPUT mode: Read from ST variable, write to Modbus
+        // BUG-038 FIX: Lock before reading ST variable
+        st_logic_lock_variables();
+
         // BUG-002 FIX: Read value with correct type conversion
         st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
         int16_t var_value;
@@ -151,6 +160,8 @@ static void gpio_mapping_write_outputs(void) {
           // ST_TYPE_INT or ST_TYPE_DWORD
           var_value = prog->bytecode.variables[map->st_var_index].int_val;
         }
+
+        st_logic_unlock_variables();
 
         // Check output_type to determine destination
         if (map->coil_reg != 65535) {

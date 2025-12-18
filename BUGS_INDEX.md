@@ -39,11 +39,11 @@
 | BUG-031 | Counter write lock ikke brugt af Modbus FC handlers | ✅ FIXED | 🔴 CRITICAL | v4.2.5 | 64-bit counter read kan give korrupt data |
 | BUG-032 | Buffer overflow i ST parser (strcpy uden bounds) | ✅ FIXED | 🔴 CRITICAL | v4.2.5 | Stack corruption ved lange variabelnavne |
 | BUG-033 | Variable declaration bounds check efter increment | ✅ FIXED | 🔴 CRITICAL | v4.2.5 | Buffer overflow på 33. variable |
-| BUG-034 | ISR state læsning uden volatile cast | ❌ OPEN | 🟡 HIGH | v4.2.5 | Sporadisk manglende pulser ved høj frekvens |
-| BUG-035 | Overflow flag aldrig clearet automatisk | ❌ OPEN | 🟡 HIGH | v4.2.5 | Sticky overflow kræver manuel reset |
+| BUG-034 | ISR state læsning uden volatile cast | ✅ FIXED | 🟡 HIGH | v4.2.6 | Sporadisk manglende pulser ved høj frekvens |
+| BUG-035 | Overflow flag aldrig clearet automatisk | ✅ FIXED | 🟡 HIGH | v4.2.6 | Sticky overflow kræver manuel reset |
 | BUG-036 | SW-ISR underflow wrapper ikke (inkonsistent med SW) | ❌ OPEN | 🟠 MEDIUM | v4.2.5 | DOWN mode stopper ved 0 i ISR mode |
 | BUG-037 | Jump patch grænse 512 i stedet for 1024 | ❌ OPEN | 🟠 MEDIUM | v4.2.5 | Store CASE statements kan fejle |
-| BUG-038 | ST Logic variable memcpy uden synchronization | ❌ OPEN | 🟡 HIGH | v4.2.5 | Race condition mellem execute og I/O |
+| BUG-038 | ST Logic variable memcpy uden synchronization | ✅ FIXED | 🟡 HIGH | v4.2.6 | Race condition mellem execute og I/O |
 
 ## Quick Lookup by Category
 
@@ -74,9 +74,9 @@
 - **BUG-021:** Delete counter command
 - **BUG-022:** Auto-enable counter
 - **BUG-023:** Compare after disable
-- **BUG-034:** ISR state volatile cast mangler
-- **BUG-035:** Overflow flag auto-clear mangler
-- **BUG-038:** ST Logic variable race condition
+- **BUG-034:** ISR state volatile cast (FIXED v4.2.6)
+- **BUG-035:** Overflow flag auto-clear (FIXED v4.2.6)
+- **BUG-038:** ST Logic variable race condition (FIXED v4.2.6)
 - **BUG-CLI-1:** Parameter keyword clarification
 - **BUG-CLI-2:** GPIO validation
 

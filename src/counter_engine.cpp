@@ -225,12 +225,18 @@ void counter_engine_reset(uint8_t id) {
   switch (cfg.hw_mode) {
     case COUNTER_HW_SW:
       counter_sw_reset(id);
+      // BUG-035 FIX: Clear internal overflow flag
+      counter_sw_clear_overflow(id);
       break;
     case COUNTER_HW_SW_ISR:
       counter_sw_isr_reset(id);
+      // BUG-035 FIX: Clear internal overflow flag
+      counter_sw_isr_clear_overflow(id);
       break;
     case COUNTER_HW_PCNT:
       counter_hw_reset(id);
+      // BUG-035 FIX: Clear internal overflow flag
+      counter_hw_clear_overflow(id);
       break;
     default:
       break;
@@ -242,6 +248,12 @@ void counter_engine_reset(uint8_t id) {
   // Clear overflow register
   if (cfg.overload_reg < HOLDING_REGS_SIZE) {
     registers_set_holding_register(cfg.overload_reg, 0);
+  }
+
+  // BUG-035 FIX: Reset compare runtime state (last_value) to prevent false trigger
+  if (id >= 1 && id <= 4) {
+    counter_compare_state[id - 1].last_value = cfg.start_value;
+    counter_compare_state[id - 1].compare_triggered = 0;
   }
 }
 

@@ -17,6 +17,12 @@
 #include <stdio.h>
 
 /* ============================================================================
+ * BUG-038 FIX: Spinlock for ST variable access synchronization
+ * Prevents race condition between execute (memcpy) and I/O (gpio_mapping)
+ * ============================================================================ */
+static portMUX_TYPE st_var_spinlock = portMUX_INITIALIZER_UNLOCKED;
+
+/* ============================================================================
  * INPUT/OUTPUT OPERATIONS (MOVED TO gpio_mapping.cpp)
  *
  * NOTE: Variable I/O is now handled by the unified VariableMapping system
@@ -50,8 +56,11 @@ bool st_logic_execute_program(st_logic_engine_state_t *state, uint8_t program_id
   uint32_t elapsed_us = micros() - start_us;
   uint32_t elapsed_ms = elapsed_us / 1000;
 
+  // BUG-038 FIX: Use critical section to prevent race with gpio_mapping I/O
   // Copy variables back from VM to program config
+  portENTER_CRITICAL(&st_var_spinlock);
   memcpy(prog->bytecode.variables, vm.variables, vm.var_count * sizeof(st_value_t));
+  portEXIT_CRITICAL(&st_var_spinlock);
 
   // BUG-007 FIX: Log warning if execution took too long (>100ms threshold)
   if (elapsed_ms > 100) {
@@ -278,4 +287,16 @@ void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) 
   }
 
   debug_printf("\n");
+}
+
+/* ============================================================================
+ * BUG-038 FIX: Variable access lock functions for gpio_mapping synchronization
+ * ============================================================================ */
+
+void st_logic_lock_variables(void) {
+  portENTER_CRITICAL(&st_var_spinlock);
+}
+
+void st_logic_unlock_variables(void) {
+  portEXIT_CRITICAL(&st_var_spinlock);
 }

@@ -246,24 +246,31 @@ void counter_sw_isr_reset(uint8_t id) {
 
 uint64_t counter_sw_isr_get_value(uint8_t id) {
   if (id < 1 || id > COUNTER_COUNT) return 0;
-  return isr_state[id - 1].counter_value;
+  // BUG-034 FIX: Use volatile pointer to ensure fresh read from memory
+  // Without this, compiler may cache value in register and miss ISR updates
+  volatile CounterSWState* state = &isr_state[id - 1];
+  return state->counter_value;
 }
 
 void counter_sw_isr_set_value(uint8_t id, uint64_t value) {
   if (id < 1 || id > COUNTER_COUNT) return;
-  isr_state[id - 1].counter_value = value;
+  // BUG-034 FIX: Use volatile pointer for consistent access
+  volatile CounterSWState* state = &isr_state[id - 1];
+  state->counter_value = value;
 }
 
 uint8_t counter_sw_isr_get_overflow(uint8_t id) {
   if (id < 1 || id > COUNTER_COUNT) return 0;
-  // BUG FIX 1.2: Return actual overflow flag
-  return isr_state[id - 1].overflow_flag;
+  // BUG-034 FIX: Use volatile pointer for consistent access
+  volatile CounterSWState* state = &isr_state[id - 1];
+  return state->overflow_flag;
 }
 
 void counter_sw_isr_clear_overflow(uint8_t id) {
   if (id < 1 || id > COUNTER_COUNT) return;
-  // BUG FIX 1.2: Clear overflow flag
-  isr_state[id - 1].overflow_flag = 0;
+  // BUG-034 FIX: Use volatile pointer for consistent access
+  volatile CounterSWState* state = &isr_state[id - 1];
+  state->overflow_flag = 0;
 }
 
 /* ============================================================================
@@ -272,10 +279,14 @@ void counter_sw_isr_clear_overflow(uint8_t id) {
 
 void counter_sw_isr_start(uint8_t id) {
   if (id < 1 || id > COUNTER_COUNT) return;
-  isr_state[id - 1].is_counting = 1;
+  // BUG-034 FIX: Use volatile pointer for consistent access
+  volatile CounterSWState* state = &isr_state[id - 1];
+  state->is_counting = 1;
 }
 
 void counter_sw_isr_stop(uint8_t id) {
   if (id < 1 || id > COUNTER_COUNT) return;
-  isr_state[id - 1].is_counting = 0;
+  // BUG-034 FIX: Use volatile pointer for consistent access
+  volatile CounterSWState* state = &isr_state[id - 1];
+  state->is_counting = 0;
 }
