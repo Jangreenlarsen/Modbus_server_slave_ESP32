@@ -7,6 +7,7 @@
  */
 
 #include "st_compiler.h"
+#include "st_builtins.h"
 #include "debug.h"
 #include <stdlib.h>
 #include <string.h>
@@ -232,6 +233,44 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
 
     case ST_AST_UNARY_OP:
       return st_compiler_compile_unary_op(compiler, node);
+
+    case ST_AST_FUNCTION_CALL: {
+      // Map function name to built-in ID
+      st_builtin_func_t func_id;
+      if (strcasecmp(node->data.function_call.func_name, "ABS") == 0) func_id = ST_BUILTIN_ABS;
+      else if (strcasecmp(node->data.function_call.func_name, "MIN") == 0) func_id = ST_BUILTIN_MIN;
+      else if (strcasecmp(node->data.function_call.func_name, "MAX") == 0) func_id = ST_BUILTIN_MAX;
+      else if (strcasecmp(node->data.function_call.func_name, "SUM") == 0) func_id = ST_BUILTIN_SUM;
+      else if (strcasecmp(node->data.function_call.func_name, "SQRT") == 0) func_id = ST_BUILTIN_SQRT;
+      else if (strcasecmp(node->data.function_call.func_name, "ROUND") == 0) func_id = ST_BUILTIN_ROUND;
+      else if (strcasecmp(node->data.function_call.func_name, "TRUNC") == 0) func_id = ST_BUILTIN_TRUNC;
+      else if (strcasecmp(node->data.function_call.func_name, "FLOOR") == 0) func_id = ST_BUILTIN_FLOOR;
+      else if (strcasecmp(node->data.function_call.func_name, "CEIL") == 0) func_id = ST_BUILTIN_CEIL;
+      else if (strcasecmp(node->data.function_call.func_name, "INT_TO_REAL") == 0) func_id = ST_BUILTIN_INT_TO_REAL;
+      else if (strcasecmp(node->data.function_call.func_name, "REAL_TO_INT") == 0) func_id = ST_BUILTIN_REAL_TO_INT;
+      else if (strcasecmp(node->data.function_call.func_name, "BOOL_TO_INT") == 0) func_id = ST_BUILTIN_BOOL_TO_INT;
+      else if (strcasecmp(node->data.function_call.func_name, "INT_TO_BOOL") == 0) func_id = ST_BUILTIN_INT_TO_BOOL;
+      else if (strcasecmp(node->data.function_call.func_name, "DWORD_TO_INT") == 0) func_id = ST_BUILTIN_DWORD_TO_INT;
+      else if (strcasecmp(node->data.function_call.func_name, "INT_TO_DWORD") == 0) func_id = ST_BUILTIN_INT_TO_DWORD;
+      else if (strcasecmp(node->data.function_call.func_name, "SAVE") == 0) func_id = ST_BUILTIN_PERSIST_SAVE;
+      else if (strcasecmp(node->data.function_call.func_name, "LOAD") == 0) func_id = ST_BUILTIN_PERSIST_LOAD;
+      else {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Unknown function: %s", node->data.function_call.func_name);
+        st_compiler_error(compiler, msg);
+        return false;
+      }
+
+      // Compile arguments (push onto stack)
+      for (uint8_t i = 0; i < node->data.function_call.arg_count; i++) {
+        if (!st_compiler_compile_expr(compiler, node->data.function_call.args[i])) {
+          return false;
+        }
+      }
+
+      // Emit CALL_BUILTIN instruction
+      return st_compiler_emit_int(compiler, ST_OP_CALL_BUILTIN, (int32_t)func_id);
+    }
 
     default:
       st_compiler_error(compiler, "Expression node type not supported");

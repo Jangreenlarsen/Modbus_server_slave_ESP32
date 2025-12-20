@@ -207,6 +207,12 @@ typedef struct {
 } st_literal_t;
 
 typedef struct {
+  char func_name[64];       // Function name (e.g., "SAVE", "LOAD", "ABS")
+  st_ast_node_t *args[4];   // Function arguments (max 4 args)
+  uint8_t arg_count;        // Number of arguments
+} st_function_call_t;
+
+typedef struct {
   char condition[256];      // Condition (for simple parsing)
   st_ast_node_t *condition_expr; // Parsed expression (future)
   st_ast_node_t *then_body; // Statements in THEN block
@@ -265,6 +271,7 @@ typedef struct st_ast_node {
     st_unary_op_t unary_op;
     st_literal_t literal;
     st_variable_ref_t variable;
+    st_function_call_t function_call;
   } data;
 
   struct st_ast_node *next;  // Linked list of statements

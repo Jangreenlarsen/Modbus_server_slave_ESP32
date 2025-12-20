@@ -127,6 +127,13 @@ void st_ast_node_free(st_ast_node_t *node) {
       st_ast_node_free(node->data.assignment.expr);
       break;
 
+    case ST_AST_FUNCTION_CALL:
+      // Free all function arguments
+      for (uint8_t i = 0; i < node->data.function_call.arg_count; i++) {
+        st_ast_node_free(node->data.function_call.args[i]);
+      }
+      break;
+
     default:
       break;
   }
@@ -198,14 +205,56 @@ static st_ast_node_t *parser_parse_primary(st_parser_t *parser) {
     return node;
   }
 
-  // Variable
+  // Variable or Function Call
   if (parser_match(parser, ST_TOK_IDENT)) {
-    st_ast_node_t *node = ast_node_alloc(ST_AST_VARIABLE, line);
-    // BUG-032 FIX: Use strncpy to prevent buffer overflow (var_name is 64 bytes, token is 256)
-    strncpy(node->data.variable.var_name, parser->current_token.value, 63);
-    node->data.variable.var_name[63] = '\0';
+    char identifier[64];
+    strncpy(identifier, parser->current_token.value, 63);
+    identifier[63] = '\0';
     parser_advance(parser);
-    return node;
+
+    // Check if this is a function call (followed by '(')
+    if (parser_match(parser, ST_TOK_LPAREN)) {
+      parser_advance(parser); // consume '('
+
+      st_ast_node_t *node = ast_node_alloc(ST_AST_FUNCTION_CALL, line);
+      strncpy(node->data.function_call.func_name, identifier, 63);
+      node->data.function_call.func_name[63] = '\0';
+      node->data.function_call.arg_count = 0;
+
+      // Parse arguments (if any)
+      if (!parser_match(parser, ST_TOK_RPAREN)) {
+        // Parse first argument
+        st_ast_node_t *arg = parser_parse_expression(parser);
+        if (arg && node->data.function_call.arg_count < 4) {
+          node->data.function_call.args[node->data.function_call.arg_count++] = arg;
+        }
+
+        // Parse additional arguments (comma-separated)
+        while (parser_match(parser, ST_TOK_COMMA)) {
+          parser_advance(parser); // consume ','
+          arg = parser_parse_expression(parser);
+          if (arg && node->data.function_call.arg_count < 4) {
+            node->data.function_call.args[node->data.function_call.arg_count++] = arg;
+          } else if (node->data.function_call.arg_count >= 4) {
+            parser_error(parser, "Too many function arguments (max 4)");
+            break;
+          }
+        }
+      }
+
+      // Expect closing ')'
+      if (!parser_expect(parser, ST_TOK_RPAREN)) {
+        parser_error(parser, "Expected ')' after function arguments");
+      }
+
+      return node;
+    } else {
+      // It's a variable reference
+      st_ast_node_t *node = ast_node_alloc(ST_AST_VARIABLE, line);
+      strncpy(node->data.variable.var_name, identifier, 63);
+      node->data.variable.var_name[63] = '\0';
+      return node;
+    }
   }
 
   // Parenthesized expression
@@ -1060,6 +1109,18 @@ void st_ast_node_print(st_ast_node_t *node, int indent) {
       if (node->data.if_stmt.else_body) {
         debug_printf("%s  ELSE:\n", padding);
         st_ast_node_print(node->data.if_stmt.else_body, indent + 4);
+      }
+      break;
+
+    case ST_AST_FUNCTION_CALL:
+      debug_printf("%sCALL: %s(", padding, node->data.function_call.func_name);
+      for (uint8_t i = 0; i < node->data.function_call.arg_count; i++) {
+        debug_printf("%s", i > 0 ? ", " : "");
+      }
+      debug_printf(")\n");
+      for (uint8_t i = 0; i < node->data.function_call.arg_count; i++) {
+        debug_printf("%s  ARG%d:\n", padding, i);
+        st_ast_node_print(node->data.function_call.args[i], indent + 4);
       }
       break;
 
