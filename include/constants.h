@@ -265,10 +265,12 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "4.2.9"
+#define PROJECT_VERSION     "4.3.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v4.3.0 (2025-12-20): Auto-Load Persistent Register Groups on boot + CLI parser fixes
+ * v4.2.9 (2025-12-18): Counter control parameter restructuring
  * v3.1.1 (2025-12-08): Telnet insert mode & ST upload copy/paste
  * v3.1.0 (2025-12-05): WiFi display & validation improvements
  * v3.0.0 (2025-12-05): WiFi/Network subsystem + Phase 1 security fixes

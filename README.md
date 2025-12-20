@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v4.2.9 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v4.3.0 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med avancerede features inklusiv ST Structured Text Logic programmering med **performance monitoring**, Wi-Fi netværk, telnet CLI interface, og **komplet Modbus register dokumentation**.
 
@@ -1890,6 +1890,21 @@ if client.connect():
 ---
 
 ## 📝 Version History
+
+- **v4.3.0** (2025-12-20) - ⭐ Auto-Load Persistent Register Groups on Boot
+  - **NEW FEATURE:** Auto-load on boot (restore saved register groups automatically at startup)
+  - **CLI Commands:**
+    - `set persist auto-load enable/disable` - Enable/disable auto-load system
+    - `set persist auto-load add <group_id>` - Add group to auto-load list (max 7 groups)
+    - `set persist auto-load remove <group_id>` - Remove group from auto-load list
+  - **Backend:** 5 new functions in registers_persist.cpp
+  - **Boot integration:** Auto-restores configured groups after config load
+  - **Bug fixes:**
+    - **BUG-042 FIXED:** normalize_alias() missing "auto-load" keyword
+    - **BUG-043 FIXED:** "set persist enable on" case sensitivity bug
+    - **BUG-044 FIXED:** cli_cmd_set_persist_auto_load() case sensitive strcmp
+  - **Documentation:** 376 lines comprehensive documentation (9 sections)
+  - **Use case:** Ensures calibration data, recipes, and production counters are immediately available after reboot without manual intervention
 
 - **v4.2.9** (2025-12-18) - 🔧 Counter Control Parameter Restructuring
   - **BUG-041 FIXED:** Separated reset-on-read into two distinct parameters
