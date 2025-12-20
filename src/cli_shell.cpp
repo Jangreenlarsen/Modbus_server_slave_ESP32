@@ -160,8 +160,8 @@ void cli_shell_start_st_upload(uint8_t program_id) {
   cli_cursor_pos = 0;
   memset(cli_input_buffer, 0, CLI_INPUT_BUFFER_SIZE);
 
-  // Disable remote echo for upload mode (for Telnet copy/paste support)
-  cli_shell_set_remote_echo(0);
+  // Note: Echo setting is now preserved in upload mode
+  // Users can control echo with "set echo on/off" command
 
   if (g_debug_console) {
     cli_console_println(g_debug_console, "Entering ST Logic upload mode. Type code and end with 'END_UPLOAD':");
@@ -175,8 +175,7 @@ void cli_shell_reset_upload_mode(void) {
   cli_upload_buffer_pos = 0;
   memset(cli_upload_buffer, 0, CLI_UPLOAD_BUFFER_SIZE);
 
-  // Re-enable remote echo when exiting upload mode
-  cli_shell_set_remote_echo(1);
+  // Note: Echo setting is preserved (not modified by upload mode)
 
   if (g_debug_console) {
     cli_console_print(g_debug_console, "> ");

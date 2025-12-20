@@ -3609,10 +3609,117 @@ Build #652: ✅ Compiled successfully
 
 ---
 
+## § BUG-045: Upload mode ignorerer brugerens echo setting
+
+**Status:** ✅ FIXED
+**Priority:** 🟡 HIGH
+**Opdaget:** 2025-12-20
+**Fikset:** 2025-12-20
+**Version:** v4.3.0 (Build #661)
+
+### Beskrivelse
+
+Når brugeren går ind i ST Logic upload mode, bliver remote echo ALTID slået fra, selv hvis brugeren eksplicit har aktiveret echo med `set echo on`. Dette gør det umuligt at se hvad man indtaster når man uploader ST programmer manuelt.
+
+**Problem:**
+```bash
+> set echo on
+Echo enabled
+> set logic 1 upload
+Entering ST Logic upload mode. Type code and end with 'END_UPLOAD':
+>>> PROGRAM Test       ← Ingen echo! Brugeren ser ikke hvad de taster
+>>> END_UPLOAD
+```
+
+**Forventet opførsel:**
+Echo skal respektere brugerens preference. Hvis `set echo on` er aktiv, skal echo også virke i upload mode.
+
+### Root Cause
+
+**Fil:** `src/cli_shell.cpp`
+
+**Line 163-164:** Upload mode forced echo OFF
+```cpp
+void cli_shell_start_upload_mode(uint8_t program_id) {
+  // ...
+
+  // Disable remote echo for upload mode (for Telnet copy/paste support)
+  cli_shell_set_remote_echo(0);  // ← PROBLEM: Ignorerer brugerens setting
+
+  // ...
+}
+```
+
+**Line 178-179:** Exit upload mode forced echo ON
+```cpp
+void cli_shell_reset_upload_mode(void) {
+  // ...
+
+  // Re-enable remote echo when exiting upload mode
+  cli_shell_set_remote_echo(1);  // ← PROBLEM: Antager echo skal være ON
+
+  // ...
+}
+```
+
+**Issue:**
+Upload mode modificerede echo setting uden at gemme/restore brugerens preference. Den oprindelige design-beslutning var at slå echo fra for at supportere copy/paste i Telnet, men det burde være brugerens valg.
+
+### Implemented Fix
+
+**Solution:** Fjern tvungen echo ON/OFF i upload mode. Lad upload mode bare respektere brugerens eksisterende echo preference (gemt i `cli_remote_echo_enabled`).
+
+**src/cli_shell.cpp:163-164** - FJERNET:
+```cpp
+// OLD (REMOVED):
+// Disable remote echo for upload mode (for Telnet copy/paste support)
+// cli_shell_set_remote_echo(0);
+
+// NEW:
+// Note: Echo setting is now preserved in upload mode
+// Users can control echo with "set echo on/off" command
+```
+
+**src/cli_shell.cpp:178-179** - FJERNET:
+```cpp
+// OLD (REMOVED):
+// Re-enable remote echo when exiting upload mode
+// cli_shell_set_remote_echo(1);
+
+// NEW:
+// Note: Echo setting is preserved (not modified by upload mode)
+```
+
+### Resultat
+
+- ✅ Upload mode respekterer nu brugerens echo preference
+- ✅ `set echo on` → Echo virker i upload mode
+- ✅ `set echo off` → Ingen echo i upload mode (som før, til copy/paste)
+- ✅ Default (echo enabled) → Echo i upload mode
+- ✅ Brugeren har fuld kontrol over echo opførsel
+
+**Test:**
+```bash
+> set echo on
+Echo enabled
+> set logic 1 upload
+Entering ST Logic upload mode. Type code and end with 'END_UPLOAD':
+>>> PROGRAM Test        ← Echo virker nu!
+>>> VAR x: INT; END_VAR ← Brugeren kan se hvad de taster
+>>> END_UPLOAD
+Compiling ST Logic program...
+✅ Program compiled successfully
+```
+
+Build #661: ✅ Compiled successfully
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-20 | BUG-045 FIXED - Upload mode respects user echo setting (v4.3.0, Build #661) | Claude Code |
 | 2025-12-20 | BUG-042, BUG-043, BUG-044 FIXED - CLI Parser Case Sensitivity Bugs (v4.3.0, Build #652) | Claude Code |
 | 2025-12-17 | BUG-030 FIXED - Compare value accessible via Modbus register (runtime modifiable) (v4.2.4) | Claude Code |
 | 2025-12-17 | BUG-029 FIXED - Compare modes use edge detection instead of continuous check (v4.2.4) | Claude Code |

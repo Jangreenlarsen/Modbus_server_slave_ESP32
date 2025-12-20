@@ -50,6 +50,7 @@
 | BUG-042 | normalize_alias() håndterer ikke "auto-load" | ✅ FIXED | 🟡 HIGH | v4.3.0 | "set persist auto-load" ikke genkendt af parser |
 | BUG-043 | "set persist enable on" case sensitivity bug | ✅ FIXED | 🟡 HIGH | v4.3.0 | enabled blev altid false → printer "DISABLED" |
 | BUG-044 | cli_cmd_set_persist_auto_load() case sensitive strcmp | ✅ FIXED | 🟠 MEDIUM | v4.3.0 | "ENABLE" eller "Enable" ville ikke virke |
+| BUG-045 | Upload mode ignorerer brugerens echo setting | ✅ FIXED | 🟡 HIGH | v4.3.0 | "set echo on" har ingen effekt i ST upload mode |
 
 ## Quick Lookup by Category
 
@@ -84,6 +85,7 @@
 - **BUG-038:** ST Logic variable race condition (FIXED v4.2.6)
 - **BUG-042:** normalize_alias() missing "auto-load" (FIXED v4.3.0)
 - **BUG-043:** "set persist enable on" case sensitivity (FIXED v4.3.0)
+- **BUG-045:** Upload mode echo setting (FIXED v4.3.0)
 - **BUG-CLI-1:** Parameter keyword clarification
 - **BUG-CLI-2:** GPIO validation
 
