@@ -891,15 +891,8 @@ st_ast_node_t *st_parser_parse_statements(st_parser_t *parser) {
 bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *variables, uint8_t *var_count) {
   *var_count = 0;
 
-  debug_printf("[VAR_PARSE] Starting variable declaration parsing, current token: %s\n",
-               st_token_type_to_string(parser->current_token.type));
-
   while (parser_match(parser, ST_TOK_VAR) || parser_match(parser, ST_TOK_VAR_INPUT) || parser_match(parser, ST_TOK_VAR_OUTPUT)) {
     st_token_type_t var_type_token = parser->current_token.type;
-
-    debug_printf("[VAR_PARSE] Found VAR block type: %s\n",
-                 st_token_type_to_string(var_type_token));
-
     parser_advance(parser);
 
     // Parse variable declarations until END_VAR
@@ -929,9 +922,6 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
       // BUG-032 FIX: Use strncpy to prevent buffer overflow (name is 64 bytes, token is 256)
       strncpy(var->name, parser->current_token.value, 63);
       var->name[63] = '\0';
-
-      debug_printf("[VAR_PARSE] Parsing variable '%s'\n", var->name);
-
       parser_advance(parser);
 
       // Expect colon
@@ -942,13 +932,6 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
 
       // Expect data type
       st_datatype_t datatype = ST_TYPE_NONE;
-
-      // DEBUG: Print current token
-      debug_printf("[VAR_PARSE] Variable '%s', expecting type, got token: %s (value='%s')\n",
-                   var->name,
-                   st_token_type_to_string(parser->current_token.type),
-                   parser->current_token.value);
-
       if (parser_match(parser, ST_TOK_BOOL)) {
         datatype = ST_TYPE_BOOL;
         parser_advance(parser);
@@ -962,11 +945,7 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
         datatype = ST_TYPE_REAL;
         parser_advance(parser);
       } else {
-        char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg),
-                 "Expected data type (BOOL, INT, DWORD, REAL), got %s",
-                 st_token_type_to_string(parser->current_token.type));
-        parser_error(parser, err_msg);
+        parser_error(parser, "Expected data type (BOOL, INT, DWORD, REAL)");
         return false;
       }
 
