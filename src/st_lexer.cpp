@@ -78,9 +78,9 @@ static const keyword_entry_t keywords[] = {
 
   // Data types
   {"BOOL", ST_TOK_BOOL},
-  {"INT", ST_TOK_INT},
+  {"INT", ST_TOK_INT_KW},
   {"DWORD", ST_TOK_DWORD},
-  {"REAL", ST_TOK_REAL},
+  {"REAL", ST_TOK_REAL_KW},
 
   // Variable declarations
   {"VAR", ST_TOK_VAR},

@@ -935,13 +935,13 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
       if (parser_match(parser, ST_TOK_BOOL)) {
         datatype = ST_TYPE_BOOL;
         parser_advance(parser);
-      } else if (parser_match(parser, ST_TOK_INT)) {
+      } else if (parser_match(parser, ST_TOK_INT_KW)) {
         datatype = ST_TYPE_INT;
         parser_advance(parser);
       } else if (parser_match(parser, ST_TOK_DWORD)) {
         datatype = ST_TYPE_DWORD;
         parser_advance(parser);
-      } else if (parser_match(parser, ST_TOK_REAL)) {
+      } else if (parser_match(parser, ST_TOK_REAL_KW)) {
         datatype = ST_TYPE_REAL;
         parser_advance(parser);
       } else {
