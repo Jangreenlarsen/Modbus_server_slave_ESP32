@@ -52,7 +52,7 @@ int cli_cmd_set_logic_delete(st_logic_engine_state_t *logic_state, uint8_t progr
  * Bind ST variable to Modbus register using variable name and binding spec
  */
 int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t program_id,
-                                    const char *var_name, const char *binding_spec);
+                                    const char *var_name, const char *binding_spec, const char *direction_override);
 
 /**
  * @brief set logic <id> bind <var_index> <register> [input|output|both]

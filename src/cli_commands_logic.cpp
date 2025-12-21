@@ -237,17 +237,18 @@ int cli_cmd_set_logic_delete(st_logic_engine_state_t *logic_state, uint8_t progr
 }
 
 /**
- * @brief Parse new bind syntax: set logic <id> bind <var_name> reg:100|coil:10|input-dis:5
+ * @brief Parse new bind syntax: set logic <id> bind <var_name> reg:100|coil:10|input-dis:5 [input|output|both]
  *
  * Finds variable by name and calls cli_cmd_set_logic_bind_by_index
  *
  * Example:
- *   set logic 1 bind sensor reg:100      # sensor reads from HR#100
- *   set logic 1 bind led coil:10         # led writes to coil
- *   set logic 1 bind switch input-dis:5  # switch reads from discrete input
+ *   set logic 1 bind sensor reg:100 input       # sensor reads from HR#100
+ *   set logic 1 bind led reg:101 output         # led writes to HR#101
+ *   set logic 1 bind angle reg:102 both         # angle reads and writes HR#102
+ *   set logic 1 bind switch input-dis:5         # switch reads from discrete input (auto-input)
  */
 int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t program_id,
-                                    const char *var_name, const char *binding_spec) {
+                                    const char *var_name, const char *binding_spec, const char *direction_override) {
   if (program_id >= 4) {
     debug_println("ERROR: Invalid program ID (0-3)");
     return -1;
@@ -296,19 +297,19 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
   uint8_t output_type = 0;  // 0 = Holding Register (HR), 1 = Coil
 
   if (strncmp(binding_spec, "reg:", 4) == 0) {
-    // Holding register (16-bit integer) - OUTPUT mode (ST var → HR)
+    // Holding register (16-bit integer) - default OUTPUT, but can be overridden
     register_addr = atoi(binding_spec + 4);
-    direction = "output";  // BUG-012 FIX: Changed from "both" to "output" (only 1 mapping, not 2)
-    input_type = 0;  // HR (unused in output mode)
+    direction = "output";  // Default for reg:
+    input_type = 0;  // HR
     output_type = 0;  // HR
   } else if (strncmp(binding_spec, "coil:", 5) == 0) {
-    // Coil (BOOL read/write) - OUTPUT mode (ST var → Coil)
+    // Coil (BOOL read/write) - default OUTPUT, but can be overridden
     register_addr = atoi(binding_spec + 5);
-    direction = "output";  // BUG-012 FIX: Changed from "both" to "output" (only 1 mapping, not 2)
+    direction = "output";  // Default for coil:
     input_type = 1;  // DI (unused in output mode)
     output_type = 1;  // Coil
   } else if (strncmp(binding_spec, "input-dis:", 10) == 0 || strncmp(binding_spec, "input:", 6) == 0) {
-    // Discrete input (BOOL read) - supports both "input-dis:5" and "input:5" shortcuts
+    // Discrete input (BOOL read) - always INPUT mode (cannot override)
     register_addr = (strncmp(binding_spec, "input-dis:", 10) == 0) ?
                     atoi(binding_spec + 10) : atoi(binding_spec + 6);
     direction = "input";
@@ -317,6 +318,18 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
   } else {
     debug_printf("ERROR: Invalid binding spec '%s' (use reg:, coil:, or input:)\n", binding_spec);
     return -1;
+  }
+
+  // BUG-048 FIX: Override direction if explicitly specified
+  if (direction_override && strlen(direction_override) > 0) {
+    if (strcmp(direction_override, "input") == 0 ||
+        strcmp(direction_override, "output") == 0 ||
+        strcmp(direction_override, "both") == 0) {
+      direction = direction_override;
+    } else {
+      debug_printf("ERROR: Invalid direction '%s' (use input, output, or both)\n", direction_override);
+      return -1;
+    }
   }
 
   // Validate register address

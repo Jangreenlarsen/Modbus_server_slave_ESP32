@@ -864,21 +864,22 @@ bool cli_parser_execute(char* line) {
         cli_cmd_set_logic_delete(st_logic_get_state(), prog_idx);
         return true;
       } else if (!strcmp(cmd_normalized, "BIND")) {
-        // set logic <id> bind <var_spec> <register_spec>
+        // set logic <id> bind <var_spec> <register_spec> [direction]
         if (argc < 6) {
           debug_println("SET LOGIC BIND: missing parameters");
-          debug_println("  Usage (NEW):  set logic <id> bind <var_name> reg:100|coil:10|input:5");
+          debug_println("  Usage (NEW):  set logic <id> bind <var_name> reg:100|coil:10|input:5 [input|output|both]");
           debug_println("  Usage (OLD):  set logic <id> bind <var_idx> <register> [input|output|both]");
           return false;
         }
 
         const char* arg4 = argv[4];
         const char* arg5 = argv[5];
+        const char* arg6 = (argc >= 7) ? argv[6] : NULL;  // optional direction
 
         // Detect new syntax: check if arg5 contains "reg:", "coil:", "input-dis:", or "input:"
         if (strstr(arg5, "reg:") || strstr(arg5, "coil:") || strstr(arg5, "input-dis:") || strstr(arg5, "input:")) {
-          // NEW SYNTAX: variable name + binding spec
-          cli_cmd_set_logic_bind_by_name(st_logic_get_state(), prog_idx, arg4, arg5);
+          // NEW SYNTAX: variable name + binding spec + optional direction
+          cli_cmd_set_logic_bind_by_name(st_logic_get_state(), prog_idx, arg4, arg5, arg6);
           return true;
         }
 
