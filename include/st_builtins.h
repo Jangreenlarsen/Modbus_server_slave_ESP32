@@ -34,10 +34,14 @@ typedef enum {
   ST_BUILTIN_FLOOR,        // FLOOR(x) → floor INT
   ST_BUILTIN_CEIL,         // CEIL(x) → ceiling INT
 
-  // Trigonometric (future extension)
-  // ST_BUILTIN_SIN,          // SIN(x)
-  // ST_BUILTIN_COS,          // COS(x)
-  // ST_BUILTIN_TAN,          // TAN(x)
+  // Clamping & Selection (v4.4+)
+  ST_BUILTIN_LIMIT,        // LIMIT(min, val, max) → clamped value
+  ST_BUILTIN_SEL,          // SEL(g, in0, in1) → g ? in1 : in0
+
+  // Trigonometric (v4.4+)
+  ST_BUILTIN_SIN,          // SIN(x) → sine (radians)
+  ST_BUILTIN_COS,          // COS(x) → cosine (radians)
+  ST_BUILTIN_TAN,          // TAN(x) → tangent (radians)
 
   // Type Conversion
   ST_BUILTIN_INT_TO_REAL,  // INT_TO_REAL(i) → REAL

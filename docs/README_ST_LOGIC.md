@@ -262,6 +262,15 @@ rounded := ROUND(3.7);                 (* → 4 *)
 truncated := TRUNC(3.9);               (* → 3 *)
 floored := FLOOR(3.7);                 (* → 3 *)
 ceiled := CEIL(3.2);                   (* → 4 *)
+
+(* v4.4+ Clamping & Selection *)
+clamped := LIMIT(0, temperature, 100); (* → clamp to 0-100 *)
+output := SEL(manual_mode, auto_val, manual_val); (* → select based on bool *)
+
+(* v4.4+ Trigonometry (radians) *)
+sine_val := SIN(1.57);                 (* → ≈1.0 (π/2) *)
+cosine_val := COS(0.0);                (* → 1.0 *)
+tangent_val := TAN(0.785);             (* → ≈1.0 (π/4) *)
 ```
 
 #### Type Conversion

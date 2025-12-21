@@ -363,9 +363,13 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_builtin_func_t func_id = (st_builtin_func_t)instr->arg.int_arg;
   uint8_t arg_count = st_builtin_arg_count(func_id);
 
-  st_value_t arg1 = {0}, arg2 = {0};
+  st_value_t arg1 = {0}, arg2 = {0}, arg3 = {0};
 
-  // Pop arguments (in reverse order: arg2 then arg1)
+  // Pop arguments (in reverse order: arg3, arg2, arg1)
+  // Stack layout: [arg1, arg2, arg3] (top)
+  if (arg_count >= 3) {
+    if (!st_vm_pop(vm, &arg3)) return false;
+  }
   if (arg_count >= 2) {
     if (!st_vm_pop(vm, &arg2)) return false;
   }
@@ -373,8 +377,20 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     if (!st_vm_pop(vm, &arg1)) return false;
   }
 
-  // Call the function
-  st_value_t result = st_builtin_call(func_id, arg1, arg2);
+  // Call the function (handle 3-arg functions specially)
+  st_value_t result;
+  if (arg_count == 3) {
+    // Special handling for 3-arg functions
+    if (func_id == ST_BUILTIN_LIMIT) {
+      result = st_builtin_limit(arg1, arg2, arg3);
+    } else if (func_id == ST_BUILTIN_SEL) {
+      result = st_builtin_sel(arg1, arg2, arg3);
+    } else {
+      result = st_builtin_call(func_id, arg1, arg2);
+    }
+  } else {
+    result = st_builtin_call(func_id, arg1, arg2);
+  }
 
   // Push result
   return st_vm_push(vm, result);

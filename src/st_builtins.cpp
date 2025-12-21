@@ -64,6 +64,54 @@ st_value_t st_builtin_ceil(st_value_t x) {
 }
 
 /* ============================================================================
+ * CLAMPING & SELECTION FUNCTIONS (v4.4+)
+ * ============================================================================ */
+
+st_value_t st_builtin_limit(st_value_t min_val, st_value_t value, st_value_t max_val) {
+  st_value_t result;
+
+  // Clamp value between min and max
+  if (value.int_val < min_val.int_val) {
+    result.int_val = min_val.int_val;
+  } else if (value.int_val > max_val.int_val) {
+    result.int_val = max_val.int_val;
+  } else {
+    result.int_val = value.int_val;
+  }
+
+  return result;
+}
+
+st_value_t st_builtin_sel(st_value_t g, st_value_t in0, st_value_t in1) {
+  // SEL: Boolean selector
+  // g=false → return in0
+  // g=true  → return in1
+  return (g.bool_val) ? in1 : in0;
+}
+
+/* ============================================================================
+ * TRIGONOMETRIC FUNCTIONS (v4.4+)
+ * ============================================================================ */
+
+st_value_t st_builtin_sin(st_value_t x) {
+  st_value_t result;
+  result.real_val = sinf(x.real_val);  // Input in radians
+  return result;
+}
+
+st_value_t st_builtin_cos(st_value_t x) {
+  st_value_t result;
+  result.real_val = cosf(x.real_val);  // Input in radians
+  return result;
+}
+
+st_value_t st_builtin_tan(st_value_t x) {
+  st_value_t result;
+  result.real_val = tanf(x.real_val);  // Input in radians
+  return result;
+}
+
+/* ============================================================================
  * TYPE CONVERSION FUNCTIONS
  * ============================================================================ */
 
@@ -155,6 +203,32 @@ st_value_t st_builtin_call(st_builtin_func_t func_id, st_value_t arg1, st_value_
       result = st_builtin_ceil(arg1);
       break;
 
+    // Clamping & Selection (v4.4+)
+    case ST_BUILTIN_LIMIT:
+      // NOTE: 3-arg functions are handled directly in VM (st_vm.cpp)
+      // This case should not be reached
+      result.int_val = 0;
+      break;
+
+    case ST_BUILTIN_SEL:
+      // NOTE: 3-arg functions are handled directly in VM (st_vm.cpp)
+      // This case should not be reached
+      result.int_val = 0;
+      break;
+
+    // Trigonometric (v4.4+)
+    case ST_BUILTIN_SIN:
+      result = st_builtin_sin(arg1);
+      break;
+
+    case ST_BUILTIN_COS:
+      result = st_builtin_cos(arg1);
+      break;
+
+    case ST_BUILTIN_TAN:
+      result = st_builtin_tan(arg1);
+      break;
+
     // Type conversions
     case ST_BUILTIN_INT_TO_REAL:
       result = st_builtin_int_to_real(arg1);
@@ -212,6 +286,11 @@ const char *st_builtin_name(st_builtin_func_t func_id) {
     case ST_BUILTIN_TRUNC:         return "TRUNC";
     case ST_BUILTIN_FLOOR:         return "FLOOR";
     case ST_BUILTIN_CEIL:          return "CEIL";
+    case ST_BUILTIN_LIMIT:         return "LIMIT";
+    case ST_BUILTIN_SEL:           return "SEL";
+    case ST_BUILTIN_SIN:           return "SIN";
+    case ST_BUILTIN_COS:           return "COS";
+    case ST_BUILTIN_TAN:           return "TAN";
     case ST_BUILTIN_INT_TO_REAL:   return "INT_TO_REAL";
     case ST_BUILTIN_REAL_TO_INT:   return "REAL_TO_INT";
     case ST_BUILTIN_BOOL_TO_INT:   return "BOOL_TO_INT";
@@ -239,6 +318,9 @@ uint8_t st_builtin_arg_count(st_builtin_func_t func_id) {
     case ST_BUILTIN_INT_TO_BOOL:
     case ST_BUILTIN_DWORD_TO_INT:
     case ST_BUILTIN_INT_TO_DWORD:
+    case ST_BUILTIN_SIN:
+    case ST_BUILTIN_COS:
+    case ST_BUILTIN_TAN:
       return 1;
 
     // 2-argument functions
@@ -246,6 +328,11 @@ uint8_t st_builtin_arg_count(st_builtin_func_t func_id) {
     case ST_BUILTIN_MAX:
     case ST_BUILTIN_SUM:
       return 2;
+
+    // 3-argument functions (v4.4+)
+    case ST_BUILTIN_LIMIT:  // LIMIT(min, val, max)
+    case ST_BUILTIN_SEL:     // SEL(g, in0, in1)
+      return 3;
 
     // 1-argument functions (v4.0+)
     case ST_BUILTIN_PERSIST_SAVE:

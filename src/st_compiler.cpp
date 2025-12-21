@@ -246,6 +246,11 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
       else if (strcasecmp(node->data.function_call.func_name, "TRUNC") == 0) func_id = ST_BUILTIN_TRUNC;
       else if (strcasecmp(node->data.function_call.func_name, "FLOOR") == 0) func_id = ST_BUILTIN_FLOOR;
       else if (strcasecmp(node->data.function_call.func_name, "CEIL") == 0) func_id = ST_BUILTIN_CEIL;
+      else if (strcasecmp(node->data.function_call.func_name, "LIMIT") == 0) func_id = ST_BUILTIN_LIMIT;
+      else if (strcasecmp(node->data.function_call.func_name, "SEL") == 0) func_id = ST_BUILTIN_SEL;
+      else if (strcasecmp(node->data.function_call.func_name, "SIN") == 0) func_id = ST_BUILTIN_SIN;
+      else if (strcasecmp(node->data.function_call.func_name, "COS") == 0) func_id = ST_BUILTIN_COS;
+      else if (strcasecmp(node->data.function_call.func_name, "TAN") == 0) func_id = ST_BUILTIN_TAN;
       else if (strcasecmp(node->data.function_call.func_name, "INT_TO_REAL") == 0) func_id = ST_BUILTIN_INT_TO_REAL;
       else if (strcasecmp(node->data.function_call.func_name, "REAL_TO_INT") == 0) func_id = ST_BUILTIN_REAL_TO_INT;
       else if (strcasecmp(node->data.function_call.func_name, "BOOL_TO_INT") == 0) func_id = ST_BUILTIN_BOOL_TO_INT;
