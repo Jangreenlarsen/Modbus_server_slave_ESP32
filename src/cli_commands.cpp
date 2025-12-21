@@ -519,12 +519,15 @@ void cli_cmd_set_counter_control(uint8_t argc, char* argv[]) {
   debug_println("");
 
   // Show status
-  bool reset_on_read = (ctrl_value & 0x01) != 0;
+  bool counter_reset_on_read = (ctrl_value & 0x01) != 0;
   bool auto_start = (ctrl_value & 0x02) != 0;
   running = (ctrl_value & 0x80) != 0;
+  bool compare_reset_on_read = cfg.reset_on_read;
 
   debug_print("  counter-reg-reset-on-read: ");
-  debug_println(reset_on_read ? "ENABLED" : "DISABLED");
+  debug_println(counter_reset_on_read ? "ENABLED" : "DISABLED");
+  debug_print("  compare-reg-reset-on-read: ");
+  debug_println(compare_reset_on_read ? "ENABLED" : "DISABLED");
   debug_print("  auto-start: ");
   debug_println(auto_start ? "ENABLED" : "DISABLED");
   debug_print("  running: ");
