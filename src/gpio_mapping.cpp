@@ -71,9 +71,13 @@ static void gpio_mapping_read_inputs(void) {
         // INPUT mode: Read from Modbus, write to ST variable
         if (map->input_reg != 65535) {
           // BUG-010 FIX: Type-aware bounds check (DI uses different size than HR)
+          // BUG-049 FIX: Add bounds check for Coil type
           if (map->input_type == 1) {
             // Discrete Input - check DI array size (32 bytes = 256 bits)
             if (map->input_reg >= DISCRETE_INPUTS_SIZE * 8) continue;
+          } else if (map->input_type == 2) {
+            // Coil - check Coil array size (32 bytes = 256 bits)
+            if (map->input_reg >= COILS_SIZE * 8) continue;
           } else {
             // Holding Register - check HR array size
             if (map->input_reg >= HOLDING_REGS_SIZE) continue;
@@ -81,10 +85,13 @@ static void gpio_mapping_read_inputs(void) {
 
           uint16_t reg_value;
 
-          // Check input_type: 0 = Holding Register (HR), 1 = Discrete Input (DI)
+          // Check input_type: 0 = Holding Register (HR), 1 = Discrete Input (DI), 2 = Coil (BUG-049)
           if (map->input_type == 1) {
             // Discrete Input: read as BOOL (0 or 1)
             reg_value = registers_get_discrete_input(map->input_reg) ? 1 : 0;
+          } else if (map->input_type == 2) {
+            // BUG-049 FIX: Coil: read as BOOL (0 or 1)
+            reg_value = registers_get_coil(map->input_reg) ? 1 : 0;
           } else {
             // Holding Register: read as INT
             reg_value = registers_get_holding_register(map->input_reg);

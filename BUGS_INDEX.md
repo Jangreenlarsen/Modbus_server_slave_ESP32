@@ -53,6 +53,8 @@
 | BUG-045 | Upload mode ignorerer brugerens echo setting | ✅ FIXED | 🟡 HIGH | v4.3.0 | "set echo on" har ingen effekt i ST upload mode |
 | BUG-046 | ST datatype keywords (INT, REAL) kolliderer med literals | ✅ FIXED | 🔴 CRITICAL | v4.3.1 | REAL/INT variable declarations fejler med "Unknown variable" |
 | BUG-047 | Register allocator ikke frigivet ved program delete | ✅ FIXED | 🔴 CRITICAL | v4.3.2 | "Register already allocated" efter delete/recreate |
+| BUG-048 | Bind direction parameter ignoreret | ✅ FIXED | 🟡 HIGH | v4.3.3 | "input" parameter ikke brugt, defaults altid til "output" |
+| BUG-049 | ST Logic kan ikke læse fra Coils | ✅ FIXED | 🔴 CRITICAL | v4.3.3 | "coil:20 input" læser fra discrete input i stedet for coil |
 
 ## Quick Lookup by Category
 
@@ -74,6 +76,7 @@
 - **BUG-033:** Variable declaration bounds (FIXED v4.2.5)
 - **BUG-046:** ST datatype keywords collision (FIXED v4.3.1 Build #676)
 - **BUG-047:** Register allocator not freed on delete (FIXED v4.3.2 Build #691)
+- **BUG-049:** ST Logic cannot read from Coils (FIXED v4.3.3 Build #703)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
@@ -90,6 +93,7 @@
 - **BUG-042:** normalize_alias() missing "auto-load" (FIXED v4.3.0)
 - **BUG-043:** "set persist enable on" case sensitivity (FIXED v4.3.0)
 - **BUG-045:** Upload mode echo setting (FIXED v4.3.0)
+- **BUG-048:** Bind direction parameter ignored (FIXED v4.3.3 Build #698)
 - **BUG-CLI-1:** Parameter keyword clarification
 - **BUG-CLI-2:** GPIO validation
 

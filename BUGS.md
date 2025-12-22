@@ -4018,10 +4018,170 @@ Build #691 - "FIX: BUG-047 - Register Allocator Not Freed on Program Delete"
 
 ---
 
+## § BUG-049: ST Logic Kan Ikke Læse Fra Coils (v4.3.3)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Opdaget:** 2025-12-22
+**Fixet:** 2025-12-22
+**Version:** v4.3.3, Build #703
+
+### Beskrivelse
+
+Når en ST Logic variabel bindes til en Coil i INPUT mode med syntaksen:
+```
+set logic 2 bind mode_auto coil:20 input
+```
+
+Læser systemet fra **Discrete Input #20** i stedet for **Coil #20**.
+
+**Problem:**
+- Coils er **read/write** boolean registre (FC01/FC05)
+- Discrete Inputs er **read-only** boolean registre (FC02)
+- ST Logic kunne ikke læse fra coils, kun fra discrete inputs
+
+**Konsekvens:**
+- SEL() funktioner virker ikke når de læser coil values
+- User kan skrive til coil #20, men ST Logic ser ikke ændringen
+- ST Logic læser fra discrete input #20 som aldrig ændres
+
+### Root Cause
+
+**Del 1: Parser sætter forkert input_type**
+
+`src/cli_commands_logic.cpp` linje 305-310:
+```cpp
+} else if (strncmp(binding_spec, "coil:", 5) == 0) {
+    register_addr = atoi(binding_spec + 5);
+    direction = "output";  // Default for coil:
+    input_type = 1;  // DI (unused in output mode) ← BUG!
+    output_type = 1;  // Coil
+```
+
+Når user skriver `coil:20 input`:
+1. Parser sætter `input_type = 1` (discrete input)
+2. Direction override ændrer til `"input"`
+3. Men `input_type = 1` forbliver!
+
+**Del 2: gpio_mapping læser fra forkert kilde**
+
+`src/gpio_mapping.cpp` linje 85-91:
+```cpp
+// Check input_type: 0 = Holding Register (HR), 1 = Discrete Input (DI)
+if (map->input_type == 1) {
+    // Discrete Input: read as BOOL (0 or 1)
+    reg_value = registers_get_discrete_input(map->input_reg) ? 1 : 0;
+} else {
+    // Holding Register: read as INT
+    reg_value = registers_get_holding_register(map->input_reg);
+}
+```
+
+**Manglende:** Ingen handling for coils! Systemet har kun support for:
+- `input_type = 0` → Holding Register
+- `input_type = 1` → Discrete Input
+
+Men der mangler:
+- `input_type = 2` → **Coil** (read/write boolean)
+
+### Løsning
+
+**Del 1: Opdater parser til input_type=2 for coils**
+
+`src/cli_commands_logic.cpp` linje 296, 309:
+```cpp
+uint8_t input_type = 0;  // 0 = HR, 1 = DI, 2 = Coil (BUG-049)
+...
+} else if (strncmp(binding_spec, "coil:", 5) == 0) {
+    register_addr = atoi(binding_spec + 5);
+    direction = "output";
+    input_type = 2;  // Coil (BUG-049 FIX: was 1=DI, now 2=Coil)
+    output_type = 1;
+```
+
+**Del 2: Tilføj coil read support i gpio_mapping**
+
+`src/gpio_mapping.cpp` linje 73-98:
+```cpp
+// BUG-049 FIX: Add bounds check for Coil type
+if (map->input_type == 1) {
+    if (map->input_reg >= DISCRETE_INPUTS_SIZE * 8) continue;
+} else if (map->input_type == 2) {
+    // Coil - check Coil array size (32 bytes = 256 bits)
+    if (map->input_reg >= COILS_SIZE * 8) continue;
+} else {
+    if (map->input_reg >= HOLDING_REGS_SIZE) continue;
+}
+
+uint16_t reg_value;
+
+// Check input_type: 0 = HR, 1 = DI, 2 = Coil (BUG-049)
+if (map->input_type == 1) {
+    reg_value = registers_get_discrete_input(map->input_reg) ? 1 : 0;
+} else if (map->input_type == 2) {
+    // BUG-049 FIX: Coil: read as BOOL (0 or 1)
+    reg_value = registers_get_coil(map->input_reg) ? 1 : 0;
+} else {
+    reg_value = registers_get_holding_register(map->input_reg);
+}
+```
+
+### Test Resultat
+
+**Før fix (Build #698):**
+```
+> set logic 2 bind mode_auto coil:20 input
+[OK] Logic2: var[1] (mode_auto) <- Modbus INPUT#20  ← FEJL: INPUT i stedet for COIL
+
+> write coil 20 value on
+Coil 20 = 1 (ON)
+
+> read reg 85 1
+Reg[85]: 50  ← SEL() virker IKKE (læser fra discrete input, ikke coil)
+```
+
+**Efter fix (Build #703):**
+```
+> set logic 2 bind mode_auto coil:20 input
+[OK] Logic2: var[1] (mode_auto) <- Modbus COIL#20  ← KORREKT
+
+> write coil 20 value on
+Coil 20 = 1 (ON)
+
+> read reg 85 1
+Reg[85]: 75  ← SEL() virker! (læser korrekt fra coil)
+```
+
+### Relaterede Ændringer
+
+- `src/cli_commands_logic.cpp:296,309` - input_type = 2 for coil bindings
+- `src/gpio_mapping.cpp:73-98` - Add coil read support
+
+### Commit
+
+Build #703 - "FIX: BUG-049 - ST Logic Can Now Read From Coils"
+
+### Relation til Andre Bugs
+
+**BUG-048:** Bind direction parameter ignored
+- BUG-048 fixede parsing af direction parameter
+- BUG-049 fixer coil input support (missing input_type=2 handling)
+- Begge påvirkede `set logic bind` kommando
+
+**Modbus Register Types:**
+1. **Coils** (0x, read/write, boolean) - FC01 Read, FC05 Write
+2. **Discrete Inputs** (1x, read-only, boolean) - FC02 Read
+3. **Holding Registers** (4x, read/write, 16-bit) - FC03 Read, FC06 Write
+4. **Input Registers** (3x, read-only, 16-bit) - FC04 Read
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-22 | BUG-049 FIXED - ST Logic can now read from Coils (v4.3.3, Build #703) | Claude Code |
+| 2025-12-21 | BUG-048 FIXED - Bind direction parameter now respected (v4.3.3, Build #698) | Claude Code |
 | 2025-12-21 | BUG-047 FIXED - Register allocator freed on program delete (v4.3.2, Build #691) | Claude Code |
 | 2025-12-21 | BUG-046 VERIFIED - Verified working in Build #689, user input format was issue | Claude Code |
 | 2025-12-21 | BUG-046 FIXED - ST datatype keywords (INT, REAL) token disambiguation (v4.3.1, Build #676) | Claude Code |

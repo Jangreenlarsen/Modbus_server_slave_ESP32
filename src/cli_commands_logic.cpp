@@ -293,7 +293,7 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
   // Parse binding spec: reg:100, coil:10, or input-dis:5
   uint16_t register_addr = 0;
   const char *direction = "output";  // default: output mode for ST variables (typically write to Modbus)
-  uint8_t input_type = 0;  // 0 = Holding Register (HR), 1 = Discrete Input (DI)
+  uint8_t input_type = 0;  // 0 = Holding Register (HR), 1 = Discrete Input (DI), 2 = Coil (BUG-049)
   uint8_t output_type = 0;  // 0 = Holding Register (HR), 1 = Coil
 
   if (strncmp(binding_spec, "reg:", 4) == 0) {
@@ -306,7 +306,7 @@ int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t
     // Coil (BOOL read/write) - default OUTPUT, but can be overridden
     register_addr = atoi(binding_spec + 5);
     direction = "output";  // Default for coil:
-    input_type = 1;  // DI (unused in output mode)
+    input_type = 2;  // Coil (BUG-049 FIX: was 1=DI, now 2=Coil for input mode)
     output_type = 1;  // Coil
   } else if (strncmp(binding_spec, "input-dis:", 10) == 0 || strncmp(binding_spec, "input:", 6) == 0) {
     // Discrete input (BOOL read) - always INPUT mode (cannot override)
