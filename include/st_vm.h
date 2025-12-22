@@ -38,6 +38,7 @@ typedef struct {
 
   // Stack (for expression evaluation)
   st_value_t stack[64];       // Value stack (max 64 depth)
+  st_datatype_t type_stack[64]; // Type stack (BUG-050: track value types for arithmetic)
   uint8_t sp;                 // Stack pointer (index of next free slot)
 
   // Variable storage (local to this execution)

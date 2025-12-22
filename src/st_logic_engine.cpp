@@ -242,10 +242,14 @@ void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) 
       const char *var_name = prog->bytecode.var_names[map->st_var_index];
 
       if (map->is_input) {
-        // Input: Read from register/discrete input
+        // Input: Read from register/discrete input/coil
         if (map->input_type == 1) {
           // Discrete Input
           debug_printf("  [%d] %s ← Input-dis#%d (input)\n",
+                 map->st_var_index, var_name, map->input_reg);
+        } else if (map->input_type == 2) {
+          // BUG-049 FIX: Coil input
+          debug_printf("  [%d] %s ← COIL#%d (input)\n",
                  map->st_var_index, var_name, map->input_reg);
         } else {
           // Holding Register (default)

@@ -48,14 +48,17 @@ void st_vm_reset(st_vm_t *vm) {
  * STACK OPERATIONS
  * ============================================================================ */
 
-bool st_vm_push(st_vm_t *vm, st_value_t value) {
+// BUG-050: Type-aware push (internal helper)
+static bool st_vm_push_typed(st_vm_t *vm, st_value_t value, st_datatype_t type) {
   if (vm->sp >= 64) {
     snprintf(vm->error_msg, sizeof(vm->error_msg), "Stack overflow (max 64)");
     vm->error = 1;
     return false;
   }
 
-  vm->stack[vm->sp++] = value;
+  vm->stack[vm->sp] = value;
+  vm->type_stack[vm->sp] = type;
+  vm->sp++;
 
   if (vm->sp > vm->max_stack_depth) {
     vm->max_stack_depth = vm->sp;
@@ -64,15 +67,28 @@ bool st_vm_push(st_vm_t *vm, st_value_t value) {
   return true;
 }
 
-bool st_vm_pop(st_vm_t *vm, st_value_t *out_value) {
+bool st_vm_push(st_vm_t *vm, st_value_t value) {
+  // Legacy: assume INT type
+  return st_vm_push_typed(vm, value, ST_TYPE_INT);
+}
+
+// BUG-050: Type-aware pop (internal helper)
+static bool st_vm_pop_typed(st_vm_t *vm, st_value_t *out_value, st_datatype_t *out_type) {
   if (vm->sp == 0) {
     snprintf(vm->error_msg, sizeof(vm->error_msg), "Stack underflow");
     vm->error = 1;
     return false;
   }
 
-  *out_value = vm->stack[--vm->sp];
+  vm->sp--;
+  *out_value = vm->stack[vm->sp];
+  *out_type = vm->type_stack[vm->sp];
   return true;
+}
+
+bool st_vm_pop(st_vm_t *vm, st_value_t *out_value) {
+  st_datatype_t dummy_type;
+  return st_vm_pop_typed(vm, out_value, &dummy_type);
 }
 
 st_value_t st_vm_peek(st_vm_t *vm) {
@@ -113,33 +129,36 @@ void st_vm_set_variable(st_vm_t *vm, uint8_t var_index, st_value_t value) {
 static bool st_vm_exec_push_bool(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t val;
   val.bool_val = (instr->arg.int_arg != 0);
-  return st_vm_push(vm, val);
+  return st_vm_push_typed(vm, val, ST_TYPE_BOOL);  // BUG-050
 }
 
 static bool st_vm_exec_push_int(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t val;
   memset(&val, 0, sizeof(val));  // Initialize union to all zeros
   val.int_val = instr->arg.int_arg;
-  return st_vm_push(vm, val);
+  return st_vm_push_typed(vm, val, ST_TYPE_INT);  // BUG-050
 }
 
 static bool st_vm_exec_push_dword(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t val;
   val.dword_val = (uint32_t)instr->arg.int_arg;
-  return st_vm_push(vm, val);
+  return st_vm_push_typed(vm, val, ST_TYPE_DWORD);  // BUG-050
 }
 
 static bool st_vm_exec_push_real(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t val;
+  memset(&val, 0, sizeof(val));  // BUG-050: Clear union
   // Retrieve float from int bits (hack from compiler)
   memcpy(&val.real_val, &instr->arg.int_arg, sizeof(float));
-  return st_vm_push(vm, val);
+  return st_vm_push_typed(vm, val, ST_TYPE_REAL);  // BUG-050
 }
 
 static bool st_vm_exec_load_var(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t val = st_vm_get_variable(vm, instr->arg.var_index);
   if (vm->error) return false;
-  return st_vm_push(vm, val);
+  // BUG-050: Push with correct type from program
+  st_datatype_t var_type = vm->program->var_types[instr->arg.var_index];
+  return st_vm_push_typed(vm, val, var_type);
 }
 
 static bool st_vm_exec_store_var(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -172,45 +191,84 @@ static bool st_vm_exec_pop(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
 static bool st_vm_exec_add(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t right, left, result;
-  if (!st_vm_pop(vm, &right)) return false;
-  if (!st_vm_pop(vm, &left)) return false;
+  st_datatype_t right_type, left_type;
 
-  // Simplified: assume INT for now
-  result.int_val = left.int_val + right.int_val;
-  return st_vm_push(vm, result);
+  // BUG-050: Pop with type information
+  if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
+  if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // If either operand is REAL, result is REAL
+  if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    result.real_val = left_f + right_f;
+    return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+  } else {
+    result.int_val = left.int_val + right.int_val;
+    return st_vm_push_typed(vm, result, ST_TYPE_INT);
+  }
 }
 
 static bool st_vm_exec_sub(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t right, left, result;
-  if (!st_vm_pop(vm, &right)) return false;
-  if (!st_vm_pop(vm, &left)) return false;
+  st_datatype_t right_type, left_type;
 
-  result.int_val = left.int_val - right.int_val;
-  return st_vm_push(vm, result);
+  // BUG-050: Pop with type information
+  if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
+  if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // If either operand is REAL, result is REAL
+  if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    result.real_val = left_f - right_f;
+    return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+  } else {
+    result.int_val = left.int_val - right.int_val;
+    return st_vm_push_typed(vm, result, ST_TYPE_INT);
+  }
 }
 
 static bool st_vm_exec_mul(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t right, left, result;
-  if (!st_vm_pop(vm, &right)) return false;
-  if (!st_vm_pop(vm, &left)) return false;
+  st_datatype_t right_type, left_type;
 
-  result.int_val = left.int_val * right.int_val;
-  return st_vm_push(vm, result);
+  // BUG-050: Pop with type information
+  if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
+  if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // If either operand is REAL, result is REAL
+  if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    result.real_val = left_f * right_f;
+    return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+  } else {
+    result.int_val = left.int_val * right.int_val;
+    return st_vm_push_typed(vm, result, ST_TYPE_INT);
+  }
 }
 
 static bool st_vm_exec_div(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t right, left, result;
-  if (!st_vm_pop(vm, &right)) return false;
-  if (!st_vm_pop(vm, &left)) return false;
+  st_datatype_t right_type, left_type;
 
-  if (right.int_val == 0) {
+  // BUG-050: Pop with type information
+  if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
+  if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // Division always returns REAL (to preserve precision)
+  float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
+  float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+
+  if (right_f == 0.0f) {
     snprintf(vm->error_msg, sizeof(vm->error_msg), "Division by zero");
     vm->error = 1;
     return false;
   }
 
-  result.real_val = (float)left.int_val / (float)right.int_val;
-  return st_vm_push(vm, result);
+  result.real_val = left_f / right_f;
+  return st_vm_push_typed(vm, result, ST_TYPE_REAL);
 }
 
 static bool st_vm_exec_mod(st_vm_t *vm, st_bytecode_instr_t *instr) {

@@ -4176,10 +4176,191 @@ Build #703 - "FIX: BUG-049 - ST Logic Can Now Read From Coils"
 
 ---
 
+## § BUG-050: VM Aritmetiske Operatorer Understøtter Ikke REAL (v4.3.4)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Opdaget:** 2025-12-22
+**Fixet:** 2025-12-22
+**Version:** v4.3.4, Build #708
+
+### Beskrivelse
+
+VM'ens aritmetiske operatorer (ADD, SUB, MUL, DIV) bruger altid `int_val` fra `st_value_t` union, selv når værdierne er REAL.
+
+**Problem:**
+Når en REAL værdi ligger i stack, er `real_val` korrekt, men `int_val` er ofte 0 (fordi union ikke er initialiseret). Aritmetiske operationer læser altid `int_val`.
+
+**Konsekvens:**
+```st
+pi := 3.14159;
+result := pi * 1000.0;  // result = 0 (fordi 0 * 0 = 0)
+```
+
+Alle REAL arithmetic returnerer 0.
+
+### Root Cause
+
+**Del 1: `st_value_t` er union uden type information**
+
+`include/st_types.h:146-151`:
+```cpp
+typedef union {
+  bool bool_val;
+  int32_t int_val;
+  uint32_t dword_val;
+  float real_val;
+} st_value_t;
+```
+
+Når en REAL værdi pushes på stack, er `real_val` sat, men `int_val` er garbage (ofte 0).
+
+**Del 2: MUL/ADD/SUB læser altid int_val**
+
+`src/st_vm.cpp:192-199` (FØR fix):
+```cpp
+static bool st_vm_exec_mul(st_vm_t *vm, st_bytecode_instr_t *instr) {
+  st_value_t right, left, result;
+  if (!st_vm_pop(vm, &right)) return false;
+  if (!st_vm_pop(vm, &left)) return false;
+
+  result.int_val = left.int_val * right.int_val;  // ← BUG!
+  return st_vm_push(vm, result);
+}
+```
+
+**Resultat:** REAL * REAL → læser int_val (0) × int_val (0) = 0
+
+### Løsning
+
+**Tilføj type tracking til VM stack:**
+
+1. **st_vm.h:41** - Tilføj parallel type stack:
+```cpp
+st_value_t stack[64];       // Value stack
+st_datatype_t type_stack[64]; // Type stack (BUG-050)
+uint8_t sp;
+```
+
+2. **st_vm.cpp:52-68** - Type-aware push/pop:
+```cpp
+static bool st_vm_push_typed(st_vm_t *vm, st_value_t value, st_datatype_t type) {
+  vm->stack[vm->sp] = value;
+  vm->type_stack[vm->sp] = type;
+  vm->sp++;
+  return true;
+}
+
+static bool st_vm_pop_typed(st_vm_t *vm, st_value_t *out_value, st_datatype_t *out_type) {
+  vm->sp--;
+  *out_value = vm->stack[vm->sp];
+  *out_type = vm->type_stack[vm->sp];
+  return true;
+}
+```
+
+3. **st_vm.cpp:232-250** - Type-aware MUL:
+```cpp
+static bool st_vm_exec_mul(st_vm_t *vm, st_bytecode_instr_t *instr) {
+  st_value_t right, left, result;
+  st_datatype_t right_type, left_type;
+
+  if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
+  if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // If either operand is REAL, result is REAL
+  if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    result.real_val = left_f * right_f;
+    return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+  } else {
+    result.int_val = left.int_val * right.int_val;
+    return st_vm_push_typed(vm, result, ST_TYPE_INT);
+  }
+}
+```
+
+Samme fix for ADD, SUB, DIV.
+
+4. **st_vm.cpp:129-154** - Push literals med type:
+```cpp
+static bool st_vm_exec_push_int(st_vm_t *vm, st_bytecode_instr_t *instr) {
+  st_value_t val;
+  val.int_val = instr->arg.int_arg;
+  return st_vm_push_typed(vm, val, ST_TYPE_INT);
+}
+
+static bool st_vm_exec_push_real(st_vm_t *vm, st_bytecode_instr_t *instr) {
+  st_value_t val;
+  memcpy(&val.real_val, &instr->arg.int_arg, sizeof(float));
+  return st_vm_push_typed(vm, val, ST_TYPE_REAL);
+}
+```
+
+5. **st_vm.cpp:156-162** - LOAD_VAR med type:
+```cpp
+static bool st_vm_exec_load_var(st_vm_t *vm, st_bytecode_instr_t *instr) {
+  st_value_t val = st_vm_get_variable(vm, instr->arg.var_index);
+  if (vm->error) return false;
+  st_datatype_t var_type = vm->program->var_types[instr->arg.var_index];
+  return st_vm_push_typed(vm, val, var_type);
+}
+```
+
+### Test Resultat
+
+**Før fix (Build #706):**
+```st
+PROGRAM TEST
+VAR
+  pi: REAL;
+  pi_int: INT;
+END_VAR
+BEGIN
+  pi := 3.14159;
+  pi_int := REAL_TO_INT(pi * 1000.0);
+END_PROGRAM
+```
+Output: `pi_int = 0` ❌
+
+**Efter fix (Build #708):**
+Output: `pi_int = 3141` ✅
+
+**COS/SIN test:**
+```st
+angle_rad := 0.5236;  // 30 degrees in radians
+x := REAL_TO_INT(1000.0 * COS(angle_rad));
+y := REAL_TO_INT(1000.0 * SIN(angle_rad));
+```
+Output: `x = 866, y = 499` ✅
+
+### Relaterede Ændringer
+
+- `include/st_vm.h:41` - Add type_stack[64]
+- `src/st_vm.cpp:52-91` - Add st_vm_push_typed(), st_vm_pop_typed()
+- `src/st_vm.cpp:129-162` - Update PUSH/LOAD instructions with types
+- `src/st_vm.cpp:192-272` - Update ADD/SUB/MUL/DIV with type-aware arithmetic
+
+### Commit
+
+Build #708 - "FIX: BUG-050 - VM Arithmetic Operators Now Support REAL"
+
+### Relation til Andre Bugs
+
+**BUG-051:** Expression chaining problem
+- BUG-050 fixede basic REAL arithmetic
+- BUG-051: Combined expressions `a := b * c / d` still fail
+- Workaround: Use separate statements
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-22 | BUG-051 IDENTIFIED - Expression chaining fejler for REAL (workaround exists) | Claude Code |
+| 2025-12-22 | BUG-050 FIXED - VM arithmetic operators now support REAL (v4.3.4, Build #708) | Claude Code |
 | 2025-12-22 | BUG-049 FIXED - ST Logic can now read from Coils (v4.3.3, Build #703) | Claude Code |
 | 2025-12-21 | BUG-048 FIXED - Bind direction parameter now respected (v4.3.3, Build #698) | Claude Code |
 | 2025-12-21 | BUG-047 FIXED - Register allocator freed on program delete (v4.3.2, Build #691) | Claude Code |

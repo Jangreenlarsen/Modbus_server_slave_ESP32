@@ -55,6 +55,8 @@
 | BUG-047 | Register allocator ikke frigivet ved program delete | ✅ FIXED | 🔴 CRITICAL | v4.3.2 | "Register already allocated" efter delete/recreate |
 | BUG-048 | Bind direction parameter ignoreret | ✅ FIXED | 🟡 HIGH | v4.3.3 | "input" parameter ikke brugt, defaults altid til "output" |
 | BUG-049 | ST Logic kan ikke læse fra Coils | ✅ FIXED | 🔴 CRITICAL | v4.3.3 | "coil:20 input" læser fra discrete input i stedet for coil |
+| BUG-050 | VM aritmetiske operatorer understøtter ikke REAL | ✅ FIXED | 🔴 CRITICAL | v4.3.4 | MUL/ADD/SUB bruger altid int_val, REAL arithmetic giver 0 |
+| BUG-051 | Expression chaining fejler for REAL | ❌ OPEN | 🟡 HIGH | v4.3.4 | "a := b * c / d" fejler, men separate statements virker |
 
 ## Quick Lookup by Category
 
@@ -77,6 +79,7 @@
 - **BUG-046:** ST datatype keywords collision (FIXED v4.3.1 Build #676)
 - **BUG-047:** Register allocator not freed on delete (FIXED v4.3.2 Build #691)
 - **BUG-049:** ST Logic cannot read from Coils (FIXED v4.3.3 Build #703)
+- **BUG-050:** VM arithmetic operators don't support REAL (FIXED v4.3.4 Build #708)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
@@ -94,6 +97,7 @@
 - **BUG-043:** "set persist enable on" case sensitivity (FIXED v4.3.0)
 - **BUG-045:** Upload mode echo setting (FIXED v4.3.0)
 - **BUG-048:** Bind direction parameter ignored (FIXED v4.3.3 Build #698)
+- **BUG-051:** Expression chaining fejler for REAL (OPEN - workaround: use separate statements)
 - **BUG-CLI-1:** Parameter keyword clarification
 - **BUG-CLI-2:** GPIO validation
 
