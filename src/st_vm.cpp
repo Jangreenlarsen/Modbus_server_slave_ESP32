@@ -283,7 +283,7 @@ static bool st_vm_exec_mod(st_vm_t *vm, st_bytecode_instr_t *instr) {
   }
 
   result.int_val = left.int_val % right.int_val;
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
 static bool st_vm_exec_neg(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -291,7 +291,7 @@ static bool st_vm_exec_neg(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &val)) return false;
 
   result.int_val = -val.int_val;
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
 /* ============================================================================
@@ -304,7 +304,7 @@ static bool st_vm_exec_and(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.bool_val != 0) && (right.bool_val != 0);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 static bool st_vm_exec_or(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -313,7 +313,7 @@ static bool st_vm_exec_or(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.bool_val != 0) || (right.bool_val != 0);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 static bool st_vm_exec_xor(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -322,7 +322,7 @@ static bool st_vm_exec_xor(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.bool_val != 0) != (right.bool_val != 0);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 static bool st_vm_exec_not(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -330,7 +330,7 @@ static bool st_vm_exec_not(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &val)) return false;
 
   result.bool_val = (val.bool_val == 0);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 /* ============================================================================
@@ -343,7 +343,7 @@ static bool st_vm_exec_eq(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.int_val == right.int_val);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 static bool st_vm_exec_ne(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -352,7 +352,7 @@ static bool st_vm_exec_ne(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.int_val != right.int_val);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 static bool st_vm_exec_lt(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -361,7 +361,7 @@ static bool st_vm_exec_lt(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.int_val < right.int_val);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 static bool st_vm_exec_gt(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -370,7 +370,7 @@ static bool st_vm_exec_gt(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.int_val > right.int_val);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 static bool st_vm_exec_le(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -379,7 +379,7 @@ static bool st_vm_exec_le(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.int_val <= right.int_val);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 static bool st_vm_exec_ge(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -388,7 +388,7 @@ static bool st_vm_exec_ge(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.bool_val = (left.int_val >= right.int_val);
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
 }
 
 /* ============================================================================
@@ -401,7 +401,7 @@ static bool st_vm_exec_shl(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.int_val = left.int_val << right.int_val;
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
 static bool st_vm_exec_shr(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -410,7 +410,7 @@ static bool st_vm_exec_shr(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &left)) return false;
 
   result.int_val = left.int_val >> right.int_val;
-  return st_vm_push(vm, result);
+  return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
 /* ============================================================================

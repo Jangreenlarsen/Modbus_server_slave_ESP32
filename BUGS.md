@@ -4494,10 +4494,56 @@ Build #712 - "FIX: BUG-051 - Expression Chaining Now Works with INT_TO_REAL"
 
 ---
 
+## § BUG-052: VM Operators Mangler Type Tracking (v4.3.6)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Version:** v4.3.6 (Build #714)
+**Opdaget:** 2025-12-24
+**Løst:** 2025-12-24
+
+### Problem Beskrivelse
+
+Efter fix af BUG-051, opdagede vi at alle andre VM operators stadig brugte `st_vm_push()` i stedet for `st_vm_push_typed()`.
+
+**Påvirkede operators:**
+- Comparison (6): EQ, NE, LT, GT, LE, GE
+- Logical (4): AND, OR, XOR, NOT
+- Arithmetic: MOD, NEG
+- Bitwise (2): SHL, SHR
+
+### Root Cause
+
+Operators brugte `st_vm_push()` der ikke opdaterer `type_stack[]`, hvilket får senere type-aware operationer til at læse forkert union field.
+
+### Solution
+
+Ret alle 14 operators til at bruge `st_vm_push_typed()` med korrekt type (ST_TYPE_BOOL for comparison/logical, ST_TYPE_INT for arithmetic/bitwise).
+
+### Test Results
+
+**Før fix:** Comparison returnerede 0, MIN/MAX returnerede 0, MOD returnerede 0
+**Efter fix:** Alle operators virker korrekt
+
+### Implementation Details
+
+**Files Changed:**
+- src/st_vm.cpp:340-392 - Fixed 6 comparison operators
+- src/st_vm.cpp:301-333 - Fixed 4 logical operators
+- src/st_vm.cpp:274-294 - Fixed MOD, NEG
+- src/st_vm.cpp:398-413 - Fixed SHL, SHR
+
+### Commit
+
+Build #714 - "FIX: BUG-052 - VM Operators Now Use Type-Aware Stack Push"
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-24 | BUG-052 FIXED - VM operators now use type-aware stack push (v4.3.6, Build #714) | Claude Code |
 | 2025-12-22 | BUG-051 FIXED - Expression chaining now works with INT_TO_REAL (v4.3.5, Build #712) | Claude Code |
 | 2025-12-22 | BUG-051 IDENTIFIED - Expression chaining fejler for REAL (workaround exists) | Claude Code |
 | 2025-12-22 | BUG-050 FIXED - VM arithmetic operators now support REAL (v4.3.4, Build #708) | Claude Code |
