@@ -58,6 +58,7 @@
 | BUG-050 | VM aritmetiske operatorer understøtter ikke REAL | ✅ FIXED | 🔴 CRITICAL | v4.3.4 | MUL/ADD/SUB bruger altid int_val, REAL arithmetic giver 0 |
 | BUG-051 | Expression chaining fejler for REAL | ✅ FIXED | 🟡 HIGH | v4.3.5 | "a := b * c / d" fejler, men separate statements virker |
 | BUG-052 | VM operators mangler type tracking | ✅ FIXED | 🔴 CRITICAL | v4.3.6 | Comparison/logical/bitwise operators bruger st_vm_push() i stedet for st_vm_push_typed() |
+| BUG-053 | SHL/SHR operators virker ikke | ✅ FIXED | 🔴 CRITICAL | v4.3.7 | Parser precedence chain mangler SHL/SHR tokens |
 
 ## Quick Lookup by Category
 
@@ -82,6 +83,7 @@
 - **BUG-049:** ST Logic cannot read from Coils (FIXED v4.3.3 Build #703)
 - **BUG-050:** VM arithmetic operators don't support REAL (FIXED v4.3.4 Build #708)
 - **BUG-052:** VM operators mangler type tracking (FIXED v4.3.6 Build #714)
+- **BUG-053:** SHL/SHR operators virker ikke (FIXED v4.3.7 Build #717)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index

@@ -286,11 +286,12 @@ static st_ast_node_t *parser_parse_unary(st_parser_t *parser) {
   return parser_parse_primary(parser);
 }
 
-/* Parse multiplicative: *, /, MOD */
+/* Parse multiplicative and bitwise shift: *, /, MOD, SHL, SHR */
 static st_ast_node_t *parser_parse_multiplicative(st_parser_t *parser) {
   st_ast_node_t *left = parser_parse_unary(parser);
 
-  while (parser_match(parser, ST_TOK_MUL) || parser_match(parser, ST_TOK_DIV) || parser_match(parser, ST_TOK_MOD)) {
+  while (parser_match(parser, ST_TOK_MUL) || parser_match(parser, ST_TOK_DIV) || parser_match(parser, ST_TOK_MOD) ||
+         parser_match(parser, ST_TOK_SHL) || parser_match(parser, ST_TOK_SHR)) {
     uint32_t line = parser->current_token.line;
     st_token_type_t op = parser->current_token.type;
     parser_advance(parser);
