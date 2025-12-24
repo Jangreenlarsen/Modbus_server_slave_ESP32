@@ -59,6 +59,7 @@
 | BUG-051 | Expression chaining fejler for REAL | ✅ FIXED | 🟡 HIGH | v4.3.5 | "a := b * c / d" fejler, men separate statements virker |
 | BUG-052 | VM operators mangler type tracking | ✅ FIXED | 🔴 CRITICAL | v4.3.6 | Comparison/logical/bitwise operators bruger st_vm_push() i stedet for st_vm_push_typed() |
 | BUG-053 | SHL/SHR operators virker ikke | ✅ FIXED | 🔴 CRITICAL | v4.3.7 | Parser precedence chain mangler SHL/SHR tokens |
+| BUG-054 | FOR loop body aldrig eksekveret | ✅ FIXED | 🔴 CRITICAL | v4.3.8 | Compiler bruger GT i stedet for LT i loop condition check |
 
 ## Quick Lookup by Category
 
@@ -84,6 +85,7 @@
 - **BUG-050:** VM arithmetic operators don't support REAL (FIXED v4.3.4 Build #708)
 - **BUG-052:** VM operators mangler type tracking (FIXED v4.3.6 Build #714)
 - **BUG-053:** SHL/SHR operators virker ikke (FIXED v4.3.7 Build #717)
+- **BUG-054:** FOR loop body aldrig eksekveret (FIXED v4.3.8 Build #720)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index

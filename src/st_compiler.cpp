@@ -497,15 +497,12 @@ static bool st_compiler_compile_for(st_compiler_t *compiler, st_ast_node_t *node
   // Stack: [end_value, end_value_dup, var]
 
   // Compare: var > end (exit condition for TO loops)
-  // Note: Stack order for GT is (a, b) => a > b
-  // We have [end, var], so GT will compute var > end (wrong order!)
-  // We need end > var, so we check if var > end and exit if true
-  if (!st_compiler_emit(compiler, ST_OP_GT)) {
+  // Stack: [end_dup, var]
+  // LT pops: right=var, left=end_dup → Result: end_dup < var (which is var > end_dup)
+  if (!st_compiler_emit(compiler, ST_OP_LT)) {
     return false;
   }
-  // Stack: [end_value, (end_dup > var)] - but we want (var > end)!
-  // FIX: Actually stack is [end_dup, var], so GT pops (var, end_dup) and pushes (var > end_dup)
-  // That's correct - if var > end, exit loop
+  // Stack: [end_value, (var > end)]
 
   // If var > end, exit loop
   uint16_t jump_exit = st_compiler_emit_jump(compiler, ST_OP_JMP_IF_TRUE);

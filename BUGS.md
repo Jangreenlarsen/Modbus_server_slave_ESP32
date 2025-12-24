@@ -4543,6 +4543,7 @@ Build #714 - "FIX: BUG-052 - VM Operators Now Use Type-Aware Stack Push"
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-24 | BUG-054 FIXED - FOR loop now executes body (comparison operator fixed GT→LT) (v4.3.8, Build #720) | Claude Code |
 | 2025-12-24 | BUG-053 FIXED - SHL/SHR operators now work (parser precedence chain fixed) (v4.3.7, Build #717) | Claude Code |
 | 2025-12-24 | BUG-052 FIXED - VM operators now use type-aware stack push (v4.3.6, Build #714) | Claude Code |
 | 2025-12-22 | BUG-051 FIXED - Expression chaining now works with INT_TO_REAL (v4.3.5, Build #712) | Claude Code |
