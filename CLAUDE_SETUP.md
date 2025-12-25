@@ -237,6 +237,7 @@ If unclear:
 
 ---
 
-**Last Updated:** 2025-12-18
-**Version:** v4.2.5
+**Last Updated:** 2025-12-25
+**Version:** v4.4.2
+**Build:** #759
 **Status:** ✅ Active & Mandatory

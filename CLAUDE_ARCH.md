@@ -79,15 +79,18 @@ Each layer has **ONE responsibility**. No circular dependencies.
 
 ---
 
-### Layer 3: Modbus Server Runtime
+### Layer 3: Modbus Server/Master Runtime
 
 | File | Purpose |
 |------|---------|
-| `modbus_rx.cpp/h` | Serial RX, frame detection, timeout, ISR |
-| `modbus_tx.cpp/h` | RS-485 DIR control, serial TX |
-| `modbus_server.cpp/h` | Main Modbus state machine |
+| `modbus_rx.cpp/h` | Serial RX, frame detection, timeout, ISR (Slave UART0) |
+| `modbus_tx.cpp/h` | RS-485 DIR control, serial TX (Slave UART0) |
+| `modbus_server.cpp/h` | Main Modbus Slave state machine (UART0) |
+| `modbus_master.cpp/h` | Modbus Master implementation (UART1) |
 
-**Flow:** idle → RX (receive frame) → process (call FC handler) → TX (send response) → idle
+**Slave Flow (UART0):** idle → RX (receive frame) → process (call FC handler) → TX (send response) → idle
+
+**Master Flow (UART1):** ST Logic request → TX (send request) → RX (wait response) → parse → return to ST Logic
 
 ---
 
@@ -213,7 +216,9 @@ gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
 | `cli_parser.cpp/h` | Tokenize input, dispatch to handler |
 | `cli_commands.cpp/h` | All `set` command implementations |
 | `cli_commands_logic.cpp/h` | ST Logic specific commands |
-| `cli_show.cpp/h` | All `show` command implementations |
+| `cli_commands_modbus_slave.cpp/h` | Modbus Slave configuration commands (v4.4.1) |
+| `cli_commands_modbus_master.cpp/h` | Modbus Master configuration commands (v4.4.0) |
+| `cli_show.cpp/h` | All `show` command implementations + SET display (v4.4.2) |
 | `cli_history.cpp/h` | Command history, arrow key navigation |
 | `cli_shell.cpp/h` | Serial I/O, state machine, main CLI loop |
 | `cli_config_regs.cpp/h` | Register configuration commands |
@@ -417,15 +422,15 @@ pio clean && pio run # Clean rebuild
 
 ## 📈 Code Statistics
 
-- **Total files:** 30+ .cpp/.h files
-- **Total lines:** ~10,000 lines of code
-- **File size:** 100-250 lines per file (modular)
+- **Total files:** 50+ .cpp/.h files
+- **Total lines:** ~15,000 lines of code
+- **File size:** 100-300 lines per file (modular)
 - **Dependency depth:** 8 layers (clear hierarchy)
 - **Circular deps:** 0 (by design)
 
 **Memory Usage (ESP32):**
-- RAM: 520 KB available → 37% used (~123 KB)
-- Flash: 4 MB available → 66% used (~2.7 MB)
+- RAM: 520 KB available → 38% used (~124 KB)
+- Flash: 4 MB available → 68% used (~2.8 MB, Build #759)
 
 ---
 
@@ -463,6 +468,7 @@ pio clean && pio run # Clean rebuild
 
 ---
 
-**Last Updated:** 2025-12-16
-**Version:** v4.2.5
+**Last Updated:** 2025-12-25
+**Version:** v4.4.2
+**Build:** #759
 **Status:** ✅ Active & Complete

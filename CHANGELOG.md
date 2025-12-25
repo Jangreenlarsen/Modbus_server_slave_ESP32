@@ -4,6 +4,88 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [4.4.2] - 2025-12-25 📋 (Config Mode Enhancement)
+
+### ADDED
+- **⭐ Config Mode: Display All SET Commands**
+  - `show config` now displays ALL active SET commands in copy/paste ready format
+  - **Categories:** Modbus Slave, Modbus Master, System, WiFi, ST Logic, Persistence, Counters, Timers, GPIO
+  - **Use case:** Easy configuration backup, copy settings to other devices, documentation
+  - Passwords displayed as `********` for security
+  - Full Counter/Timer/GPIO configuration display with all parameters
+  - Impact: No manual config reconstruction needed, complete visibility
+
+### ENHANCED
+- **Counter Configuration Display:**
+  - Shows all enabled counters with mode, hw-mode, edge, prescaler, direction, bit-width, compare
+  - Format: `set counter <id> mode 1 parameter hw-mode:... edge:... prescaler:...`
+
+- **Timer Configuration Display:**
+  - Shows all enabled timers with mode-specific parameters
+  - Mode 1 (One-shot): p1-duration, p2-duration, p3-duration, output-on, output-off
+  - Mode 2 (Monostable): p1-duration, p2-duration, output-on, output-off, edge, invertout
+  - Mode 3 (Astable): p1-duration, p2-duration, output-on
+  - Mode 4 (Input-triggered): input-address, edge, output-on, output-off
+
+- **GPIO Mapping Display:**
+  - Shows all GPIO mappings (input/output)
+  - Format: `set gpio <pin> input <reg>` or `set gpio <pin> coil <reg>`
+
+### TECHNICAL
+- **Modified Files:**
+  - `src/cli_show.cpp` (lines 578-891) - Added SET commands display section
+  - `include/constants.h` - Updated version to v4.4.2
+
+- **Build:**
+  - Flash: 68.2% (893,433 bytes / 1,310,720 bytes) - +8.9 KB from v4.4.1
+  - RAM: 37.1% (121,696 bytes / 327,680 bytes) - unchanged
+
+---
+
+## [4.4.1] - 2025-12-24 🔧 (Modbus Slave CLI Commands)
+
+### ADDED
+- **⭐ Modbus Slave: Dedicated CLI Commands**
+  - New command structure matching Modbus Master pattern
+  - **Commands:**
+    - `set modbus-slave enabled <on|off>` - Enable/disable slave
+    - `set modbus-slave slave-id <1-247>` - Configure slave ID (replaces old `set id`)
+    - `set modbus-slave baudrate <rate>` - Configure baudrate (replaces old `set baud`)
+    - `set modbus-slave parity <none|even|odd>` - Configure parity (NEW)
+    - `set modbus-slave stop-bits <1|2>` - Configure stop bits (NEW)
+    - `set modbus-slave inter-frame-delay <ms>` - Configure inter-frame delay (NEW)
+  - **Display:** `show modbus-slave` shows detailed config + statistics
+  - Impact: Consistent CLI structure, more configuration options
+
+### ENHANCED
+- **Configuration Structure:**
+  - Added `modbus_slave_config_t` struct to PersistConfig
+  - Moved `slave_id` and `baudrate` from root to nested struct
+  - Added runtime statistics tracking (total requests, CRC errors, exceptions)
+
+- **Backward Compatibility:**
+  - Old commands still work: `set id <value>`, `set baud <rate>`
+  - CLI parser automatically redirects to new handlers
+
+### TECHNICAL
+- **New Files:**
+  - `src/cli_commands_modbus_slave.cpp` (127 lines) - CLI handlers
+  - `include/cli_commands_modbus_slave.h` - CLI declarations
+
+- **Modified Files:**
+  - `include/types.h` - Added `modbus_slave_config_t` struct
+  - `src/cli_parser.cpp` - Added SET/SHOW modbus-slave handlers
+  - `src/config_load.cpp` - Load modbus_slave from NVS
+  - `src/config_save.cpp` - Save modbus_slave to NVS
+  - `src/config_apply.cpp` - Apply modbus_slave configuration
+  - `src/main.cpp` - Updated modbus_server_init() call
+
+- **Build:**
+  - Flash: 67.8% (888,845 bytes / 1,310,720 bytes) - +4.3 KB from v4.4.0
+  - RAM: 37.1% (121,696 bytes / 327,680 bytes) - unchanged
+
+---
+
 ## [4.4.0] - 2025-12-24 🎉 (Modbus Master + ST Logic Enhancements)
 
 ### ADDED
