@@ -574,6 +574,138 @@ void cli_cmd_show_config(void) {
     }
     debug_println("");
   }
+
+  // =========================================================================
+  // CONFIGURATION AS SET COMMANDS (copy/paste ready)
+  // =========================================================================
+  debug_println("\n=== CONFIGURATION AS SET COMMANDS ===\n");
+  debug_println("# Modbus Slave");
+  debug_print("set modbus-slave enabled ");
+  debug_println(g_persist_config.modbus_slave.enabled ? "on" : "off");
+  debug_print("set modbus-slave slave-id ");
+  debug_print_uint(g_persist_config.modbus_slave.slave_id);
+  debug_println("");
+  debug_print("set modbus-slave baudrate ");
+  debug_print_uint(g_persist_config.modbus_slave.baudrate);
+  debug_println("");
+  debug_print("set modbus-slave parity ");
+  if (g_persist_config.modbus_slave.parity == 0) debug_println("none");
+  else if (g_persist_config.modbus_slave.parity == 1) debug_println("even");
+  else if (g_persist_config.modbus_slave.parity == 2) debug_println("odd");
+  else debug_println("none");
+  debug_print("set modbus-slave stop-bits ");
+  debug_print_uint(g_persist_config.modbus_slave.stop_bits);
+  debug_println("");
+  debug_print("set modbus-slave inter-frame-delay ");
+  debug_print_uint(g_persist_config.modbus_slave.inter_frame_delay);
+  debug_println("");
+
+  // Modbus Master
+  debug_println("\n# Modbus Master");
+  debug_print("set modbus-master enabled ");
+  debug_println(g_persist_config.modbus_master.enabled ? "on" : "off");
+  if (g_persist_config.modbus_master.enabled) {
+    debug_print("set modbus-master baudrate ");
+    debug_print_uint(g_persist_config.modbus_master.baudrate);
+    debug_println("");
+    debug_print("set modbus-master parity ");
+    if (g_persist_config.modbus_master.parity == 0) debug_println("none");
+    else if (g_persist_config.modbus_master.parity == 1) debug_println("even");
+    else if (g_persist_config.modbus_master.parity == 2) debug_println("odd");
+    else debug_println("none");
+    debug_print("set modbus-master stop-bits ");
+    debug_print_uint(g_persist_config.modbus_master.stop_bits);
+    debug_println("");
+    debug_print("set modbus-master timeout ");
+    debug_print_uint(g_persist_config.modbus_master.timeout_ms);
+    debug_println("");
+    debug_print("set modbus-master inter-frame-delay ");
+    debug_print_uint(g_persist_config.modbus_master.inter_frame_delay);
+    debug_println("");
+    debug_print("set modbus-master max-requests ");
+    debug_print_uint(g_persist_config.modbus_master.max_requests_per_cycle);
+    debug_println("");
+  }
+
+  // Hostname
+  debug_println("\n# System");
+  debug_print("set hostname ");
+  debug_println(g_persist_config.hostname[0] ? g_persist_config.hostname : "modbus-esp32");
+  debug_print("set echo ");
+  debug_println(g_persist_config.remote_echo ? "on" : "off");
+  debug_print("set gpio 2 ");
+  debug_println(g_persist_config.gpio2_user_mode ? "enable" : "disable");
+
+  // WiFi
+  debug_println("\n# WiFi");
+  debug_print("set wifi status ");
+  debug_println(g_persist_config.network.enabled ? "enable" : "disable");
+  if (g_persist_config.network.ssid[0]) {
+    debug_print("set wifi ssid ");
+    debug_println(g_persist_config.network.ssid);
+  }
+  if (g_persist_config.network.password[0]) {
+    debug_println("set wifi password ********");
+  }
+  debug_print("set wifi dhcp ");
+  debug_println(g_persist_config.network.dhcp_enabled ? "on" : "off");
+  if (!g_persist_config.network.dhcp_enabled) {
+    char ip_str[16];
+    network_config_ip_to_str(g_persist_config.network.static_ip, ip_str);
+    debug_print("set wifi ip ");
+    debug_println(ip_str);
+    network_config_ip_to_str(g_persist_config.network.static_gateway, ip_str);
+    debug_print("set wifi gateway ");
+    debug_println(ip_str);
+    network_config_ip_to_str(g_persist_config.network.static_netmask, ip_str);
+    debug_print("set wifi netmask ");
+    debug_println(ip_str);
+    network_config_ip_to_str(g_persist_config.network.static_dns, ip_str);
+    debug_print("set wifi dns ");
+    debug_println(ip_str);
+  }
+  debug_print("set wifi telnet ");
+  debug_println(g_persist_config.network.telnet_enabled ? "enable" : "disable");
+  if (g_persist_config.network.telnet_enabled) {
+    if (g_persist_config.network.telnet_username[0]) {
+      debug_print("set wifi telnet-user ");
+      debug_println(g_persist_config.network.telnet_username);
+    }
+    if (g_persist_config.network.telnet_password[0]) {
+      debug_println("set wifi telnet-pass ********");
+    }
+    debug_print("set wifi telnet-port ");
+    debug_print_uint(g_persist_config.network.telnet_port);
+    debug_println("");
+  }
+
+  // ST Logic execution interval
+  debug_println("\n# ST Logic");
+  debug_print("set logic interval ");
+  debug_print_uint(g_persist_config.st_logic_interval_ms);
+  debug_println("");
+
+  // Persistence
+  if (g_persist_config.persist_regs.enabled && g_persist_config.persist_regs.group_count > 0) {
+    debug_println("\n# Persistence");
+    debug_println("set persist enable");
+    for (uint8_t i = 0; i < g_persist_config.persist_regs.group_count; i++) {
+      PersistGroup* grp = &g_persist_config.persist_regs.groups[i];
+      debug_print("set persist group ");
+      debug_print_uint(i + 1);
+      debug_print(" name ");
+      debug_print(grp->name);
+      debug_print(" regs ");
+      for (uint8_t j = 0; j < grp->reg_count; j++) {
+        if (j > 0) debug_print(",");
+        debug_print_uint(grp->reg_addresses[j]);
+      }
+      debug_println("");
+    }
+  }
+
+  debug_println("\n# Note: Remember to run 'save' after making changes!");
+  debug_println("");
 }
 
 /* ============================================================================
