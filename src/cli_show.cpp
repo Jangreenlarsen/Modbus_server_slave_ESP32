@@ -78,6 +78,33 @@ void cli_cmd_show_config(void) {
   debug_print_uint(g_persist_config.modbus_slave.inter_frame_delay);
   debug_println(" ms");
 
+  // Show Modbus Master configuration (v4.4+)
+  debug_println("");
+  debug_print("Modbus Master: ");
+  debug_println(g_persist_config.modbus_master.enabled ? "ENABLED" : "DISABLED");
+  if (g_persist_config.modbus_master.enabled) {
+    debug_print("  Baudrate: ");
+    debug_print_uint(g_persist_config.modbus_master.baudrate);
+    debug_println("");
+    debug_print("  Parity: ");
+    if (g_persist_config.modbus_master.parity == 0) debug_println("NONE");
+    else if (g_persist_config.modbus_master.parity == 1) debug_println("EVEN");
+    else if (g_persist_config.modbus_master.parity == 2) debug_println("ODD");
+    else debug_println("UNKNOWN");
+    debug_print("  Stop Bits: ");
+    debug_print_uint(g_persist_config.modbus_master.stop_bits);
+    debug_println("");
+    debug_print("  Timeout: ");
+    debug_print_uint(g_persist_config.modbus_master.timeout_ms);
+    debug_println(" ms");
+    debug_print("  Inter-frame Delay: ");
+    debug_print_uint(g_persist_config.modbus_master.inter_frame_delay);
+    debug_println(" ms");
+    debug_print("  Max Requests/Cycle: ");
+    debug_print_uint(g_persist_config.modbus_master.max_requests_per_cycle);
+    debug_println("");
+  }
+
   debug_println("=====================\n");
 
   // Counter configuration block (Mega2560 format)
