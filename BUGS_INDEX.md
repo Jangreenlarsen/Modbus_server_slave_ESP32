@@ -67,6 +67,12 @@
 | BUG-059 | Comparison operators ignorerer REAL type | ✅ FIXED | 🔴 CRITICAL | v4.4.3 | EQ/NE/LT/GT/LE/GE bruger kun int_val, REAL comparison fejler |
 | BUG-060 | NEG operator ignorerer REAL type | ✅ FIXED | 🟠 MEDIUM | v4.4.3 | Unary minus bruger kun int_val, -1.5 bliver til -1 |
 | BUG-063 | Function argument overflow validation | ✅ FIXED | 🟡 HIGH | v4.4.3 | Parser bruger break i stedet for return NULL (compilation fejler ikke) |
+| BUG-065 | SQRT mangler negative input validation | ✅ FIXED | 🟠 MEDIUM | v4.4.4 | sqrtf(negative) returnerer NaN, crasher beregninger |
+| BUG-067 | Lexer strcpy buffer overflow risiko | ✅ FIXED | 🔴 CRITICAL | v4.4.4 | 12× strcpy uden bounds check (token value 256 bytes) |
+| BUG-068 | String parsing mangler null terminator | ✅ FIXED | 🟡 HIGH | v4.4.4 | Loop limit 250 men buffer 256, strcpy kan fejle |
+| BUG-072 | DUP operator mister type information | ✅ FIXED | 🟠 MEDIUM | v4.4.4 | REAL værdier duplikeres som INT → forkerte beregninger |
+| BUG-073 | SHL/SHR mangler shift amount validation | ✅ FIXED | 🟠 MEDIUM | v4.4.4 | Shift >= 32 er undefined behavior på ESP32 |
+| BUG-074 | Jump patch silent failure | ✅ FIXED | 🟠 MEDIUM | v4.4.4 | Bounds check returnerer uden fejlmelding → bytecode korruption |
 
 ## Quick Lookup by Category
 
@@ -96,6 +102,7 @@
 - **BUG-055:** Modbus Master CLI commands ikke virker (FIXED v4.4.0 Build #744)
 - **BUG-056:** Buffer overflow i compiler symbol table (FIXED v4.4.3)
 - **BUG-059:** Comparison operators ignorerer REAL type (FIXED v4.4.3)
+- **BUG-067:** Lexer strcpy buffer overflow (FIXED v4.4.4)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
@@ -115,6 +122,7 @@
 - **BUG-048:** Bind direction parameter ignored (FIXED v4.3.3 Build #698)
 - **BUG-051:** Expression chaining fejler for REAL (FIXED v4.3.5 Build #712)
 - **BUG-063:** Function argument overflow validation (FIXED v4.4.3)
+- **BUG-068:** String parsing null terminator (FIXED v4.4.4)
 - **BUG-CLI-1:** Parameter keyword clarification
 - **BUG-CLI-2:** GPIO validation
 
@@ -130,6 +138,10 @@
 - **BUG-057:** Buffer overflow i parser program name (FIXED v4.4.3)
 - **BUG-058:** Buffer overflow i compiler bytecode name (FIXED v4.4.3)
 - **BUG-060:** NEG operator ignorerer REAL type (FIXED v4.4.3)
+- **BUG-065:** SQRT negative validation (FIXED v4.4.4)
+- **BUG-072:** DUP type stack sync (FIXED v4.4.4)
+- **BUG-073:** SHL/SHR shift overflow (FIXED v4.4.4)
+- **BUG-074:** Jump patch silent fail (FIXED v4.4.4)
 
 ### 🔵 LOW Priority (COSMETIC)
 - **BUG-006:** Counter wrapping at 65535

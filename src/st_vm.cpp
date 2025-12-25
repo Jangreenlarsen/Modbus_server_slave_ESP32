@@ -177,7 +177,8 @@ static bool st_vm_exec_dup(st_vm_t *vm, st_bytecode_instr_t *instr) {
     return false;
   }
   st_value_t top = vm->stack[vm->sp - 1];
-  return st_vm_push(vm, top);
+  st_datatype_t top_type = vm->type_stack[vm->sp - 1];  // BUG-072: Preserve type
+  return st_vm_push_typed(vm, top, top_type);
 }
 
 static bool st_vm_exec_pop(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -470,6 +471,13 @@ static bool st_vm_exec_shl(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop(vm, &right)) return false;
   if (!st_vm_pop(vm, &left)) return false;
 
+  // BUG-073: Check shift amount (undefined behavior if >= 32)
+  if (right.int_val < 0 || right.int_val >= 32) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg), "Shift amount out of range (0-31)");
+    vm->error = 1;
+    return false;
+  }
+
   result.int_val = left.int_val << right.int_val;
   return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
@@ -478,6 +486,13 @@ static bool st_vm_exec_shr(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t right, left, result;
   if (!st_vm_pop(vm, &right)) return false;
   if (!st_vm_pop(vm, &left)) return false;
+
+  // BUG-073: Check shift amount (undefined behavior if >= 32)
+  if (right.int_val < 0 || right.int_val >= 32) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg), "Shift amount out of range (0-31)");
+    vm->error = 1;
+    return false;
+  }
 
   result.int_val = left.int_val >> right.int_val;
   return st_vm_push_typed(vm, result, ST_TYPE_INT);

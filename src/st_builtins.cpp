@@ -36,7 +36,12 @@ st_value_t st_builtin_max(st_value_t a, st_value_t b) {
 
 st_value_t st_builtin_sqrt(st_value_t x) {
   st_value_t result;
-  result.real_val = (float)sqrtf((float)x.real_val);
+  // BUG-065: Check for negative input (sqrtf(negative) returns NaN)
+  if (x.real_val < 0.0f) {
+    result.real_val = 0.0f;  // Return 0 for negative input
+  } else {
+    result.real_val = (float)sqrtf((float)x.real_val);
+  }
   return result;
 }
 

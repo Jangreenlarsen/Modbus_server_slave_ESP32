@@ -160,11 +160,13 @@ static bool lexer_read_integer(st_lexer_t *lexer, st_token_t *token) {
     buffer[i++] = lexer->current_char;
     lexer_advance(lexer);
 
-    while (isxdigit(lexer->current_char) && i < 60) {
+    while (isxdigit(lexer->current_char) && i < 63) {
       buffer[i++] = lexer->current_char;
       lexer_advance(lexer);
     }
-    strcpy(token->value, buffer);
+    buffer[i] = '\0';  // BUG-067: Explicit null terminator
+    strncpy(token->value, buffer, 255);
+    token->value[255] = '\0';
     token->type = ST_TOK_INT;
     return true;
   }
@@ -174,22 +176,26 @@ static bool lexer_read_integer(st_lexer_t *lexer, st_token_t *token) {
     lexer_advance(lexer); // skip digit
     lexer_advance(lexer); // skip #
 
-    while ((lexer->current_char == '0' || lexer->current_char == '1') && i < 60) {
+    while ((lexer->current_char == '0' || lexer->current_char == '1') && i < 63) {
       buffer[i++] = lexer->current_char;
       lexer_advance(lexer);
     }
-    strcpy(token->value, buffer);
+    buffer[i] = '\0';  // BUG-067: Explicit null terminator
+    strncpy(token->value, buffer, 255);
+    token->value[255] = '\0';
     token->type = ST_TOK_INT;
     return true;
   }
 
   // Standard decimal number
-  while (isdigit(lexer->current_char) && i < 60) {
+  while (isdigit(lexer->current_char) && i < 63) {
     buffer[i++] = lexer->current_char;
     lexer_advance(lexer);
   }
 
-  strcpy(token->value, buffer);
+  buffer[i] = '\0';  // BUG-067: Explicit null terminator
+  strncpy(token->value, buffer, 255);
+  token->value[255] = '\0';
   token->type = ST_TOK_INT;
   return true;
 }
@@ -226,13 +232,15 @@ static bool lexer_read_real(st_lexer_t *lexer, st_token_t *token) {
       lexer_advance(lexer);
     }
 
-    while (isdigit(lexer->current_char) && i < 60) {
+    while (isdigit(lexer->current_char) && i < 63) {
       buffer[i++] = lexer->current_char;
       lexer_advance(lexer);
     }
   }
 
-  strcpy(token->value, buffer);
+  buffer[i] = '\0';  // BUG-067: Explicit null terminator
+  strncpy(token->value, buffer, 255);
+  token->value[255] = '\0';
   token->type = ST_TOK_REAL;
   return true;
 }
@@ -249,7 +257,7 @@ static bool lexer_read_string(st_lexer_t *lexer, st_token_t *token) {
   char buffer[256] = {0};
   int i = 0;
 
-  while (lexer->current_char != quote && lexer->current_char != '\0' && i < 250) {
+  while (lexer->current_char != quote && lexer->current_char != '\0' && i < 255) {  // BUG-068: Changed from 250 to 255
     if (lexer->current_char == '\\' && lexer_peek(lexer, 1) == quote) {
       // Escaped quote
       buffer[i++] = quote;
@@ -263,12 +271,15 @@ static bool lexer_read_string(st_lexer_t *lexer, st_token_t *token) {
 
   if (lexer->current_char != quote) {
     token->type = ST_TOK_ERROR;
-    strcpy(token->value, "Unterminated string");
+    strncpy(token->value, "Unterminated string", 255);
+    token->value[255] = '\0';
     return false;
   }
 
   lexer_advance(lexer); // skip closing quote
-  strcpy(token->value, buffer);
+  buffer[i] = '\0';  // BUG-068: Explicit null terminator
+  strncpy(token->value, buffer, 255);
+  token->value[255] = '\0';
   token->type = ST_TOK_STRING;
   return true;
 }
@@ -282,12 +293,14 @@ static bool lexer_read_identifier(st_lexer_t *lexer, st_token_t *token) {
   char buffer[64] = {0};
   int i = 0;
 
-  while ((isalnum(lexer->current_char) || lexer->current_char == '_') && i < 60) {
+  while ((isalnum(lexer->current_char) || lexer->current_char == '_') && i < 63) {  // BUG-067: Changed from 60 to 63
     buffer[i++] = lexer->current_char;
     lexer_advance(lexer);
   }
 
-  strcpy(token->value, buffer);
+  buffer[i] = '\0';  // BUG-067: Explicit null terminator
+  strncpy(token->value, buffer, 255);
+  token->value[255] = '\0';
 
   // Check if it's a keyword
   st_token_type_t kw_type = lexer_lookup_keyword(buffer);
