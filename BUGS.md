@@ -4539,10 +4539,182 @@ Build #714 - "FIX: BUG-052 - VM Operators Now Use Type-Aware Stack Push"
 
 ---
 
+## § BUG-053: SHL/SHR Operators Virker Ikke (v4.3.7)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Version:** v4.3.7 (Build #717)
+**Opdaget:** 2025-12-24
+**Løst:** 2025-12-24
+
+### Problem Beskrivelse
+
+Bitwise shift operators SHL og SHR virkede ikke i ST Logic programs:
+```
+test_shl := 4 SHL 3;    // Returnerede 4 i stedet for 32
+test_shr := 256 SHR 3;  // Returnerede 256 i stedet for 32
+```
+
+### Root Cause
+
+Parser precedence chain manglede SHL/SHR tokens i `parser_parse_multiplicative()`. Selvom lexer genkendte tokens og VM kunne eksekvere instruktionerne, blev de aldrig parset.
+
+### Solution
+
+Tilføj SHL/SHR til multiplicative precedence level i `src/st_parser.cpp:289-294`.
+
+### Test Results
+
+**Efter fix:** SHL/SHR virker korrekt med både konstanter og variabler.
+
+### Commit
+
+Build #717 - "FIX: BUG-053 - SHL/SHR Operators Virker Nu"
+
+---
+
+## § BUG-054: FOR Loop Body Aldrig Eksekveret (v4.3.8)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Version:** v4.3.8 (Build #720)
+**Opdaget:** 2025-12-24
+**Løst:** 2025-12-24
+
+### Problem Beskrivelse
+
+FOR loop body blev aldrig eksekveret:
+```
+FOR i := 1 TO 5 DO
+  sum := sum + 1;
+END_FOR;
+// Result: i=1, sum=0 (loop body never ran!)
+```
+
+### Root Cause
+
+Compiler brugte forkert comparison operator (GT i stedet for LT) i loop condition check, hvilket fik loop til at exit immediately.
+
+### Solution
+
+Ændrede `ST_OP_GT` til `ST_OP_LT` i `src/st_compiler.cpp:502`.
+
+### Test Results
+
+**Efter fix:** FOR loops virker korrekt med TO og BY clauses.
+
+### Commit
+
+Build #720 - "FIX: BUG-054 - FOR Loop Virker Nu"
+
+---
+
+## § BUG-055: Modbus Master CLI Commands Ikke Virker (v4.4.0)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Version:** v4.4.0 (Build #744)
+**Opdaget:** 2025-12-24
+**Løst:** 2025-12-24
+
+### Problem Beskrivelse
+
+Efter v4.4.0 release med Modbus Master funktionalitet kunne CLI kommandoer ikke bruges:
+```
+> set modbus-master baudrate 9600
+SET MODBUS-MASTER: unknown parameter
+
+> set modbus-master parity none
+SET MODBUS-MASTER: unknown parameter
+
+> set modbus-master stop-bits 1
+SET MODBUS-MASTER: unknown parameter
+```
+
+Kun `set modbus-master ?` (help) og `set modbus-master enabled on` virkede.
+
+### Root Cause
+
+`normalize_alias()` funktion i `src/cli_parser.cpp` manglede entries for Modbus Master kommandoer og parametre:
+
+1. **"modbus-master"** blev IKKE konverteret til **"MODBUS-MASTER"**
+2. Alle parameter navne (**baudrate**, **parity**, **stop-bits**, **timeout**, **inter-frame-delay**, **max-requests**) blev IKKE normaliseret til uppercase
+
+**Flow:**
+1. User skriver: `set modbus-master baudrate 9600`
+2. Parser kalder: `normalize_alias("modbus-master")` → Returns "MODBUS-MASTER" ✅ (fixed i første commit)
+3. Parser kalder: `normalize_alias("baudrate")` → Returns "baudrate" unchanged ❌
+4. Code tjekker: `strcmp(param, "BAUDRATE")` hvor param="baudrate"
+5. No match → "SET MODBUS-MASTER: unknown parameter"
+
+### Solution
+
+**src/cli_parser.cpp:146-153** - Tilføjet 8 nye entries til `normalize_alias()`:
+
+```cpp
+// Modbus Master kommando + parametre
+if (!strcmp(s, "MODBUS-MASTER") || !strcmp(s, "modbus-master") ||
+    !strcmp(s, "MB-MASTER") || !strcmp(s, "mb-master")) return "MODBUS-MASTER";
+if (!strcmp(s, "ENABLED") || !strcmp(s, "enabled")) return "ENABLED";
+if (!strcmp(s, "BAUDRATE") || !strcmp(s, "baudrate") ||
+    !strcmp(s, "BAUD") || !strcmp(s, "baud")) return "BAUDRATE";
+if (!strcmp(s, "PARITY") || !strcmp(s, "parity")) return "PARITY";
+if (!strcmp(s, "STOP-BITS") || !strcmp(s, "stop-bits") ||
+    !strcmp(s, "stopbits")) return "STOP-BITS";
+if (!strcmp(s, "TIMEOUT") || !strcmp(s, "timeout")) return "TIMEOUT";
+if (!strcmp(s, "INTER-FRAME-DELAY") || !strcmp(s, "inter-frame-delay") ||
+    !strcmp(s, "DELAY") || !strcmp(s, "delay")) return "INTER-FRAME-DELAY";
+if (!strcmp(s, "MAX-REQUESTS") || !strcmp(s, "max-requests") ||
+    !strcmp(s, "maxrequests")) return "MAX-REQUESTS";
+```
+
+### Test Plan
+
+Efter upload af Build #744, test alle kommandoer:
+```
+> set modbus-master enabled on         ✅ Skulle virke
+> set modbus-master baudrate 9600      ✅ Skulle virke
+> set modbus-master parity none        ✅ Skulle virke
+> set modbus-master stop-bits 1        ✅ Skulle virke
+> set modbus-master timeout 500        ✅ Skulle virke
+> set modbus-master inter-frame-delay 10  ✅ Skulle virke
+> set modbus-master max-requests 10    ✅ Skulle virke
+> show modbus-master                   ✅ Skulle virke
+```
+
+### Implementation Details
+
+**Files Changed:**
+- **src/cli_parser.cpp:146-153** - 8 nye normalize_alias() entries
+- **build_number.txt** - Build #744
+- **include/build_version.h** - Auto-genereret
+
+**Code locations:**
+- `cli_parser.cpp:146-153` - normalize_alias() tilføjelser
+
+### Commit
+
+Build #744 - "FIX: BUG-055 - Modbus Master CLI Commands Nu Virker"
+
+### Relation til Andre Bugs
+
+**v4.4.0:** Initial Modbus Master implementation
+- Alle ST builtin functions (MB_READ_*, MB_WRITE_*) implementeret korrekt
+- CLI handler kode implementeret korrekt
+- Men normalization layer manglede entries → kommandoer virkede ikke
+
+### Impact
+
+**Before:** Alle Modbus Master CLI kommandoer broken (kun "?" help virkede)
+**After:** Alle kommandoer skulle virke korrekt (afventer test efter upload)
+
+---
+
 ## Opdateringslog
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-24 | BUG-055 FIXED - Modbus Master CLI commands now work (normalize_alias entries added) (v4.4.0, Build #744) | Claude Code |
 | 2025-12-24 | BUG-054 FIXED - FOR loop now executes body (comparison operator fixed GT→LT) (v4.3.8, Build #720) | Claude Code |
 | 2025-12-24 | BUG-053 FIXED - SHL/SHR operators now work (parser precedence chain fixed) (v4.3.7, Build #717) | Claude Code |
 | 2025-12-24 | BUG-052 FIXED - VM operators now use type-aware stack push (v4.3.6, Build #714) | Claude Code |

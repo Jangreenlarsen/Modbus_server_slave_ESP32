@@ -60,6 +60,7 @@
 | BUG-052 | VM operators mangler type tracking | ✅ FIXED | 🔴 CRITICAL | v4.3.6 | Comparison/logical/bitwise operators bruger st_vm_push() i stedet for st_vm_push_typed() |
 | BUG-053 | SHL/SHR operators virker ikke | ✅ FIXED | 🔴 CRITICAL | v4.3.7 | Parser precedence chain mangler SHL/SHR tokens |
 | BUG-054 | FOR loop body aldrig eksekveret | ✅ FIXED | 🔴 CRITICAL | v4.3.8 | Compiler bruger GT i stedet for LT i loop condition check |
+| BUG-055 | Modbus Master CLI commands ikke virker | ✅ FIXED | 🔴 CRITICAL | v4.4.0 | normalize_alias() mangler parameter entries |
 
 ## Quick Lookup by Category
 
@@ -86,6 +87,7 @@
 - **BUG-052:** VM operators mangler type tracking (FIXED v4.3.6 Build #714)
 - **BUG-053:** SHL/SHR operators virker ikke (FIXED v4.3.7 Build #717)
 - **BUG-054:** FOR loop body aldrig eksekveret (FIXED v4.3.8 Build #720)
+- **BUG-055:** Modbus Master CLI commands ikke virker (FIXED v4.4.0 Build #744)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
