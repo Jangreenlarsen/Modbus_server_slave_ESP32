@@ -5,6 +5,7 @@
 
 #include <Arduino.h>
 #include "modbus_master.h"
+#include "config_struct.h"
 
 /* ============================================================================
  * SET COMMANDS
@@ -12,7 +13,9 @@
 
 void cli_cmd_set_modbus_master_enabled(bool enabled) {
   modbus_master_set_enabled(enabled);
-  Serial.printf("[OK] Modbus Master %s\n", enabled ? "ENABLED" : "DISABLED");
+  g_persist_config.modbus_master.enabled = enabled;  // Update persist config for show config
+  Serial.printf("[OK] Modbus Master %s (takes effect on reboot)\n", enabled ? "ENABLED" : "DISABLED");
+  Serial.println("NOTE: Use 'save' to persist to NVS");
 }
 
 void cli_cmd_set_modbus_master_baudrate(uint32_t baudrate) {
@@ -24,10 +27,12 @@ void cli_cmd_set_modbus_master_baudrate(uint32_t baudrate) {
   }
 
   g_modbus_master_config.baudrate = baudrate;
+  g_persist_config.modbus_master.baudrate = baudrate;  // Update persist config for show config
   if (g_modbus_master_config.enabled) {
     modbus_master_reconfigure();
   }
-  Serial.printf("[OK] Modbus Master baudrate: %u\n", baudrate);
+  Serial.printf("[OK] Modbus Master baudrate: %u (takes effect on reboot)\n", baudrate);
+  Serial.println("NOTE: Use 'save' to persist to NVS");
 }
 
 void cli_cmd_set_modbus_master_parity(const char *parity) {
@@ -45,10 +50,12 @@ void cli_cmd_set_modbus_master_parity(const char *parity) {
   }
 
   g_modbus_master_config.parity = parity_val;
+  g_persist_config.modbus_master.parity = parity_val;  // Update persist config for show config
   if (g_modbus_master_config.enabled) {
     modbus_master_reconfigure();
   }
-  Serial.printf("[OK] Modbus Master parity: %s\n", parity);
+  Serial.printf("[OK] Modbus Master parity: %s (takes effect on reboot)\n", parity);
+  Serial.println("NOTE: Use 'save' to persist to NVS");
 }
 
 void cli_cmd_set_modbus_master_stop_bits(uint8_t bits) {
@@ -58,10 +65,12 @@ void cli_cmd_set_modbus_master_stop_bits(uint8_t bits) {
   }
 
   g_modbus_master_config.stop_bits = bits;
+  g_persist_config.modbus_master.stop_bits = bits;  // Update persist config for show config
   if (g_modbus_master_config.enabled) {
     modbus_master_reconfigure();
   }
-  Serial.printf("[OK] Modbus Master stop bits: %u\n", bits);
+  Serial.printf("[OK] Modbus Master stop bits: %u (takes effect on reboot)\n", bits);
+  Serial.println("NOTE: Use 'save' to persist to NVS");
 }
 
 void cli_cmd_set_modbus_master_timeout(uint16_t ms) {
@@ -71,7 +80,9 @@ void cli_cmd_set_modbus_master_timeout(uint16_t ms) {
   }
 
   g_modbus_master_config.timeout_ms = ms;
-  Serial.printf("[OK] Modbus Master timeout: %u ms\n", ms);
+  g_persist_config.modbus_master.timeout_ms = ms;  // Update persist config for show config
+  Serial.printf("[OK] Modbus Master timeout: %u ms (takes effect on reboot)\n", ms);
+  Serial.println("NOTE: Use 'save' to persist to NVS");
 }
 
 void cli_cmd_set_modbus_master_inter_frame_delay(uint16_t ms) {
@@ -81,7 +92,9 @@ void cli_cmd_set_modbus_master_inter_frame_delay(uint16_t ms) {
   }
 
   g_modbus_master_config.inter_frame_delay = ms;
-  Serial.printf("[OK] Modbus Master inter-frame delay: %u ms\n", ms);
+  g_persist_config.modbus_master.inter_frame_delay = ms;  // Update persist config for show config
+  Serial.printf("[OK] Modbus Master inter-frame delay: %u ms (takes effect on reboot)\n", ms);
+  Serial.println("NOTE: Use 'save' to persist to NVS");
 }
 
 void cli_cmd_set_modbus_master_max_requests(uint8_t count) {
@@ -91,7 +104,9 @@ void cli_cmd_set_modbus_master_max_requests(uint8_t count) {
   }
 
   g_modbus_master_config.max_requests_per_cycle = count;
-  Serial.printf("[OK] Modbus Master max requests/cycle: %u\n", count);
+  g_persist_config.modbus_master.max_requests_per_cycle = count;  // Update persist config for show config
+  Serial.printf("[OK] Modbus Master max requests/cycle: %u (takes effect on reboot)\n", count);
+  Serial.println("NOTE: Use 'save' to persist to NVS");
 }
 
 /* ============================================================================
