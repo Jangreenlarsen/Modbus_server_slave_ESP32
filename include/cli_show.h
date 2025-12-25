@@ -93,6 +93,12 @@ void cli_cmd_show_version(void);
 void cli_cmd_show_gpio(void);
 
 /**
+ * @brief Handle "show gpio <pin>" command (specific GPIO pin details)
+ * @param pin GPIO pin number (0-39)
+ */
+void cli_cmd_show_gpio_pin(uint8_t pin);
+
+/**
  * @brief Handle "show echo" command (remote echo status)
  */
 void cli_cmd_show_echo(void);

@@ -212,6 +212,7 @@ static void print_show_help(void) {
   debug_println("  show logic <id>      - Vis specifikt program (1-4)");
   debug_println("  show logic <id> code - Vis compiled bytecode");
   debug_println("  show gpio            - Vis GPIO mappings");
+  debug_println("  show gpio <pin>      - Vis specifik GPIO pin (0-39)");
   debug_println("  show registers       - Vis holding registers");
   debug_println("  show inputs          - Vis input registers");
   debug_println("  show st-stats        - Vis ST Logic stats (Modbus IR 252-293)");
@@ -553,7 +554,13 @@ bool cli_parser_execute(char* line) {
       cli_cmd_show_version();
       return true;
     } else if (!strcmp(what, "GPIO")) {
-      cli_cmd_show_gpio();
+      // show gpio [pin]
+      if (argc >= 3) {
+        uint8_t pin = atoi(argv[2]);
+        cli_cmd_show_gpio_pin(pin);
+      } else {
+        cli_cmd_show_gpio();
+      }
       return true;
     } else if (!strcmp(what, "ECHO")) {
       cli_cmd_show_echo();

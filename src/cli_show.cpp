@@ -28,6 +28,7 @@
 #include "st_logic_config.h"
 #include "network_manager.h"
 #include "network_config.h"
+#include <WiFi.h>
 #include "debug_flags.h"
 #include "debug.h"
 #include <Arduino.h>
@@ -122,53 +123,53 @@ void cli_cmd_show_config(void) {
       const char* edge_str = "rising";
       if (cfg.edge_type == COUNTER_EDGE_FALLING) edge_str = "falling";
       else if (cfg.edge_type == COUNTER_EDGE_BOTH) edge_str = "both";
-      debug_print(" edge=");
+      debug_print(" edge:");
       debug_print(edge_str);
 
       // prescaler and resolution
-      debug_print(" prescaler=");
+      debug_print(" prescaler:");
       debug_print_uint(cfg.prescaler);
-      debug_print(" res=");
+      debug_print(" res:");
       debug_print_uint(cfg.bit_width);
 
       // direction
       const char* dir_str = (cfg.direction == COUNTER_DIR_DOWN) ? "down" : "up";
-      debug_print(" dir=");
+      debug_print(" dir:");
       debug_print(dir_str);
 
       // scale (format as float)
-      debug_print(" scale=");
+      debug_print(" scale:");
       debug_print_float(cfg.scale_factor);
 
       // Register indices
-      debug_print(" input-dis=");
+      debug_print(" input-dis:");
       debug_print_uint(cfg.input_dis);
-      debug_print(" index-reg=");
+      debug_print(" index-reg:");
       debug_print_uint(cfg.index_reg);
 
       if (cfg.raw_reg > 0) {
-        debug_print(" raw-reg=");
+        debug_print(" raw-reg:");
         debug_print_uint(cfg.raw_reg);
       }
       if (cfg.freq_reg > 0) {
-        debug_print(" freq-reg=");
+        debug_print(" freq-reg:");
         debug_print_uint(cfg.freq_reg);
       }
 
-      debug_print(" overload-reg=");
+      debug_print(" overload-reg:");
       if (cfg.overload_reg < 1000) debug_print_uint(cfg.overload_reg);
       else debug_print("n/a");
 
-      debug_print(" ctrl-reg=");
+      debug_print(" ctrl-reg:");
       if (cfg.ctrl_reg < 1000) debug_print_uint(cfg.ctrl_reg);
       else debug_print("n/a");
 
       // start value
-      debug_print(" start=");
+      debug_print(" start:");
       debug_print_uint((uint32_t)cfg.start_value);
 
       // debounce
-      debug_print(" debounce=");
+      debug_print(" debounce:");
       if (cfg.debounce_enabled && cfg.debounce_ms > 0) {
         debug_print("on/");
         debug_print_uint(cfg.debounce_ms);
@@ -178,7 +179,7 @@ void cli_cmd_show_config(void) {
       }
 
       // hw-mode
-      debug_print(" hw-mode=");
+      debug_print(" hw-mode:");
       if (cfg.hw_mode == COUNTER_HW_SW) {
         if (cfg.interrupt_pin > 0) {
           debug_print("sw-isr");
@@ -195,7 +196,7 @@ void cli_cmd_show_config(void) {
 
       // interrupt pin for ISR mode
       if ((cfg.hw_mode == COUNTER_HW_SW || cfg.hw_mode == COUNTER_HW_SW_ISR) && cfg.interrupt_pin > 0) {
-        debug_print(" interrupt-pin=");
+        debug_print(" interrupt-pin:");
         debug_print_uint(cfg.interrupt_pin);
       }
 
@@ -238,59 +239,59 @@ void cli_cmd_show_config(void) {
       any_timer = true;
       debug_print("  timer ");
       debug_print_uint(id);
-      debug_print(" mode=");
+      debug_print(" mode:");
       debug_print_uint(cfg.mode);
 
       switch (cfg.mode) {
         case TIMER_MODE_1_ONESHOT:
-          debug_print(" p1-dur=");
+          debug_print(" p1-dur:");
           debug_print_uint(cfg.phase1_duration_ms);
-          debug_print(" p1-out=");
+          debug_print(" p1-out:");
           debug_print_uint(cfg.phase1_output_state);
-          debug_print(" p2-dur=");
+          debug_print(" p2-dur:");
           debug_print_uint(cfg.phase2_duration_ms);
-          debug_print(" p2-out=");
+          debug_print(" p2-out:");
           debug_print_uint(cfg.phase2_output_state);
-          debug_print(" p3-dur=");
+          debug_print(" p3-dur:");
           debug_print_uint(cfg.phase3_duration_ms);
-          debug_print(" p3-out=");
+          debug_print(" p3-out:");
           debug_print_uint(cfg.phase3_output_state);
           break;
         case TIMER_MODE_2_MONOSTABLE:
-          debug_print(" pulse-ms=");
+          debug_print(" pulse-ms:");
           debug_print_uint(cfg.pulse_duration_ms);
-          debug_print(" p1-out=");
+          debug_print(" p1-out:");
           debug_print_uint(cfg.phase1_output_state);
-          debug_print(" p2-out=");
+          debug_print(" p2-out:");
           debug_print_uint(cfg.phase2_output_state);
           break;
         case TIMER_MODE_3_ASTABLE:
-          debug_print(" on-ms=");
+          debug_print(" on-ms:");
           debug_print_uint(cfg.on_duration_ms);
-          debug_print(" off-ms=");
+          debug_print(" off-ms:");
           debug_print_uint(cfg.off_duration_ms);
-          debug_print(" p1-out=");
+          debug_print(" p1-out:");
           debug_print_uint(cfg.phase1_output_state);
-          debug_print(" p2-out=");
+          debug_print(" p2-out:");
           debug_print_uint(cfg.phase2_output_state);
           break;
         case TIMER_MODE_4_INPUT_TRIGGERED:
-          debug_print(" input-dis=");
+          debug_print(" input-dis:");
           debug_print_uint(cfg.input_dis);
-          debug_print(" trigger-edge=");
+          debug_print(" trigger-edge:");
           debug_print_uint(cfg.trigger_edge);
-          debug_print(" delay-ms=");
+          debug_print(" delay-ms:");
           debug_print_uint(cfg.delay_ms);
-          debug_print(" out=");
+          debug_print(" out:");
           debug_print_uint(cfg.phase1_output_state);
           break;
         default:
           debug_print(" UNKNOWN");
       }
 
-      debug_print(" output-coil=");
+      debug_print(" output-coil:");
       debug_print_uint(cfg.output_coil);
-      debug_print(" ctrl-reg=");
+      debug_print(" ctrl-reg:");
       debug_print_uint(cfg.ctrl_reg);
       debug_println("");
     }
@@ -1796,6 +1797,110 @@ void cli_cmd_show_gpio(void) {
 }
 
 /* ============================================================================
+ * SHOW GPIO <PIN> (specific pin details)
+ * ============================================================================ */
+
+void cli_cmd_show_gpio_pin(uint8_t pin) {
+  debug_println("\n=== GPIO PIN DETAILS ===\n");
+
+  debug_print("Pin: GPIO ");
+  debug_print_uint(pin);
+  debug_println("");
+
+  // Check if this is GPIO 2 (heartbeat special case)
+  if (pin == 2) {
+    debug_print("Mode: ");
+    if (g_persist_config.gpio2_user_mode == 0) {
+      debug_println("HEARTBEAT (LED blink)");
+      debug_println("  System-managed, blinks to indicate alive status");
+    } else {
+      debug_println("USER MODE (available for mapping)");
+    }
+    debug_println("Commands:");
+    debug_println("  set gpio 2 enable   - Release for user control");
+    debug_println("  set gpio 2 disable  - Return to heartbeat mode");
+    debug_println("");
+  }
+
+  // Check if this is a hardware-reserved pin
+  bool is_reserved = false;
+  const char* reservation = "";
+
+  if (pin == 4) { reservation = "UART1 RX (Modbus)"; is_reserved = true; }
+  else if (pin == 5) { reservation = "UART1 TX (Modbus)"; is_reserved = true; }
+  else if (pin == 15) { reservation = "RS485 DIR"; is_reserved = true; }
+  else if (pin == 19) { reservation = "Counter 1 HW (PCNT Unit 0)"; is_reserved = true; }
+  else if (pin == 25) { reservation = "Counter 2 HW (PCNT Unit 1)"; is_reserved = true; }
+  else if (pin == 27) { reservation = "Counter 3 HW (PCNT Unit 2)"; is_reserved = true; }
+  else if (pin == 33) { reservation = "Counter 4 HW (PCNT Unit 3)"; is_reserved = true; }
+
+  if (is_reserved) {
+    debug_print("Reservation: ");
+    debug_println(reservation);
+    debug_println("  WARNING: This pin is reserved for hardware functionality!");
+    debug_println("");
+  }
+
+  // Look for user mapping
+  bool found_mapping = false;
+  for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+    const VariableMapping* map = &g_persist_config.var_maps[i];
+    if (map->source_type == MAPPING_SOURCE_GPIO && map->gpio_pin == pin) {
+      found_mapping = true;
+
+      debug_println("User Mapping:");
+      debug_print("  Direction: ");
+      debug_println(map->is_input ? "INPUT" : "OUTPUT");
+
+      if (map->is_input) {
+        debug_print("  Modbus Discrete Input: ");
+        debug_print_uint(map->input_reg);
+        debug_println("");
+        debug_println("  Function: Physical GPIO input -> Modbus discrete input register");
+      } else {
+        debug_print("  Modbus Coil: ");
+        debug_print_uint(map->coil_reg);
+        debug_println("");
+        debug_println("  Function: Modbus coil register -> Physical GPIO output");
+      }
+
+      // Show associated counter/timer if any
+      if (map->associated_counter != 0xff) {
+        debug_print("  Associated Counter: ");
+        debug_print_uint(map->associated_counter);
+        debug_println("");
+      }
+      if (map->associated_timer != 0xff) {
+        debug_print("  Associated Timer: ");
+        debug_print_uint(map->associated_timer);
+        debug_println("");
+      }
+
+      debug_println("");
+      debug_println("Commands:");
+      debug_print("  no set gpio ");
+      debug_print_uint(pin);
+      debug_println("  - Remove this mapping");
+      break;
+    }
+  }
+
+  if (!found_mapping && !is_reserved && pin != 2) {
+    debug_println("Status: AVAILABLE (not mapped)");
+    debug_println("");
+    debug_println("Available Commands:");
+    debug_print("  set gpio ");
+    debug_print_uint(pin);
+    debug_println(" input <idx>  - Map to discrete input");
+    debug_print("  set gpio ");
+    debug_print_uint(pin);
+    debug_println(" coil <idx>   - Map to coil output");
+  }
+
+  debug_println("=====================\n");
+}
+
+/* ============================================================================
  * SHOW ECHO
  * ============================================================================ */
 
@@ -1834,6 +1939,50 @@ void cli_cmd_show_wifi(void) {
     } else {
       debug_println("Local IP: Acquiring from DHCP...");
     }
+
+    // Show runtime network info (DHCP-assigned gateway/DNS if applicable)
+    IPAddress gateway_ip = WiFi.gatewayIP();
+    IPAddress dns_ip = WiFi.dnsIP();
+    if (gateway_ip[0] != 0) {
+      debug_print("Active Gateway: ");
+      debug_print_uint(gateway_ip[0]); debug_print(".");
+      debug_print_uint(gateway_ip[1]); debug_print(".");
+      debug_print_uint(gateway_ip[2]); debug_print(".");
+      debug_print_uint(gateway_ip[3]); debug_println("");
+    }
+    if (dns_ip[0] != 0) {
+      debug_print("Active DNS: ");
+      debug_print_uint(dns_ip[0]); debug_print(".");
+      debug_print_uint(dns_ip[1]); debug_print(".");
+      debug_print_uint(dns_ip[2]); debug_print(".");
+      debug_print_uint(dns_ip[3]); debug_println("");
+    }
+
+    // Show signal strength (RSSI)
+    int32_t rssi = WiFi.RSSI();
+    debug_print("Signal Strength: ");
+    if (rssi < 0) {
+      debug_print("-");
+      debug_print_uint((uint32_t)(-rssi));  // Print absolute value
+    } else {
+      debug_print_uint((uint32_t)rssi);
+    }
+    debug_print(" dBm");
+    if (rssi > -50) {
+      debug_println(" (Excellent)");
+    } else if (rssi > -60) {
+      debug_println(" (Very Good)");
+    } else if (rssi > -70) {
+      debug_println(" (Good)");
+    } else if (rssi > -80) {
+      debug_println(" (Fair)");
+    } else {
+      debug_println(" (Weak)");
+    }
+
+    // Show MAC address
+    debug_print("MAC Address: ");
+    debug_println(WiFi.macAddress().c_str());
   }
 
   // Show config
