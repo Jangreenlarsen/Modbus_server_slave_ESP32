@@ -520,17 +520,20 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
   uint8_t arg_count = st_builtin_arg_count(func_id);
 
   st_value_t arg1 = {0}, arg2 = {0}, arg3 = {0};
+  st_datatype_t arg1_type = ST_TYPE_INT;
+  st_datatype_t arg2_type = ST_TYPE_INT;
+  st_datatype_t arg3_type = ST_TYPE_INT;
 
-  // Pop arguments (in reverse order: arg3, arg2, arg1)
+  // Pop arguments with type information (in reverse order: arg3, arg2, arg1)
   // Stack layout: [arg1, arg2, arg3] (top)
   if (arg_count >= 3) {
-    if (!st_vm_pop(vm, &arg3)) return false;
+    if (!st_vm_pop_typed(vm, &arg3, &arg3_type)) return false;
   }
   if (arg_count >= 2) {
-    if (!st_vm_pop(vm, &arg2)) return false;
+    if (!st_vm_pop_typed(vm, &arg2, &arg2_type)) return false;
   }
   if (arg_count >= 1) {
-    if (!st_vm_pop(vm, &arg1)) return false;
+    if (!st_vm_pop_typed(vm, &arg1, &arg1_type)) return false;
   }
 
   // Call the function (handle 3-arg functions specially)
@@ -552,8 +555,25 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     result = st_builtin_call(func_id, arg1, arg2);
   }
 
-  // Push result with type information (BUG-051 FIX)
-  st_datatype_t return_type = st_builtin_return_type(func_id);
+  // BUG-077: Infer return type for polymorphic functions (SEL, LIMIT)
+  st_datatype_t return_type;
+  if (func_id == ST_BUILTIN_SEL) {
+    // SEL returns same type as in0/in1 (arg2 and arg3)
+    // If either is REAL, return REAL (type promotion)
+    return_type = (arg2_type == ST_TYPE_REAL || arg3_type == ST_TYPE_REAL) ? ST_TYPE_REAL : arg2_type;
+  } else if (func_id == ST_BUILTIN_LIMIT) {
+    // LIMIT returns same type as min/val/max (arg1, arg2, arg3)
+    // If any is REAL, return REAL (type promotion)
+    if (arg1_type == ST_TYPE_REAL || arg2_type == ST_TYPE_REAL || arg3_type == ST_TYPE_REAL) {
+      return_type = ST_TYPE_REAL;
+    } else {
+      return_type = arg1_type;  // All are INT/BOOL/DWORD → use first
+    }
+  } else {
+    // Non-polymorphic function: use static return type
+    return_type = st_builtin_return_type(func_id);
+  }
+
   return st_vm_push_typed(vm, result, return_type);
 }
 

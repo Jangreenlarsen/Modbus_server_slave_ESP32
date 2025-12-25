@@ -333,6 +333,11 @@ static st_ast_node_t *parser_parse_unary(st_parser_t *parser) {
     }
     node->data.unary_op.op = op;
     node->data.unary_op.operand = parser_parse_unary(parser);
+    // BUG-081: Check if operand parsing failed
+    if (!node->data.unary_op.operand) {
+      free(node);
+      return NULL;
+    }
     return node;
   }
 
@@ -342,6 +347,7 @@ static st_ast_node_t *parser_parse_unary(st_parser_t *parser) {
 /* Parse multiplicative and bitwise shift: *, /, MOD, SHL, SHR */
 static st_ast_node_t *parser_parse_multiplicative(st_parser_t *parser) {
   st_ast_node_t *left = parser_parse_unary(parser);
+  if (!left) return NULL;  // BUG-081: Early exit if left fails
 
   while (parser_match(parser, ST_TOK_MUL) || parser_match(parser, ST_TOK_DIV) || parser_match(parser, ST_TOK_MOD) ||
          parser_match(parser, ST_TOK_SHL) || parser_match(parser, ST_TOK_SHR)) {
@@ -350,6 +356,11 @@ static st_ast_node_t *parser_parse_multiplicative(st_parser_t *parser) {
     parser_advance(parser);
 
     st_ast_node_t *right = parser_parse_unary(parser);
+    // BUG-081: Check if right parsing failed
+    if (!right) {
+      st_ast_node_free(left);
+      return NULL;
+    }
     st_ast_node_t *node = ast_node_alloc(ST_AST_BINARY_OP, line);
     // BUG-066: Check malloc failure
     if (!node) {
@@ -370,6 +381,7 @@ static st_ast_node_t *parser_parse_multiplicative(st_parser_t *parser) {
 /* Parse additive: +, - */
 static st_ast_node_t *parser_parse_additive(st_parser_t *parser) {
   st_ast_node_t *left = parser_parse_multiplicative(parser);
+  if (!left) return NULL;  // BUG-081: Early exit if left fails
 
   while (parser_match(parser, ST_TOK_PLUS) || parser_match(parser, ST_TOK_MINUS)) {
     uint32_t line = parser->current_token.line;
@@ -377,6 +389,11 @@ static st_ast_node_t *parser_parse_additive(st_parser_t *parser) {
     parser_advance(parser);
 
     st_ast_node_t *right = parser_parse_multiplicative(parser);
+    // BUG-081: Check if right parsing failed
+    if (!right) {
+      st_ast_node_free(left);
+      return NULL;
+    }
     st_ast_node_t *node = ast_node_alloc(ST_AST_BINARY_OP, line);
     // BUG-066: Check malloc failure
     if (!node) {
@@ -397,6 +414,7 @@ static st_ast_node_t *parser_parse_additive(st_parser_t *parser) {
 /* Parse relational: <, >, <=, >=, =, <> */
 static st_ast_node_t *parser_parse_relational(st_parser_t *parser) {
   st_ast_node_t *left = parser_parse_additive(parser);
+  if (!left) return NULL;  // BUG-081: Early exit if left fails
 
   while (parser_match(parser, ST_TOK_LT) || parser_match(parser, ST_TOK_GT) ||
          parser_match(parser, ST_TOK_LE) || parser_match(parser, ST_TOK_GE) ||
@@ -406,6 +424,11 @@ static st_ast_node_t *parser_parse_relational(st_parser_t *parser) {
     parser_advance(parser);
 
     st_ast_node_t *right = parser_parse_additive(parser);
+    // BUG-081: Check if right parsing failed
+    if (!right) {
+      st_ast_node_free(left);
+      return NULL;
+    }
     st_ast_node_t *node = ast_node_alloc(ST_AST_BINARY_OP, line);
     // BUG-066: Check malloc failure
     if (!node) {
@@ -426,12 +449,18 @@ static st_ast_node_t *parser_parse_relational(st_parser_t *parser) {
 /* Parse logical AND */
 static st_ast_node_t *parser_parse_logical_and(st_parser_t *parser) {
   st_ast_node_t *left = parser_parse_relational(parser);
+  if (!left) return NULL;  // BUG-081: Early exit if left fails
 
   while (parser_match(parser, ST_TOK_AND)) {
     uint32_t line = parser->current_token.line;
     parser_advance(parser);
 
     st_ast_node_t *right = parser_parse_relational(parser);
+    // BUG-081: Check if right parsing failed
+    if (!right) {
+      st_ast_node_free(left);
+      return NULL;
+    }
     st_ast_node_t *node = ast_node_alloc(ST_AST_BINARY_OP, line);
     // BUG-066: Check malloc failure
     if (!node) {
@@ -452,6 +481,7 @@ static st_ast_node_t *parser_parse_logical_and(st_parser_t *parser) {
 /* Parse logical OR */
 static st_ast_node_t *parser_parse_logical_or(st_parser_t *parser) {
   st_ast_node_t *left = parser_parse_logical_and(parser);
+  if (!left) return NULL;  // BUG-081: Early exit if left fails
 
   while (parser_match(parser, ST_TOK_OR) || parser_match(parser, ST_TOK_XOR)) {
     uint32_t line = parser->current_token.line;
@@ -459,6 +489,11 @@ static st_ast_node_t *parser_parse_logical_or(st_parser_t *parser) {
     parser_advance(parser);
 
     st_ast_node_t *right = parser_parse_logical_and(parser);
+    // BUG-081: Check if right parsing failed
+    if (!right) {
+      st_ast_node_free(left);
+      return NULL;
+    }
     st_ast_node_t *node = ast_node_alloc(ST_AST_BINARY_OP, line);
     // BUG-066: Check malloc failure
     if (!node) {
