@@ -18,7 +18,12 @@
 
 st_value_t st_builtin_abs(st_value_t x) {
   st_value_t result;
-  result.int_val = (x.int_val < 0) ? -x.int_val : x.int_val;
+  // BUG-088: Handle INT_MIN overflow (-INT_MIN = INT_MIN, not positive)
+  if (x.int_val == INT32_MIN) {
+    result.int_val = INT32_MAX;  // Clamp to max positive value
+  } else {
+    result.int_val = (x.int_val < 0) ? -x.int_val : x.int_val;
+  }
   return result;
 }
 

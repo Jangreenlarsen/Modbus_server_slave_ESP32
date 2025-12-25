@@ -268,19 +268,36 @@ static st_ast_node_t *parser_parse_primary(st_parser_t *parser) {
       if (!parser_match(parser, ST_TOK_RPAREN)) {
         // Parse first argument
         st_ast_node_t *arg = parser_parse_expression(parser);
-        if (arg && node->data.function_call.arg_count < 4) {
+        // BUG-104: Check if argument parsing failed
+        if (!arg) {
+          st_ast_node_free(node);
+          return NULL;
+        }
+        if (node->data.function_call.arg_count < 4) {
           node->data.function_call.args[node->data.function_call.arg_count++] = arg;
+        } else {
+          parser_error(parser, "Too many function arguments (max 4)");
+          st_ast_node_free(arg);
+          st_ast_node_free(node);
+          return NULL;
         }
 
         // Parse additional arguments (comma-separated)
         while (parser_match(parser, ST_TOK_COMMA)) {
           parser_advance(parser); // consume ','
           arg = parser_parse_expression(parser);
-          if (arg && node->data.function_call.arg_count < 4) {
+          // BUG-104: Check if argument parsing failed
+          if (!arg) {
+            st_ast_node_free(node);
+            return NULL;
+          }
+          if (node->data.function_call.arg_count < 4) {
             node->data.function_call.args[node->data.function_call.arg_count++] = arg;
-          } else if (node->data.function_call.arg_count >= 4) {
+          } else {
             parser_error(parser, "Too many function arguments (max 4)");
-            return NULL;  // BUG-063: Return NULL instead of break to fail parsing
+            st_ast_node_free(arg);
+            st_ast_node_free(node);
+            return NULL;
           }
         }
       }

@@ -4830,6 +4830,8 @@ Parser tillod max 4 function argumenter, men brugte `break` i stedet for `return
 
 | Dato | Ændring | Af |
 |------|---------|-----|
+| 2025-12-25 | BUG-088, BUG-089, BUG-104 FIXED - Arithmetic Overflow & Parser Safety (v4.4.5, Build #774) | Claude Code |
+| 2025-12-25 | 3 bugs fixet: ABS INT_MIN overflow, ADD/SUB/MUL overflow detection, function argument NULL check | Claude Code |
 | 2025-12-25 | BUG-066, BUG-087, BUG-081, BUG-077 FIXED - Parser Memory Safety & Type System (v4.4.5, Build #772) | Claude Code |
 | 2025-12-25 | 4 bugs fixet: AST malloc NULL checks, NEG INT_MIN overflow, parser memory leak, polymorfisk return type | Claude Code |
 | 2025-12-25 | BUG-069, BUG-070, BUG-083, BUG-084, BUG-085 FIXED - Additional ST Logic Robustness (v4.4.5, Build #768) | Claude Code |

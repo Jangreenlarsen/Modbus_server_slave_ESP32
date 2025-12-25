@@ -82,6 +82,9 @@
 | BUG-087 | NEG operator INT_MIN overflow | ✅ FIXED | 🔵 LOW | v4.4.5 | -INT_MIN er undefined behavior i C/C++ |
 | BUG-081 | Memory leak ved parser error | ✅ FIXED | 🟠 MEDIUM | v4.4.5 | Expression parsing chain lækker AST ved fejl |
 | BUG-077 | Function return type validation | ✅ FIXED | 🟠 MEDIUM | v4.4.5 | SEL/LIMIT polymorfiske funktioner bruger forkert type |
+| BUG-088 | ABS funktion INT_MIN overflow | ✅ FIXED | 🔴 CRITICAL | v4.4.5 | ABS(-2147483648) returnerer -2147483648 (ikke positiv) |
+| BUG-089 | ADD/SUB/MUL integer overflow | ✅ FIXED | 🔴 CRITICAL | v4.4.5 | Ingen overflow checks på arithmetic → silent overflow |
+| BUG-104 | Function argument NULL pointer | ✅ FIXED | 🟠 MEDIUM | v4.4.5 | parser_parse_expression() NULL ikke håndteret |
 
 ## Quick Lookup by Category
 

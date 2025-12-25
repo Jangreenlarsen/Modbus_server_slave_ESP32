@@ -207,6 +207,15 @@ static bool st_vm_exec_add(st_vm_t *vm, st_bytecode_instr_t *instr) {
     result.real_val = left_f + right_f;
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
   } else {
+    // BUG-089: Check for integer overflow in addition
+    // Overflow: (left > 0 && right > 0 && left > INT32_MAX - right)
+    // Underflow: (left < 0 && right < 0 && left < INT32_MIN - right)
+    if ((left.int_val > 0 && right.int_val > 0 && left.int_val > INT32_MAX - right.int_val) ||
+        (left.int_val < 0 && right.int_val < 0 && left.int_val < INT32_MIN - right.int_val)) {
+      // Promote to REAL on overflow
+      result.real_val = (float)left.int_val + (float)right.int_val;
+      return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+    }
     result.int_val = left.int_val + right.int_val;
     return st_vm_push_typed(vm, result, ST_TYPE_INT);
   }
@@ -227,6 +236,15 @@ static bool st_vm_exec_sub(st_vm_t *vm, st_bytecode_instr_t *instr) {
     result.real_val = left_f - right_f;
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
   } else {
+    // BUG-089: Check for integer overflow in subtraction
+    // Overflow: (left > 0 && right < 0 && left > INT32_MAX + right)
+    // Underflow: (left < 0 && right > 0 && left < INT32_MIN + right)
+    if ((left.int_val > 0 && right.int_val < 0 && left.int_val > INT32_MAX + right.int_val) ||
+        (left.int_val < 0 && right.int_val > 0 && left.int_val < INT32_MIN + right.int_val)) {
+      // Promote to REAL on overflow
+      result.real_val = (float)left.int_val - (float)right.int_val;
+      return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+    }
     result.int_val = left.int_val - right.int_val;
     return st_vm_push_typed(vm, result, ST_TYPE_INT);
   }
@@ -247,7 +265,15 @@ static bool st_vm_exec_mul(st_vm_t *vm, st_bytecode_instr_t *instr) {
     result.real_val = left_f * right_f;
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
   } else {
-    result.int_val = left.int_val * right.int_val;
+    // BUG-089: Check for integer overflow in multiplication
+    // Use int64_t to detect overflow
+    int64_t result_64 = (int64_t)left.int_val * (int64_t)right.int_val;
+    if (result_64 > INT32_MAX || result_64 < INT32_MIN) {
+      // Promote to REAL on overflow
+      result.real_val = (float)left.int_val * (float)right.int_val;
+      return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+    }
+    result.int_val = (int32_t)result_64;
     return st_vm_push_typed(vm, result, ST_TYPE_INT);
   }
 }
