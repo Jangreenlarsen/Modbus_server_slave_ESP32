@@ -578,7 +578,11 @@ void cli_cmd_show_config(void) {
   // =========================================================================
   // CONFIGURATION AS SET COMMANDS (copy/paste ready)
   // =========================================================================
-  debug_println("\n=== CONFIGURATION AS SET COMMANDS ===\n");
+  debug_println("\n=== CONFIGURATION AS SET COMMANDS ===");
+  debug_println("# Copy/paste these commands to recreate current config");
+  debug_println("# NOTE: Counter/Timer registers are AUTO-ASSIGNED (cannot be manually set)");
+  debug_println("#   Counter 1 -> HR100-114, Counter 2 -> HR120-134, Counter 3 -> HR140-154, Counter 4 -> HR160-174");
+  debug_println("#   Timer ctrl registers are manually specified via ctrl-reg parameter\n");
   debug_println("# Modbus Slave");
   debug_print("set modbus-slave enabled ");
   debug_println(g_persist_config.modbus_slave.enabled ? "on" : "off");
@@ -640,7 +644,7 @@ void cli_cmd_show_config(void) {
 
   // WiFi
   debug_println("\n# WiFi");
-  debug_print("set wifi status ");
+  debug_print("set wifi ");
   debug_println(g_persist_config.network.enabled ? "enable" : "disable");
   if (g_persist_config.network.enabled) {
     if (g_persist_config.network.ssid[0]) {

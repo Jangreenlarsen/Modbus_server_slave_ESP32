@@ -343,6 +343,10 @@ static void print_counter_help(void) {
   debug_println("  Counter 2 → HR120-134, Counter 3 → HR140-154, Counter 4 → HR160-174");
   debug_println("  Manual register configuration is DISABLED for safety.");
   debug_println("");
+  debug_println("IMPORTANT: When copying from 'show config' output:");
+  debug_println("  - Remove any 'index-reg', 'raw-reg', 'freq-reg', 'ctrl-reg', 'overload-reg' parameters");
+  debug_println("  - These registers are auto-assigned and cannot be set manually");
+  debug_println("");
   debug_println("Control commands:");
   debug_println("  set counter <id> control counter-reg-reset-on-read:<on|off>");
   debug_println("  set counter <id> control compare-reg-reset-on-read:<on|off>");
