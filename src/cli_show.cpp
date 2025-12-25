@@ -604,28 +604,26 @@ void cli_cmd_show_config(void) {
   debug_println("\n# Modbus Master");
   debug_print("set modbus-master enabled ");
   debug_println(g_persist_config.modbus_master.enabled ? "on" : "off");
-  if (g_persist_config.modbus_master.enabled) {
-    debug_print("set modbus-master baudrate ");
-    debug_print_uint(g_persist_config.modbus_master.baudrate);
-    debug_println("");
-    debug_print("set modbus-master parity ");
-    if (g_persist_config.modbus_master.parity == 0) debug_println("none");
-    else if (g_persist_config.modbus_master.parity == 1) debug_println("even");
-    else if (g_persist_config.modbus_master.parity == 2) debug_println("odd");
-    else debug_println("none");
-    debug_print("set modbus-master stop-bits ");
-    debug_print_uint(g_persist_config.modbus_master.stop_bits);
-    debug_println("");
-    debug_print("set modbus-master timeout ");
-    debug_print_uint(g_persist_config.modbus_master.timeout_ms);
-    debug_println("");
-    debug_print("set modbus-master inter-frame-delay ");
-    debug_print_uint(g_persist_config.modbus_master.inter_frame_delay);
-    debug_println("");
-    debug_print("set modbus-master max-requests ");
-    debug_print_uint(g_persist_config.modbus_master.max_requests_per_cycle);
-    debug_println("");
-  }
+  debug_print("set modbus-master baudrate ");
+  debug_print_uint(g_persist_config.modbus_master.baudrate);
+  debug_println("");
+  debug_print("set modbus-master parity ");
+  if (g_persist_config.modbus_master.parity == 0) debug_println("none");
+  else if (g_persist_config.modbus_master.parity == 1) debug_println("even");
+  else if (g_persist_config.modbus_master.parity == 2) debug_println("odd");
+  else debug_println("none");
+  debug_print("set modbus-master stop-bits ");
+  debug_print_uint(g_persist_config.modbus_master.stop_bits);
+  debug_println("");
+  debug_print("set modbus-master timeout ");
+  debug_print_uint(g_persist_config.modbus_master.timeout_ms);
+  debug_println("");
+  debug_print("set modbus-master inter-frame-delay ");
+  debug_print_uint(g_persist_config.modbus_master.inter_frame_delay);
+  debug_println("");
+  debug_print("set modbus-master max-requests ");
+  debug_print_uint(g_persist_config.modbus_master.max_requests_per_cycle);
+  debug_println("");
 
   // Hostname
   debug_println("\n# System");
