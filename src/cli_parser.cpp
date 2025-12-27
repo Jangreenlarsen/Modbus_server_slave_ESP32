@@ -1276,11 +1276,12 @@ bool cli_parser_execute(char* line) {
 
     debug_println("Modbus Read/Write (r, w):");
     debug_println("  read reg <addr> [count]      - Read holding registers");
-    debug_println("  read coil <addr> [count]     - Read coils");
-    debug_println("  read input <addr> [count]    - Read discrete inputs");
-    debug_println("  read input-reg <addr> [count] - Read input registers");
-    debug_println("  write reg <addr> <value>     - Write holding register");
-    debug_println("  write coil <addr> <0|1>      - Write coil\n");
+    debug_println("  read coil <addr> [count]          - Read coils");
+    debug_println("  read input <addr> [count]         - Read discrete inputs");
+    debug_println("  read input-reg <addr> [count]     - Read input registers");
+    debug_println("  write reg <addr> value uint <val> - Write unsigned holding register");
+    debug_println("  write reg <addr> value int <val>  - Write signed holding register");
+    debug_println("  write coil <addr> value <0|1>     - Write coil\n");
 
     debug_println("Network:");
     debug_println("  connect wifi, con       - Connect to WiFi");
@@ -1355,7 +1356,8 @@ bool cli_parser_execute(char* line) {
     // write <what> <params...>
     if (argc < 2) {
       debug_println("WRITE: manglende argument");
-      debug_println("  Brug: write reg <id> value <v\u00e6rdi>");
+      debug_println("  Brug: write reg <addr> value uint <v\u00e6rdi>");
+      debug_println("        write reg <addr> value int <v\u00e6rdi>");
       debug_println("        write coil <id> value <on|off>");
       return false;
     }
@@ -1432,8 +1434,9 @@ void cli_parser_print_help(void) {
   debug_println("");
   debug_println("Modbus Read/Write Commands:");
   debug_println("  === HOLDING REGISTERS (FC03 Read / FC06-FC10 Write) ===");
-  debug_println("  read reg <id> <count>              - Read holding registers (HR)");
-  debug_println("  write reg <id> value <0..65535>    - Write holding register (FC06)");
+  debug_println("  read reg <id> [count]                     - Read holding registers (HR)");
+  debug_println("  write reg <addr> value uint <0..65535>    - Write unsigned holding register");
+  debug_println("  write reg <addr> value int <-32768..32767> - Write signed holding register (two's complement)");
   debug_println("");
   debug_println("  === INPUT REGISTERS (FC04 Read only) ===");
   debug_println("  read input-reg <id> <count>        - Read input registers (IR 0-1023)");
@@ -1534,15 +1537,15 @@ void cli_parser_print_help(void) {
   debug_println("        input-dis: COIL address to monitor (can be virtual GPIO 100-255)");
   debug_println("");
   debug_println("    Control Register (ctrl_reg) - Control timer via Modbus register:");
-  debug_println("      write reg <ctrl-reg> value 1   - START timer (Bit 0)");
-  debug_println("      write reg <ctrl-reg> value 2   - STOP timer (Bit 1)");
-  debug_println("      write reg <ctrl-reg> value 4   - RESET timer (Bit 2)");
+  debug_println("      write reg <ctrl-reg> value uint 1   - START timer (Bit 0)");
+  debug_println("      write reg <ctrl-reg> value uint 2   - STOP timer (Bit 1)");
+  debug_println("      write reg <ctrl-reg> value uint 4   - RESET timer (Bit 2)");
   debug_println("      Bits auto-clear after execution");
   debug_println("");
   debug_println("    Timer examples:");
   debug_println("      Mode 1 with START: set timer 1 mode 1 p1-dur:500 p1-out:1 ctrl-reg:100 \\");
   debug_println("                         output-coil:200");
-  debug_println("                         write reg 100 value 1   ← START!");
+  debug_println("                         write reg 100 value uint 1   ← START!");
   debug_println("      Mode 3: set timer 1 mode 3 on-ms:1000 off-ms:1000 \\");
   debug_println("              p1-output:1 p2-output:0 output-coil:200 enabled:1");
   debug_println("      Mode 4: set timer 2 mode 4 input-dis:30 trigger-edge:1 \\");
@@ -1600,7 +1603,8 @@ void cli_parser_print_help(void) {
   debug_println("    set logic <id> bind <var> coil:<addr>      - Bind ST var → Coil");
   debug_println("");
   debug_println("  Modbus Direct Write (NEW v4.2.0 - temporary, no setup needed):");
-  debug_println("    write reg <addr> <value>   - Write directly to ST Logic variables");
+  debug_println("    write reg <addr> value uint <value> - Write unsigned to ST Logic variables");
+  debug_println("    write reg <addr> value int <value>  - Write signed to ST Logic variables");
   debug_println("      HR 204-211: Logic1 var[0-7]");
   debug_println("      HR 212-219: Logic2 var[0-7]");
   debug_println("      HR 220-227: Logic3 var[0-7]");

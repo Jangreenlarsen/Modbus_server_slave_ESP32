@@ -1396,23 +1396,68 @@ void cli_cmd_set_echo(uint8_t argc, char* argv[]) {
  * ============================================================================ */
 
 void cli_cmd_write_reg(uint8_t argc, char* argv[]) {
-  // write reg <id> value <0..65535>
-  if (argc < 3) {
+  // write reg <id> value uint|int <v\u00e6rdi>
+  // Formats:
+  //   write reg <addr> value uint <0-65535>    - unsigned (0 til 65535)
+  //   write reg <addr> value int <-32768-32767> - signed (konverteres til two's complement)
+  if (argc < 4) {
     debug_println("WRITE REG: manglende parametre");
-    debug_println("  Brug: write reg <id> value <v\u00e6rdi>");
-    debug_println("  Eksempel: write reg 90 value 12345");
+    debug_println("  Brug: write reg <addr> value uint <v\u00e6rdi>");
+    debug_println("        write reg <addr> value int <v\u00e6rdi>");
+    debug_println("  Eksempel: write reg 100 value uint 223");
+    debug_println("            write reg 112 value int -10");
     return;
   }
 
   uint16_t addr = atoi(argv[0]);
 
-  // Check if second parameter is "value" (optional keyword)
-  uint8_t value_idx = 1;
-  if (argc >= 3 && !strcmp(argv[1], "value")) {
-    value_idx = 2;
+  // argv[1] should be "value"
+  if (strcmp(argv[1], "value")) {
+    debug_println("WRITE REG: forventet 'value' som 2. parameter");
+    debug_println("  Brug: write reg <addr> value uint|int <v\u00e6rdi>");
+    return;
   }
 
-  uint16_t value = atoi(argv[value_idx]);
+  // argv[2] should be "uint" or "int"
+  const char* type = argv[2];
+  const char* value_str = argv[3];
+
+  uint16_t value = 0;
+  bool is_signed = false;
+
+  if (!strcmp(type, "uint")) {
+    // Unsigned value (0-65535)
+    int32_t temp = atoi(value_str);
+    if (temp < 0) {
+      debug_println("WRITE REG: uint v\u00e6rdi skal v\u00e6re >= 0");
+      debug_print("  Modtaget: ");
+      debug_print(value_str);
+      debug_println("");
+      return;
+    }
+    if (temp > 65535) {
+      debug_println("WRITE REG: uint v\u00e6rdi skal v\u00e6re <= 65535");
+      return;
+    }
+    value = (uint16_t)temp;
+    is_signed = false;
+  } else if (!strcmp(type, "int")) {
+    // Signed value (-32768 to 32767)
+    int32_t temp = atoi(value_str);
+    if (temp < -32768 || temp > 32767) {
+      debug_println("WRITE REG: int v\u00e6rdi skal v\u00e6re mellem -32768 og 32767");
+      return;
+    }
+    int16_t signed_val = (int16_t)temp;
+    // Convert to two's complement representation
+    value = (uint16_t)signed_val;
+    is_signed = true;
+  } else {
+    debug_print("WRITE REG: ukendt type '");
+    debug_print(type);
+    debug_println("' (brug: uint eller int)");
+    return;
+  }
 
   // Validate address
   if (addr >= HOLDING_REGS_SIZE) {
@@ -1428,8 +1473,22 @@ void cli_cmd_write_reg(uint8_t argc, char* argv[]) {
   debug_print("Register ");
   debug_print_uint(addr);
   debug_print(" = ");
-  debug_print_uint(value);
-  debug_println(" (skrevet)");
+  if (is_signed) {
+    // Display as signed value
+    int16_t signed_val = (int16_t)value;
+    if (signed_val < 0) {
+      debug_print("-");
+      debug_print_uint((uint16_t)(-signed_val));
+    } else {
+      debug_print_uint((uint16_t)signed_val);
+    }
+    debug_print(" (int, lagret som ");
+    debug_print_uint(value);
+    debug_println(")");
+  } else {
+    debug_print_uint(value);
+    debug_println(" (uint)");
+  }
 }
 
 /* ============================================================================
