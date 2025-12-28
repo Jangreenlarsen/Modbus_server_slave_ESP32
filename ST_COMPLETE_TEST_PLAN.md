@@ -148,9 +148,9 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
 
 set logic 1 enabled:true
 ```
@@ -210,9 +210,9 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -263,9 +263,9 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -316,9 +316,9 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -376,9 +376,9 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -428,8 +428,8 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100
-set logic 1 bind result reg:101
+set logic 1 bind a reg:100 input
+set logic 1 bind result reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -479,9 +479,9 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a coil:0
-set logic 1 bind b coil:1
-set logic 1 bind result coil:2
+set logic 1 bind a coil:0 input
+set logic 1 bind b coil:1 input
+set logic 1 bind result coil:2 output
 set logic 1 enabled:true
 ```
 
@@ -535,9 +535,9 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a coil:0
-set logic 1 bind b coil:1
-set logic 1 bind result coil:2
+set logic 1 bind a coil:0 input
+set logic 1 bind b coil:1 input
+set logic 1 bind result coil:2 output
 set logic 1 enabled:true
 ```
 
@@ -589,8 +589,8 @@ BEGIN
   result := NOT a;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a coil:0
-set logic 1 bind result coil:1
+set logic 1 bind a coil:0 input
+set logic 1 bind result coil:1 output
 set logic 1 enabled:true
 ```
 
@@ -631,9 +631,9 @@ BEGIN
   result := a XOR b;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a coil:0
-set logic 1 bind b coil:1
-set logic 1 bind result coil:2
+set logic 1 bind a coil:0 input
+set logic 1 bind b coil:1 input
+set logic 1 bind result coil:2 output
 set logic 1 enabled:true
 ```
 
@@ -688,9 +688,9 @@ BEGIN
   result := value SHL shift;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind value reg:100
-set logic 1 bind shift reg:101
-set logic 1 bind result reg:102
+set logic 1 bind value reg:100 input
+set logic 1 bind shift reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -740,9 +740,9 @@ BEGIN
   result := value SHR shift;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind value reg:100
-set logic 1 bind shift reg:101
-set logic 1 bind result reg:102
+set logic 1 bind value reg:100 input
+set logic 1 bind shift reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -794,9 +794,9 @@ BEGIN
   result := (a = b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result coil:0
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
 
@@ -846,9 +846,9 @@ BEGIN
   result := (a <> b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result coil:0
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
 
@@ -891,9 +891,9 @@ BEGIN
   result := (a < b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result coil:0
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
 
@@ -943,9 +943,9 @@ BEGIN
   result := (a > b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result coil:0
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
 
@@ -995,9 +995,9 @@ BEGIN
   result := (a <= b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result coil:0
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
 
@@ -1047,9 +1047,9 @@ BEGIN
   result := (a >= b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result coil:0
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
 
@@ -1100,8 +1100,8 @@ BEGIN
   output := ABS(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100
-set logic 1 bind output reg:101
+set logic 1 bind input reg:100 input
+set logic 1 bind output reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -1148,9 +1148,9 @@ BEGIN
   result := MIN(a, b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1200,9 +1200,9 @@ BEGIN
   result := MAX(a, b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1251,8 +1251,8 @@ BEGIN
   output := SQRT(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100
-set logic 1 bind output reg:102
+set logic 1 bind input reg:100 input
+set logic 1 bind output reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1313,8 +1313,8 @@ BEGIN
   output := ROUND(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100
-set logic 1 bind output reg:102
+set logic 1 bind input reg:100 input
+set logic 1 bind output reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1363,8 +1363,8 @@ BEGIN
   output := TRUNC(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100
-set logic 1 bind output reg:102
+set logic 1 bind input reg:100 input
+set logic 1 bind output reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1406,8 +1406,8 @@ BEGIN
   output := FLOOR(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100
-set logic 1 bind output reg:102
+set logic 1 bind input reg:100 input
+set logic 1 bind output reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1449,8 +1449,8 @@ BEGIN
   output := CEIL(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100
-set logic 1 bind output reg:102
+set logic 1 bind input reg:100 input
+set logic 1 bind output reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1493,9 +1493,9 @@ BEGIN
   result := SUM(a, b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1541,10 +1541,10 @@ BEGIN
   result := LIMIT(min_val, value, max_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind min_val reg:100
-set logic 1 bind value reg:101
-set logic 1 bind max_val reg:102
-set logic 1 bind result reg:103
+set logic 1 bind min_val reg:100 input
+set logic 1 bind value reg:101 input
+set logic 1 bind max_val reg:102 input
+set logic 1 bind result reg:103 output
 set logic 1 enabled:true
 ```
 
@@ -1598,10 +1598,10 @@ BEGIN
   result := SEL(selector, value_false, value_true);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind selector coil:0
-set logic 1 bind value_false reg:100
-set logic 1 bind value_true reg:101
-set logic 1 bind result reg:102
+set logic 1 bind selector coil:0 input
+set logic 1 bind value_false reg:100 input
+set logic 1 bind value_true reg:101 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1646,8 +1646,8 @@ BEGIN
   result := SIN(angle);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind angle reg:100
-set logic 1 bind result reg:102
+set logic 1 bind angle reg:100 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1696,8 +1696,8 @@ BEGIN
   result := COS(angle);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind angle reg:100
-set logic 1 bind result reg:102
+set logic 1 bind angle reg:100 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1746,8 +1746,8 @@ BEGIN
   result := TAN(angle);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind angle reg:100
-set logic 1 bind result reg:102
+set logic 1 bind angle reg:100 input
+set logic 1 bind result reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1791,8 +1791,8 @@ BEGIN
   real_val := INT_TO_REAL(int_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind int_val reg:100
-set logic 1 bind real_val reg:101
+set logic 1 bind int_val reg:100 input
+set logic 1 bind real_val reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -1834,8 +1834,8 @@ BEGIN
   int_val := REAL_TO_INT(real_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind real_val reg:100
-set logic 1 bind int_val reg:102
+set logic 1 bind real_val reg:100 input
+set logic 1 bind int_val reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -1877,8 +1877,8 @@ BEGIN
   int_val := BOOL_TO_INT(bool_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind bool_val coil:0
-set logic 1 bind int_val reg:100
+set logic 1 bind bool_val coil:0 input
+set logic 1 bind int_val reg:100 output
 set logic 1 enabled:true
 ```
 
@@ -1918,8 +1918,8 @@ BEGIN
   bool_val := INT_TO_BOOL(int_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind int_val reg:100
-set logic 1 bind bool_val coil:0
+set logic 1 bind int_val reg:100 input
+set logic 1 bind bool_val coil:0 output
 set logic 1 enabled:true
 ```
 
@@ -1965,8 +1965,8 @@ BEGIN
   int_val := DWORD_TO_INT(dword_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind dword_val reg:100
-set logic 1 bind int_val reg:104
+set logic 1 bind dword_val reg:100 output
+set logic 1 bind int_val reg:104 output
 set logic 1 enabled:true
 ```
 
@@ -2000,8 +2000,8 @@ BEGIN
   dword_val := INT_TO_DWORD(int_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind int_val reg:100
-set logic 1 bind dword_val reg:101
+set logic 1 bind int_val reg:100 input
+set logic 1 bind dword_val reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -2037,8 +2037,8 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind trigger coil:0
-set logic 1 bind save_result coil:1
+set logic 1 bind trigger coil:0 input
+set logic 1 bind save_result coil:1 output
 set logic 1 enabled:true
 ```
 
@@ -2075,8 +2075,8 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind trigger coil:0
-set logic 1 bind load_result coil:1
+set logic 1 bind trigger coil:0 input
+set logic 1 bind load_result coil:1 output
 set logic 1 enabled:true
 ```
 
@@ -2121,7 +2121,7 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind led_state coil:17
+set logic 1 bind led_state coil:17 output
 set logic 1 enabled:true
 ```
 
@@ -2162,8 +2162,8 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 set logic 1 bind switch_input discrete:32
-set logic 1 bind led_output coil:17
-set logic 1 bind count reg:100
+set logic 1 bind led_output coil:17 output
+set logic 1 bind count reg:100 output
 set logic 1 enabled:true
 ```
 
@@ -2217,10 +2217,10 @@ BEGIN
   led4 := (state = 3);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind led1 coil:17
-set logic 1 bind led2 coil:18
-set logic 1 bind led3 coil:19
-set logic 1 bind led4 coil:21
+set logic 1 bind led1 coil:17 output
+set logic 1 bind led2 coil:18 output
+set logic 1 bind led3 coil:19 output
+set logic 1 bind led4 coil:21 output
 set logic 1 enabled:true
 ```
 
@@ -2298,8 +2298,8 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind condition coil:0
-set logic 1 bind output reg:100
+set logic 1 bind condition coil:0 input
+set logic 1 bind output reg:100 output
 set logic 1 enabled:true
 ```
 
@@ -2341,8 +2341,8 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind condition coil:0
-set logic 1 bind output reg:100
+set logic 1 bind condition coil:0 input
+set logic 1 bind output reg:100 output
 set logic 1 enabled:true
 ```
 
@@ -2385,8 +2385,8 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind value reg:100
-set logic 1 bind output reg:101
+set logic 1 bind value reg:100 input
+set logic 1 bind output reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -2438,8 +2438,8 @@ BEGIN
   END_CASE;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind selector reg:100
-set logic 1 bind output reg:101
+set logic 1 bind selector reg:100 input
+set logic 1 bind output reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -2495,7 +2495,7 @@ BEGIN
   END_FOR;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind sum reg:100
+set logic 1 bind sum reg:100 output
 set logic 1 enabled:true
 ```
 
@@ -2531,7 +2531,7 @@ BEGIN
   END_FOR;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind sum reg:100
+set logic 1 bind sum reg:100 output
 set logic 1 enabled:true
 ```
 
@@ -2571,7 +2571,7 @@ BEGIN
   END_WHILE;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind sum reg:100
+set logic 1 bind sum reg:100 output
 set logic 1 enabled:true
 ```
 
@@ -2611,7 +2611,7 @@ BEGIN
   UNTIL counter > 10;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind sum reg:100
+set logic 1 bind sum reg:100 output
 set logic 1 enabled:true
 ```
 
@@ -2655,10 +2655,10 @@ BEGIN
   output_limited := LIMIT(0, output, 100);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind setpoint reg:100
-set logic 1 bind actual reg:101
-set logic 1 bind kp reg:102
-set logic 1 bind output_limited reg:103
+set logic 1 bind setpoint reg:100 output
+set logic 1 bind actual reg:101 output
+set logic 1 bind kp reg:102 output
+set logic 1 bind output_limited reg:103 output
 set logic 1 enabled:true
 ```
 
@@ -2723,9 +2723,9 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind temperature reg:100
-set logic 1 bind pressure reg:101
-set logic 1 bind alarm_level reg:102
+set logic 1 bind temperature reg:100 output
+set logic 1 bind pressure reg:101 output
+set logic 1 bind alarm_level reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -2786,11 +2786,11 @@ BEGIN
   average := sum / 4;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind value1 reg:100
-set logic 1 bind value2 reg:101
-set logic 1 bind value3 reg:102
-set logic 1 bind value4 reg:103
-set logic 1 bind average reg:104
+set logic 1 bind value1 reg:100 output
+set logic 1 bind value2 reg:101 output
+set logic 1 bind value3 reg:102 output
+set logic 1 bind value4 reg:103 output
+set logic 1 bind average reg:104 output
 set logic 1 enabled:true
 ```
 
@@ -2844,9 +2844,9 @@ BEGIN
   END_CASE;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind mode reg:100
-set logic 1 bind input reg:101
-set logic 1 bind output reg:102
+set logic 1 bind mode reg:100 output
+set logic 1 bind input reg:101 output
+set logic 1 bind output reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -2911,9 +2911,9 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind start_count coil:0
-set logic 1 bind threshold reg:100
-set logic 1 bind count reg:101
+set logic 1 bind start_count coil:0 output
+set logic 1 bind threshold reg:100 output
+set logic 1 bind count reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -2970,8 +2970,8 @@ BEGIN
   END_WHILE;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind target reg:100
-set logic 1 bind iterations reg:101
+set logic 1 bind target reg:100 output
+set logic 1 bind iterations reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -3015,9 +3015,9 @@ BEGIN
   magnitude := SQRT(sum_squares);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind x reg:100
-set logic 1 bind y reg:102
-set logic 1 bind magnitude reg:104
+set logic 1 bind x reg:100 output
+set logic 1 bind y reg:102 output
+set logic 1 bind magnitude reg:104 output
 set logic 1 enabled:true
 ```
 
@@ -3068,8 +3068,8 @@ BEGIN
   int_output := REAL_TO_INT(scaled);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind int_input reg:100
-set logic 1 bind int_output reg:101
+set logic 1 bind int_input reg:100 output
+set logic 1 bind int_output reg:101 output
 set logic 1 enabled:true
 ```
 
@@ -3122,11 +3122,11 @@ BEGIN
   final_output := SEL(mode_active, manual_value, auto_value);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind auto_mode coil:0
-set logic 1 bind manual_override coil:1
-set logic 1 bind auto_value reg:100
-set logic 1 bind manual_value reg:101
-set logic 1 bind final_output reg:102
+set logic 1 bind auto_mode coil:0 output
+set logic 1 bind manual_override coil:1 output
+set logic 1 bind auto_value reg:100 output
+set logic 1 bind manual_value reg:101 output
+set logic 1 bind final_output reg:102 output
 set logic 1 enabled:true
 ```
 
@@ -3200,13 +3200,13 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind start_button coil:0
-set logic 1 bind stop_button coil:1
-set logic 1 bind sensor_count reg:100
-set logic 1 bind temperature reg:101
-set logic 1 bind motor_running coil:10
-set logic 1 bind alarm coil:11
-set logic 1 bind production_count reg:110
+set logic 1 bind start_button coil:0 output
+set logic 1 bind stop_button coil:1 output
+set logic 1 bind sensor_count reg:100 output
+set logic 1 bind temperature reg:101 output
+set logic 1 bind motor_running coil:10 output
+set logic 1 bind alarm coil:11 output
+set logic 1 bind production_count reg:110 output
 set logic 1 enabled:true
 ```
 
@@ -3322,9 +3322,9 @@ END_PROGRAM
 END_UPLOAD
 
 # 2. Bind
-set logic 1 bind a reg:100
-set logic 1 bind b reg:101
-set logic 1 bind result reg:102
+set logic 1 bind a reg:100 output
+set logic 1 bind b reg:101 output
+set logic 1 bind result reg:102 output
 
 # 3. Enable
 set logic 1 enabled:true
