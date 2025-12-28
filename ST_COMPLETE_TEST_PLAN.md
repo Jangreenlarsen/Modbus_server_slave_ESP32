@@ -1258,44 +1258,35 @@ set logic 1 bind output reg:102 output
 set logic 1 enabled:true
 ```
 
-**Test Cases (via Python + Modbus):**
-```python
-import struct
-
-def write_real(address, value):
-    bytes_val = struct.pack('!f', value)
-    words = struct.unpack('!HH', bytes_val)
-    client.write_registers(address, list(words))
-
-def read_real(address):
-    result = client.read_holding_registers(address, 2)
-    bytes_val = struct.pack('!HH', *result.registers)
-    return struct.unpack('!f', bytes_val)[0]
-
+**Test Cases:**
+```bash
 # Test 1: SQRT(16.0) = 4.0
-write_real(100, 16.0)
-time.sleep(0.1)
-result = read_real(102)
-print(f"SQRT(16.0) = {result:.2f}")  # Expected: 4.0
+write reg 100 value real 16.0
+read reg 102 real
+# Forventet: 4.000000 (0x40800000)
 
 # Test 2: SQRT(2.0) ≈ 1.414
-write_real(100, 2.0)
-time.sleep(0.1)
-result = read_real(102)
-print(f"SQRT(2.0) = {result:.3f}")  # Expected: ~1.414
+write reg 100 value real 2.0
+read reg 102 real
+# Forventet: 1.414214 (0x3FB504F3)
 
-# Test 3: SQRT(0.0) = 0.0
-write_real(100, 0.0)
-time.sleep(0.1)
-result = read_real(102)
-print(f"SQRT(0.0) = {result:.2f}")  # Expected: 0.0
+# Test 3: SQRT(9.0) = 3.0
+write reg 100 value real 9.0
+read reg 102 real
+# Forventet: 3.000000 (0x40400000)
+
+# Test 4: SQRT(0.0) = 0.0
+write reg 100 value real 0.0
+read reg 102 real
+# Forventet: 0.000000 (0x00000000)
 ```
 
 **Forventet Resultat:**
 ```
-✅ SQRT(16.0) = 4.0
-✅ SQRT(2.0) ≈ 1.414
-✅ SQRT(0.0) = 0.0
+✅ SQRT(16.0) = 4.000000
+✅ SQRT(2.0) ≈ 1.414214
+✅ SQRT(9.0) = 3.000000
+✅ SQRT(0.0) = 0.000000
 ```
 
 ---
@@ -1321,24 +1312,26 @@ set logic 1 enabled:true
 ```
 
 **Test Cases:**
-```python
+```bash
 # Test 1: ROUND(3.4) = 3
-write_real(100, 3.4)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"ROUND(3.4) = {result}")  # Expected: 3
+write reg 100 value real 3.4
+read reg 102 int
+# Forventet: 3
 
 # Test 2: ROUND(3.6) = 4
-write_real(100, 3.6)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"ROUND(3.6) = {result}")  # Expected: 4
+write reg 100 value real 3.6
+read reg 102 int
+# Forventet: 4
 
 # Test 3: ROUND(3.5) = 4 (banker's rounding eller 3?)
-write_real(100, 3.5)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"ROUND(3.5) = {result}")  # Expected: 4 (or 3 depending on implementation)
+write reg 100 value real 3.5
+read reg 102 int
+# Forventet: 4 (or 3 depending on implementation)
+
+# Test 4: ROUND(-2.7) = -3
+write reg 100 value real -2.7
+read reg 102 int
+# Forventet: -3
 ```
 
 **Forventet Resultat:**
@@ -1346,6 +1339,7 @@ print(f"ROUND(3.5) = {result}")  # Expected: 4 (or 3 depending on implementation
 ✅ ROUND(3.4) = 3
 ✅ ROUND(3.6) = 4
 ⚠️ ROUND(3.5) = ? (verify implementation)
+✅ ROUND(-2.7) = -3
 ```
 
 ---
@@ -1371,24 +1365,28 @@ set logic 1 enabled:true
 ```
 
 **Test Cases:**
-```python
+```bash
 # Test 1: TRUNC(3.9) = 3
-write_real(100, 3.9)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"TRUNC(3.9) = {result}")  # Expected: 3
+write reg 100 value real 3.9
+read reg 102 int
+# Forventet: 3
 
 # Test 2: TRUNC(-3.9) = -3
-write_real(100, -3.9)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"TRUNC(-3.9) = {result}")  # Expected: -3
+write reg 100 value real -3.9
+read reg 102 int
+# Forventet: -3
+
+# Test 3: TRUNC(5.1) = 5
+write reg 100 value real 5.1
+read reg 102 int
+# Forventet: 5
 ```
 
 **Forventet Resultat:**
 ```
 ✅ TRUNC(3.9) = 3
 ✅ TRUNC(-3.9) = -3
+✅ TRUNC(5.1) = 5
 ```
 
 ---
@@ -1414,24 +1412,28 @@ set logic 1 enabled:true
 ```
 
 **Test Cases:**
-```python
+```bash
 # Test 1: FLOOR(3.9) = 3
-write_real(100, 3.9)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"FLOOR(3.9) = {result}")  # Expected: 3
+write reg 100 value real 3.9
+read reg 102 int
+# Forventet: 3
 
 # Test 2: FLOOR(-3.1) = -4
-write_real(100, -3.1)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"FLOOR(-3.1) = {result}")  # Expected: -4
+write reg 100 value real -3.1
+read reg 102 int
+# Forventet: -4
+
+# Test 3: FLOOR(5.0) = 5
+write reg 100 value real 5.0
+read reg 102 int
+# Forventet: 5
 ```
 
 **Forventet Resultat:**
 ```
 ✅ FLOOR(3.9) = 3
 ✅ FLOOR(-3.1) = -4
+✅ FLOOR(5.0) = 5
 ```
 
 ---
@@ -1457,24 +1459,28 @@ set logic 1 enabled:true
 ```
 
 **Test Cases:**
-```python
+```bash
 # Test 1: CEIL(3.1) = 4
-write_real(100, 3.1)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"CEIL(3.1) = {result}")  # Expected: 4
+write reg 100 value real 3.1
+read reg 102 int
+# Forventet: 4
 
 # Test 2: CEIL(-3.9) = -3
-write_real(100, -3.9)
-time.sleep(0.1)
-result = client.read_holding_registers(102, 1).registers[0]
-print(f"CEIL(-3.9) = {result}")  # Expected: -3
+write reg 100 value real -3.9
+read reg 102 int
+# Forventet: -3
+
+# Test 3: CEIL(5.0) = 5
+write reg 100 value real 5.0
+read reg 102 int
+# Forventet: 5
 ```
 
 **Forventet Resultat:**
 ```
 ✅ CEIL(3.1) = 4
 ✅ CEIL(-3.9) = -3
+✅ CEIL(5.0) = 5
 ```
 
 ---
@@ -1654,31 +1660,34 @@ set logic 1 enabled:true
 ```
 
 **Test Cases:**
-```python
+```bash
 # Test 1: SIN(0) = 0.0
-write_real(100, 0.0)
-time.sleep(0.1)
-result = read_real(102)
-print(f"SIN(0) = {result:.3f}")  # Expected: 0.0
+write reg 100 value real 0.0
+read reg 102 real
+# Forventet: 0.000000 (0x00000000)
 
 # Test 2: SIN(π/2) ≈ 1.0
-write_real(100, 1.5708)  # π/2
-time.sleep(0.1)
-result = read_real(102)
-print(f"SIN(π/2) = {result:.3f}")  # Expected: ~1.0
+write reg 100 value real 1.5708
+read reg 102 real
+# Forventet: 1.000000 (0x3F800000)
 
 # Test 3: SIN(π) ≈ 0.0
-write_real(100, 3.1416)  # π
-time.sleep(0.1)
-result = read_real(102)
-print(f"SIN(π) = {result:.3f}")  # Expected: ~0.0
+write reg 100 value real 3.1416
+read reg 102 real
+# Forventet: ~0.000000 (meget tæt på 0)
+
+# Test 4: SIN(π/6) = 0.5
+write reg 100 value real 0.5236
+read reg 102 real
+# Forventet: 0.500000 (0x3F000000)
 ```
 
 **Forventet Resultat:**
 ```
-✅ SIN(0) = 0.0
-✅ SIN(π/2) ≈ 1.0
-✅ SIN(π) ≈ 0.0
+✅ SIN(0) = 0.000000
+✅ SIN(π/2) ≈ 1.000000
+✅ SIN(π) ≈ 0.000000
+✅ SIN(π/6) ≈ 0.500000
 ```
 
 ---

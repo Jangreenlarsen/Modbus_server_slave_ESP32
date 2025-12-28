@@ -551,12 +551,28 @@ mb_success (BOOL)     (* TRUE if last operation succeeded *)
 
 **Register/Coil Direct Access:**
 ```bash
-read reg <addr> [count] [int|uint]       # Read holding register(s) (default: uint)
+# READ COMMANDS
+read reg <addr> [count] [int|uint|real]  # Read holding register(s)
+                                          # - int:  signed 16-bit (-32768 to 32767)
+                                          # - uint: unsigned 16-bit (0 to 65535, default)
+                                          # - real: 32-bit float (uses 2 consecutive registers)
 read input <addr>                        # Read input register
 read coil <addr>                         # Read coil
+
+# WRITE COMMANDS
 write reg <addr> value int <val>         # Write signed 16-bit INT (-32768 to 32767)
 write reg <addr> value uint <val>        # Write unsigned 16-bit (0 to 65535)
+write reg <addr> value real <val>        # Write 32-bit REAL/float (uses 2 consecutive registers)
 write coil <addr> value <on|off>         # Write coil
+
+# EXAMPLES
+read reg 100 int                         # Read reg 100 as signed INT
+read reg 100 5 uint                      # Read 5 registers from 100 as unsigned
+read reg 100 real                        # Read reg 100-101 as REAL (32-bit float)
+
+write reg 100 value int -500             # Write -500 as signed INT
+write reg 100 value uint 65000           # Write 65000 as unsigned
+write reg 100 value real 3.14159         # Write 3.14159 as REAL (reg 100-101)
 ```
 
 **System Commands:**
