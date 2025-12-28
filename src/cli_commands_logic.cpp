@@ -473,17 +473,26 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     if (map->source_type == MAPPING_SOURCE_ST_VAR &&
         map->st_program_id == program_id &&
         map->st_var_index == var_index) {
-      // BUG-EXTENSION: Free old registers from allocation map before deleting binding
-      // (Only for holding registers in the tracked range)
+      // BUG-EXTENSION & BUG-105: Free old registers from allocation map (multi-register aware)
+      uint8_t old_word_count = (map->word_count > 0) ? map->word_count : 1;
+
       if (map->is_input && map->input_type == 0 && map->input_reg < ALLOCATOR_SIZE) {
-        register_allocator_free(map->input_reg);
-        // BUG-026 FIX: Also cleanup any counters using same register (persistent config)
-        cleanup_counters_using_register(map->input_reg);
+        for (uint8_t w = 0; w < old_word_count; w++) {
+          if (map->input_reg + w < ALLOCATOR_SIZE) {
+            register_allocator_free(map->input_reg + w);
+            // BUG-026 FIX: Also cleanup any counters using same register (persistent config)
+            cleanup_counters_using_register(map->input_reg + w);
+          }
+        }
       }
       if (!map->is_input && map->output_type == 0 && map->coil_reg < ALLOCATOR_SIZE) {
-        register_allocator_free(map->coil_reg);
-        // BUG-026 FIX: Also cleanup any counters using same register (persistent config)
-        cleanup_counters_using_register(map->coil_reg);
+        for (uint8_t w = 0; w < old_word_count; w++) {
+          if (map->coil_reg + w < ALLOCATOR_SIZE) {
+            register_allocator_free(map->coil_reg + w);
+            // BUG-026 FIX: Also cleanup any counters using same register (persistent config)
+            cleanup_counters_using_register(map->coil_reg + w);
+          }
+        }
       }
 
       // Delete this mapping by shifting all subsequent mappings down
@@ -531,6 +540,13 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     }
   }
 
+  // BUG-105: Auto-detect word_count based on ST variable type
+  st_datatype_t var_type = prog->bytecode.var_types[var_index];
+  uint8_t word_count = 1;  // Default: BOOL, INT (16-bit)
+  if (var_type == ST_TYPE_DINT || var_type == ST_TYPE_DWORD || var_type == ST_TYPE_REAL) {
+    word_count = 2;  // 32-bit types require 2 consecutive registers
+  }
+
   // Step 3: Create new mapping(s)
   if (is_input && is_output) {
     // "both" mode: Create TWO mappings (INPUT + OUTPUT)
@@ -544,6 +560,7 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     map_in->is_input = 1;
     map_in->input_type = input_type;  // Use parameter (0=HR, 1=DI/Coil)
     map_in->input_reg = modbus_reg;
+    map_in->word_count = word_count;  // BUG-105
 
     // Mapping 2: OUTPUT (ST var → Modbus)
     VariableMapping *map_out = &g_persist_config.var_maps[g_persist_config.var_map_count++];
@@ -554,13 +571,18 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     map_out->is_input = 0;
     map_out->output_type = output_type;  // Use parameter (0=HR, 1=Coil)
     map_out->coil_reg = modbus_reg;
+    map_out->word_count = word_count;  // BUG-105
 
     debug_printf("[OK] Logic%d: var[%d] (%s) <-> Modbus HR#%d (2 mappings created)\n",
                  program_id + 1, var_index, prog->bytecode.var_names[var_index], modbus_reg);
 
-    // BUG-EXTENSION: Allocate register in global allocator (for both INPUT and OUTPUT modes)
+    // BUG-EXTENSION & BUG-105: Allocate register(s) in global allocator (multi-register aware)
     if (input_type == 0 && modbus_reg < ALLOCATOR_SIZE) {
-      register_allocator_allocate(modbus_reg, REG_OWNER_ST_VAR, program_id + 1, "i/o");
+      for (uint8_t w = 0; w < word_count; w++) {
+        if (modbus_reg + w < ALLOCATOR_SIZE) {
+          register_allocator_allocate(modbus_reg + w, REG_OWNER_ST_VAR, program_id + 1, "i/o");
+        }
+      }
     }
   } else {
     // "input" or "output" mode: Create ONE mapping
@@ -569,6 +591,7 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     map->source_type = MAPPING_SOURCE_ST_VAR;
     map->st_program_id = program_id;
     map->st_var_index = var_index;
+    map->word_count = word_count;  // BUG-105
 
     if (is_input) {
       map->is_input = 1;
@@ -593,9 +616,13 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
       debug_printf("-> Modbus HR#%d\n", modbus_reg);
     }
 
-    // BUG-EXTENSION: Allocate register in global allocator (for holding register bindings only)
+    // BUG-EXTENSION & BUG-105: Allocate register(s) in global allocator (multi-register aware)
     if (((is_input && input_type == 0) || (!is_input && output_type == 0)) && modbus_reg < ALLOCATOR_SIZE) {
-      register_allocator_allocate(modbus_reg, REG_OWNER_ST_VAR, program_id + 1, is_input ? "in" : "out");
+      for (uint8_t w = 0; w < word_count; w++) {
+        if (modbus_reg + w < ALLOCATOR_SIZE) {
+          register_allocator_allocate(modbus_reg + w, REG_OWNER_ST_VAR, program_id + 1, is_input ? "in" : "out");
+        }
+      }
     }
   }
 

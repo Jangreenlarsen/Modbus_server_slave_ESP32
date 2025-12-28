@@ -16,6 +16,7 @@
 #include "registers.h"
 #include "st_logic_config.h"
 #include "st_logic_engine.h"  // BUG-038 FIX: For variable locking
+#include <string.h>            // BUG-105: For memcpy() (REAL type conversion)
 
 /**
  * @brief Read all INPUT mappings (GPIO + ST variables)
@@ -72,6 +73,9 @@ static void gpio_mapping_read_inputs(void) {
         if (map->input_reg != 65535) {
           // BUG-010 FIX: Type-aware bounds check (DI uses different size than HR)
           // BUG-049 FIX: Add bounds check for Coil type
+          // BUG-105 FIX: Multi-register bounds check (word_count)
+          uint8_t word_count = (map->word_count > 0) ? map->word_count : 1;
+
           if (map->input_type == 1) {
             // Discrete Input - check DI array size (32 bytes = 256 bits)
             if (map->input_reg >= DISCRETE_INPUTS_SIZE * 8) continue;
@@ -79,36 +83,55 @@ static void gpio_mapping_read_inputs(void) {
             // Coil - check Coil array size (32 bytes = 256 bits)
             if (map->input_reg >= COILS_SIZE * 8) continue;
           } else {
-            // Holding Register - check HR array size
-            if (map->input_reg >= HOLDING_REGS_SIZE) continue;
-          }
-
-          uint16_t reg_value;
-
-          // Check input_type: 0 = Holding Register (HR), 1 = Discrete Input (DI), 2 = Coil (BUG-049)
-          if (map->input_type == 1) {
-            // Discrete Input: read as BOOL (0 or 1)
-            reg_value = registers_get_discrete_input(map->input_reg) ? 1 : 0;
-          } else if (map->input_type == 2) {
-            // BUG-049 FIX: Coil: read as BOOL (0 or 1)
-            reg_value = registers_get_coil(map->input_reg) ? 1 : 0;
-          } else {
-            // Holding Register: read as INT
-            reg_value = registers_get_holding_register(map->input_reg);
+            // Holding Register - check HR array size (multi-register aware)
+            if (map->input_reg + word_count > HOLDING_REGS_SIZE) continue;
           }
 
           // BUG-038 FIX: Lock before writing to ST variable
           st_logic_lock_variables();
 
-          // BUG-002 FIX: Store value with correct type conversion
+          // BUG-002 & BUG-105 FIX: Store value with correct type conversion
           st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
+
           if (var_type == ST_TYPE_BOOL) {
+            // BOOL: read from DI or Coil
+            uint16_t reg_value;
+            if (map->input_type == 1) {
+              reg_value = registers_get_discrete_input(map->input_reg) ? 1 : 0;
+            } else if (map->input_type == 2) {
+              reg_value = registers_get_coil(map->input_reg) ? 1 : 0;
+            } else {
+              reg_value = registers_get_holding_register(map->input_reg);
+            }
             prog->bytecode.variables[map->st_var_index].bool_val = (reg_value != 0);
-          } else if (var_type == ST_TYPE_REAL) {
-            prog->bytecode.variables[map->st_var_index].real_val = (float)reg_value;
-          } else {
-            // ST_TYPE_INT or ST_TYPE_DWORD
+          }
+          else if (var_type == ST_TYPE_INT) {
+            // INT: 16-bit signed, 1 register
+            uint16_t reg_value = registers_get_holding_register(map->input_reg);
             prog->bytecode.variables[map->st_var_index].int_val = (int16_t)reg_value;
+          }
+          else if (var_type == ST_TYPE_DINT) {
+            // DINT: 32-bit signed, 2 registers (high, low)
+            uint16_t high_word = registers_get_holding_register(map->input_reg);
+            uint16_t low_word = registers_get_holding_register(map->input_reg + 1);
+            int32_t dint_value = ((int32_t)high_word << 16) | low_word;
+            prog->bytecode.variables[map->st_var_index].dint_val = dint_value;
+          }
+          else if (var_type == ST_TYPE_DWORD) {
+            // DWORD: 32-bit unsigned, 2 registers (high, low)
+            uint16_t high_word = registers_get_holding_register(map->input_reg);
+            uint16_t low_word = registers_get_holding_register(map->input_reg + 1);
+            uint32_t dword_value = ((uint32_t)high_word << 16) | low_word;
+            prog->bytecode.variables[map->st_var_index].dword_val = dword_value;
+          }
+          else if (var_type == ST_TYPE_REAL) {
+            // REAL: 32-bit float, 2 registers (IEEE 754)
+            uint16_t high_word = registers_get_holding_register(map->input_reg);
+            uint16_t low_word = registers_get_holding_register(map->input_reg + 1);
+            uint32_t bits = ((uint32_t)high_word << 16) | low_word;
+            float real_value;
+            memcpy(&real_value, &bits, sizeof(float));  // Reinterpret bits as float
+            prog->bytecode.variables[map->st_var_index].real_val = real_value;
           }
 
           st_logic_unlock_variables();
@@ -163,34 +186,65 @@ static void gpio_mapping_write_outputs(void) {
         // BUG-038 FIX: Lock before reading ST variable
         st_logic_lock_variables();
 
-        // BUG-002 FIX: Read value with correct type conversion
+        // BUG-002 & BUG-105 FIX: Read value with correct type conversion
         st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
-        int16_t var_value;
-
-        if (var_type == ST_TYPE_BOOL) {
-          var_value = prog->bytecode.variables[map->st_var_index].bool_val ? 1 : 0;
-        } else if (var_type == ST_TYPE_REAL) {
-          // Convert float to scaled INT (or truncate)
-          var_value = (int16_t)prog->bytecode.variables[map->st_var_index].real_val;
-        } else {
-          // ST_TYPE_INT or ST_TYPE_DWORD
-          var_value = prog->bytecode.variables[map->st_var_index].int_val;
-        }
-
-        st_logic_unlock_variables();
 
         // Check output_type to determine destination
         if (map->coil_reg != 65535) {
           // output_type: 0 = Holding Register, 1 = Coil
           if (map->output_type == 1) {
             // Output to COIL (BOOL variables)
-            uint8_t coil_value = (var_value != 0) ? 1 : 0;
+            uint8_t coil_value = 0;
+            if (var_type == ST_TYPE_BOOL) {
+              coil_value = prog->bytecode.variables[map->st_var_index].bool_val ? 1 : 0;
+            } else {
+              // Convert INT/DINT/REAL to BOOL (non-zero = 1)
+              coil_value = (prog->bytecode.variables[map->st_var_index].int_val != 0) ? 1 : 0;
+            }
             registers_set_coil(map->coil_reg, coil_value);
-          } else {
-            // Output to HOLDING REGISTER (INT variables)
-            registers_set_holding_register(map->coil_reg, (uint16_t)var_value);
+          }
+          else {
+            // Output to HOLDING REGISTER (multi-register aware)
+            if (var_type == ST_TYPE_BOOL) {
+              // BOOL: 1 register
+              uint16_t reg_value = prog->bytecode.variables[map->st_var_index].bool_val ? 1 : 0;
+              registers_set_holding_register(map->coil_reg, reg_value);
+            }
+            else if (var_type == ST_TYPE_INT) {
+              // INT: 16-bit signed, 1 register
+              int16_t int_value = prog->bytecode.variables[map->st_var_index].int_val;
+              registers_set_holding_register(map->coil_reg, (uint16_t)int_value);
+            }
+            else if (var_type == ST_TYPE_DINT) {
+              // DINT: 32-bit signed, 2 registers (high, low)
+              int32_t dint_value = prog->bytecode.variables[map->st_var_index].dint_val;
+              uint16_t high_word = (uint16_t)((dint_value >> 16) & 0xFFFF);
+              uint16_t low_word = (uint16_t)(dint_value & 0xFFFF);
+              registers_set_holding_register(map->coil_reg, high_word);
+              registers_set_holding_register(map->coil_reg + 1, low_word);
+            }
+            else if (var_type == ST_TYPE_DWORD) {
+              // DWORD: 32-bit unsigned, 2 registers (high, low)
+              uint32_t dword_value = prog->bytecode.variables[map->st_var_index].dword_val;
+              uint16_t high_word = (uint16_t)((dword_value >> 16) & 0xFFFF);
+              uint16_t low_word = (uint16_t)(dword_value & 0xFFFF);
+              registers_set_holding_register(map->coil_reg, high_word);
+              registers_set_holding_register(map->coil_reg + 1, low_word);
+            }
+            else if (var_type == ST_TYPE_REAL) {
+              // REAL: 32-bit float, 2 registers (IEEE 754)
+              float real_value = prog->bytecode.variables[map->st_var_index].real_val;
+              uint32_t bits;
+              memcpy(&bits, &real_value, sizeof(float));  // Reinterpret float as bits
+              uint16_t high_word = (uint16_t)((bits >> 16) & 0xFFFF);
+              uint16_t low_word = (uint16_t)(bits & 0xFFFF);
+              registers_set_holding_register(map->coil_reg, high_word);
+              registers_set_holding_register(map->coil_reg + 1, low_word);
+            }
           }
         }
+
+        st_logic_unlock_variables();
       }
     }
   }

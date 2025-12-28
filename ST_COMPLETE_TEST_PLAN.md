@@ -26,6 +26,7 @@
    - [1.13 Kontrolstrukturer - FOR Loop](#113-kontrolstrukturer---for-loop)
    - [1.14 Kontrolstrukturer - WHILE Loop](#114-kontrolstrukturer---while-loop)
    - [1.15 Kontrolstrukturer - REPEAT Loop](#115-kontrolstrukturer---repeat-loop)
+   - [1.16 Type System - INT vs DINT](#116-type-system---int-vs-dint)
 4. [Fase 2: Kombinerede Tests](#fase-2-kombinerede-tests)
 5. [Test Execution Workflow](#test-execution-workflow)
 6. [Fejlhåndtering](#fejlhåndtering)
@@ -49,9 +50,10 @@
 | Builtin persistence | 2 | 2 min |
 | GPIO & Hardware tests | 4 | 5 min |
 | Kontrolstrukturer | 5 | 5 min |
-| **Fase 1 Total** | **49** | **33 min** |
+| Type System (INT/DINT) | 3 | 5 min |
+| **Fase 1 Total** | **52** | **38 min** |
 | Kombinerede tests | 10 | 15 min |
-| **Total** | **59** | **48 min** |
+| **Total** | **62** | **53 min** |
 | **Udsat (Modbus Master)** | **6** | *Senere* |
 
 ### Test Konventioner
@@ -2626,6 +2628,161 @@ read reg 100
 ```
 ✅ REPEAT executes at least once
 ✅ sum = 1+2+3+...+10 = 55
+```
+
+---
+
+## 1.16 Type System - INT vs DINT
+
+### Test 1.16.1: INT Overflow Behavior (16-bit)
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM test
+VAR
+  a: INT;
+  b: INT;
+  result: INT;
+END_VAR
+BEGIN
+  result := a + b;
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 bind a reg:100 input
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Test 1: INT overflow (32767 + 1 = -32768)
+write reg 100 value int 32767
+write reg 101 value int 1
+read reg 102 int
+# Forventet: -32768
+
+# Test 2: INT underflow (-32768 - 1 = 32767)
+write reg 100 value int -32768
+write reg 101 value int -1
+read reg 102 int
+# Forventet: 32767
+
+# Test 3: Normal operation (100 + 200 = 300)
+write reg 100 value int 100
+write reg 101 value int 200
+read reg 102 int
+# Forventet: 300
+```
+
+**Forventet Resultat:**
+```
+✅ INT is 16-bit: 32767 + 1 = -32768 (wrapping overflow)
+✅ INT underflow: -32768 - 1 = 32767
+✅ Normal arithmetic within range works correctly
+```
+
+---
+
+### Test 1.16.2: DINT Large Values (32-bit)
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM test
+VAR
+  a: DINT;
+  b: DINT;
+  result: DINT;
+END_VAR
+BEGIN
+  result := a + b;
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 bind a reg:110 input
+set logic 1 bind b reg:112 input
+set logic 1 bind result reg:114 output
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Test 1: Large DINT values (100000 + 200000 = 300000)
+# Skrive 100000 til 2 registers (high word, low word)
+# 100000 = 0x000186A0 → high=0x0001, low=0x86A0
+write reg 110 value uint 1
+write reg 111 value uint 34464
+write reg 112 value uint 3
+write reg 113 value uint 3392
+# Læs resultat (2 registers)
+read reg 114
+read reg 115
+# Forventet: HR114=4 (high word), HR115=37856 (low word) = 300000
+
+# Test 2: DINT negative values
+# -500000 = 0xFFF85EE0 → high=0xFFF8, low=0x5EE0
+write reg 110 value uint 65528
+write reg 111 value uint 24288
+write reg 112 value uint 0
+write reg 113 value uint 100
+# Forventet: result ≈ -499900
+```
+
+**Forventet Resultat:**
+```
+✅ DINT uses 2 consecutive registers (multi-register I/O)
+✅ DINT supports values beyond INT16 range (-32768 to 32767)
+✅ Large positive values (100000 + 200000 = 300000)
+✅ Negative DINT values work correctly
+```
+
+---
+
+### Test 1.16.3: INT → DINT Type Promotion
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM test
+VAR
+  int_val: INT;
+  dint_val: DINT;
+  result: DINT;
+END_VAR
+BEGIN
+  result := int_val + dint_val;
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 bind int_val reg:120 input
+set logic 1 bind dint_val reg:122 input
+set logic 1 bind result reg:124 output
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Test: INT (1000) + DINT (200000) = DINT (201000)
+write reg 120 value int 1000
+# 200000 = 0x00030D40 → high=0x0003, low=0x0D40
+write reg 122 value uint 3
+write reg 123 value uint 3392
+read reg 124
+read reg 125
+# Forventet: result = 201000 (HR124=3, HR125=7232)
+```
+
+**Forventet Resultat:**
+```
+✅ INT automatically promoted to DINT when mixed with DINT
+✅ Result uses DINT (32-bit) arithmetic
+✅ Multi-register I/O works for DINT result
 ```
 
 ---

@@ -227,6 +227,9 @@ typedef struct __attribute__((packed)) {
   uint8_t output_type;          // 0 = Holding Register (HR), 1 = Coil - only for OUTPUT mode
   uint16_t input_reg;           // Input register index (65535 if none) - for INPUT mode
   uint16_t coil_reg;            // Coil/output register index (65535 if none) - for OUTPUT mode (NOTE: also holds reg address if output_type=0)
+
+  // BUG-105: Multi-register support for DINT/REAL (32-bit types)
+  uint8_t word_count;           // Number of consecutive 16-bit registers (1=INT/BOOL, 2=DINT/REAL/DWORD)
 } VariableMapping;
 
 /* ============================================================================
