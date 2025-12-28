@@ -163,25 +163,25 @@ set logic 1 enabled:true
 # Test 1: 5 + 3 = 8
 write reg 100 value int 5
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 8
 
 # Test 2: -10 + 15 = 5
 write reg 100 value int -10
 write reg 101 value int 15
-read reg 102
+read reg 102 int
 # Forventet: 5
 
 # Test 3: 0 + 0 = 0
 write reg 100 value int 0
 write reg 101 value int 0
-read reg 102
+read reg 102 int
 # Forventet: 0
 
 # Test 4: Overflow test (INT_MAX + 1)
 write reg 100 value int 32767
 write reg 101 value int 1
-read reg 102
+read reg 102 int
 # Forventet: -32768
 ```
 
@@ -223,19 +223,19 @@ set logic 1 enabled:true
 # Test 1: 10 - 3 = 7
 write reg 100 value int 10
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 7
 
 # Test 2: 5 - 10 = -5
 write reg 100 value int 5
 write reg 101 value int 10
-read reg 102
+read reg 102 int
 # Forventet: -5
 
 # Test 3: 0 - 0 = 0
 write reg 100 value int 0
 write reg 101 value int 0
-read reg 102
+read reg 102 int
 # Forventet: 0
 ```
 
@@ -276,19 +276,19 @@ set logic 1 enabled:true
 # Test 1: 5 * 3 = 15
 write reg 100 value int 5
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 15
 
 # Test 2: -4 * 5 = -20
 write reg 100 value int -4
 write reg 101 value int 5
-read reg 102
+read reg 102 int
 # Forventet: -20
 
 # Test 3: 0 * 100 = 0
 write reg 100 value int 0
 write reg 101 value int 100
-read reg 102
+read reg 102 int
 # Forventet: 0
 ```
 
@@ -329,25 +329,25 @@ set logic 1 enabled:true
 # Test 1: 10 / 2 = 5
 write reg 100 value int 10
 write reg 101 value int 2
-read reg 102
+read reg 102 int
 # Forventet: 5
 
 # Test 2: 7 / 2 = 3 (integer division)
 write reg 100 value int 7
 write reg 101 value int 2
-read reg 102
+read reg 102 int
 # Forventet: 3
 
 # Test 3: -10 / 3 = -3
 write reg 100 value int -10
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: -3
 
 # Test 4: Division by zero (should handle gracefully)
 write reg 100 value int 10
 write reg 101 value int 0
-read reg 102
+read reg 102 int
 # Forventet: 0
 ```
 
@@ -389,19 +389,19 @@ set logic 1 enabled:true
 # Test 1: 10 MOD 3 = 1
 write reg 100 value int 10
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 1
 
 # Test 2: 7 MOD 2 = 1
 write reg 100 value int 7
 write reg 101 value int 2
-read reg 102
+read reg 102 int
 # Forventet: 1
 
 # Test 3: 8 MOD 4 = 0
 write reg 100 value int 8
 write reg 101 value int 4
-read reg 102
+read reg 102 int
 # Forventet: 0
 ```
 
@@ -439,17 +439,17 @@ set logic 1 enabled:true
 ```bash
 # Test 1: -5 → -5
 write reg 100 value int 5
-read reg 101
+read reg 101 int
 # Forventet: -5
 
 # Test 2: -(-10) → 10
 write reg 100 value int -10
-read reg 101
+read reg 101 int
 # Forventet: 10
 
 # Test 3: -0 → 0
 write reg 100 value int 0
-read reg 101
+read reg 101 int
 # Forventet: 0
 ```
 
@@ -701,19 +701,19 @@ set logic 1 enabled:true
 # Test 1: 1 SHL 3 = 8
 write reg 100 value int 1
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 8
 
 # Test 2: 5 SHL 2 = 20
 write reg 100 value int 5
 write reg 101 value int 2
-read reg 102
+read reg 102 int
 # Forventet: 20
 
 # Test 3: 1 SHL 0 = 1
 write reg 100 value int 1
 write reg 101 value int 0
-read reg 102
+read reg 102 int
 # Forventet: 1
 ```
 
@@ -753,19 +753,19 @@ set logic 1 enabled:true
 # Test 1: 8 SHR 3 = 1
 write reg 100 value int 8
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 1
 
 # Test 2: 20 SHR 2 = 5
 write reg 100 value int 20
 write reg 101 value int 2
-read reg 102
+read reg 102 int
 # Forventet: 5
 
 # Test 3: 1 SHR 0 = 1
 write reg 100 value int 1
 write reg 101 value int 0
-read reg 102
+read reg 102 int
 # Forventet: 1
 ```
 
@@ -1111,17 +1111,17 @@ set logic 1 enabled:true
 ```bash
 # Test 1: ABS(-5) = 5
 write reg 100 value int -5
-read reg 101
+read reg 101 int
 # Forventet: 5
 
 # Test 2: ABS(10) = 10
 write reg 100 value int 10
-read reg 101
+read reg 101 int
 # Forventet: 10
 
 # Test 3: ABS(0) = 0
 write reg 100 value int 0
-read reg 101
+read reg 101 int
 # Forventet: 0
 ```
 
@@ -1161,19 +1161,19 @@ set logic 1 enabled:true
 # Test 1: MIN(5, 3) = 3
 write reg 100 value int 5
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 3
 
 # Test 2: MIN(-10, 5) = -10
 write reg 100 value int -10
 write reg 101 value int 5
-read reg 102
+read reg 102 int
 # Forventet: -10
 
 # Test 3: MIN(7, 7) = 7
 write reg 100 value int 7
 write reg 101 value int 7
-read reg 102
+read reg 102 int
 # Forventet: 7
 ```
 
@@ -1213,19 +1213,19 @@ set logic 1 enabled:true
 # Test 1: MAX(5, 3) = 5
 write reg 100 value int 5
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 5
 
 # Test 2: MAX(-10, 5) = 5
 write reg 100 value int -10
 write reg 101 value int 5
-read reg 102
+read reg 102 int
 # Forventet: 5
 
 # Test 3: MAX(7, 7) = 7
 write reg 100 value int 7
 write reg 101 value int 7
-read reg 102
+read reg 102 int
 # Forventet: 7
 ```
 
@@ -1506,13 +1506,13 @@ set logic 1 enabled:true
 # Test 1: SUM(5, 3) = 8
 write reg 100 value int 5
 write reg 101 value int 3
-read reg 102
+read reg 102 int
 # Forventet: 8
 
 # Test 2: SUM(-10, 15) = 5
 write reg 100 value int -10
 write reg 101 value int 15
-read reg 102
+read reg 102 int
 # Forventet: 5
 ```
 
@@ -1556,21 +1556,21 @@ set logic 1 enabled:true
 write reg 100 value int 0
 write reg 101 value int -10
 write reg 102 value int 100
-read reg 103
+read reg 103 int
 # Forventet: 0
 
 # Test 2: LIMIT(0, 150, 100) = 100 (clamped to max)
 write reg 100 value int 0
 write reg 101 value int 150
 write reg 102 value int 100
-read reg 103
+read reg 103 int
 # Forventet: 100
 
 # Test 3: LIMIT(0, 50, 100) = 50 (no clamping)
 write reg 100 value int 0
 write reg 101 value int 50
 write reg 102 value int 100
-read reg 103
+read reg 103 int
 # Forventet: 50
 ```
 
@@ -1614,12 +1614,12 @@ write reg 101 value int 75
 
 # Test 1: SEL(FALSE, 50, 75) = 50
 write coil 0 value 0
-read reg 102
+read reg 102 int
 # Forventet: 50
 
 # Test 2: SEL(TRUE, 50, 75) = 75
 write coil 0 value 1
-read reg 102
+read reg 102 int
 # Forventet: 75
 ```
 
@@ -1888,12 +1888,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: BOOL_TO_INT(TRUE) = 1
 write coil 0 value 1
-read reg 100
+read reg 100 int
 # Forventet: 1
 
 # Test 2: BOOL_TO_INT(FALSE) = 0
 write coil 0 value 0
-read reg 100
+read reg 100 int
 # Forventet: 0
 ```
 
@@ -1976,7 +1976,7 @@ set logic 1 enabled:true
 ```bash
 # Test 1: DWORD_TO_INT(1000) = 1000
 write HR100-103 = 1000 (DWORD format)
-read reg 104
+read reg 104 uint
 # Forventet: 1000
 ```
 
@@ -2309,12 +2309,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: condition = TRUE
 write coil 0 value 1
-read reg 100
+read reg 100 int
 # Forventet: 100
 
 # Test 2: condition = FALSE
 write coil 0 value 0
-read reg 100
+read reg 100 int
 # Forventet: 100
 ```
 
@@ -2352,12 +2352,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: condition = TRUE
 write coil 0 value 1
-read reg 100
+read reg 100 int
 # Forventet: 100
 
 # Test 2: condition = FALSE
 write coil 0 value 0
-read reg 100
+read reg 100 int
 # Forventet: 200
 ```
 
@@ -2396,17 +2396,17 @@ set logic 1 enabled:true
 ```bash
 # Test 1: value = 5 (< 10)
 write reg 100 value int 5
-read reg 101
+read reg 101 int
 # Forventet: 1
 
 # Test 2: value = 15 (< 20 but not < 10)
 write reg 100 value int 15
-read reg 101
+read reg 101 int
 # Forventet: 2
 
 # Test 3: value = 25 (>= 20)
 write reg 100 value int 25
-read reg 101
+read reg 101 int
 # Forventet: 3
 ```
 
@@ -2449,22 +2449,22 @@ set logic 1 enabled:true
 ```bash
 # Test 1: selector = 1
 write reg 100 value int 1
-read reg 101
+read reg 101 int
 # Forventet: 100
 
 # Test 2: selector = 2
 write reg 100 value int 2
-read reg 101
+read reg 101 int
 # Forventet: 200
 
 # Test 3: selector = 3
 write reg 100 value int 3
-read reg 101
+read reg 101 int
 # Forventet: 300
 
 # Test 4: selector = 99 (no match)
 write reg 100 value int 99
-read reg 101
+read reg 101 int
 # Forventet: 999
 ```
 
@@ -2504,7 +2504,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 100
+read reg 100 int
 # Forventet: 55
 ```
 
@@ -2540,7 +2540,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Sum 0+2+4+6+8+10 = 30
-read reg 100
+read reg 100 int
 # Forventet: 30
 ```
 
@@ -2580,7 +2580,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 100
+read reg 100 int
 # Forventet: 55
 ```
 
@@ -2620,7 +2620,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 100
+read reg 100 int
 # Forventet: 55
 ```
 
@@ -2720,8 +2720,8 @@ write reg 111 value uint 34464
 write reg 112 value uint 3
 write reg 113 value uint 3392
 # Læs resultat (2 registers)
-read reg 114
-read reg 115
+read reg 114 int
+read reg 115 int
 # Forventet: HR114=4 (high word), HR115=37856 (low word) = 300000
 
 # Test 2: DINT negative values
@@ -2773,8 +2773,8 @@ write reg 120 value int 1000
 # 200000 = 0x00030D40 → high=0x0003, low=0x0D40
 write reg 122 value uint 3
 write reg 123 value uint 3392
-read reg 124
-read reg 125
+read reg 124 int
+read reg 125 int
 # Forventet: result = 201000 (HR124=3, HR125=7232)
 ```
 
@@ -2826,25 +2826,25 @@ write reg 102 value int 2
 # Test 1: setpoint=80, actual=70 → error=10, output=20
 write reg 100 value int 80
 write reg 101 value int 70
-read reg 103
+read reg 103 int
 # Forventet: 20
 
 # Test 2: setpoint=50, actual=60 → error=-10, output=-20 (limited to 0)
 write reg 100 value int 50
 write reg 101 value int 60
-read reg 103
+read reg 103 int
 # Forventet: 0
 
 # Test 3: setpoint=100, actual=50 → error=50, output=100
 write reg 100 value int 100
 write reg 101 value int 50
-read reg 103
+read reg 103 int
 # Forventet: 100
 
 # Test 4: setpoint=100, actual=0 → error=100, output=200 (limited to 100)
 write reg 100 value int 100
 write reg 101 value int 0
-read reg 103
+read reg 103 int
 # Forventet: 100
 ```
 
@@ -2891,25 +2891,25 @@ set logic 1 enabled:true
 # Test 1: temp=70, press=30 → Normal
 write reg 100 value int 70
 write reg 101 value int 30
-read reg 102
+read reg 102 int
 # Forventet: 0
 
 # Test 2: temp=90, press=30 → Warning
 write reg 100 value int 90
 write reg 101 value int 30
-read reg 102
+read reg 102 int
 # Forventet: 1
 
 # Test 3: temp=110, press=40 → High temp
 write reg 100 value int 110
 write reg 101 value int 40
-read reg 102
+read reg 102 int
 # Forventet: 2
 
 # Test 4: temp=110, press=60 → Critical
 write reg 100 value int 110
 write reg 101 value int 60
-read reg 102
+read reg 102 int
 # Forventet: 3
 ```
 
@@ -2958,7 +2958,7 @@ write reg 100 value int 10
 write reg 101 value int 20
 write reg 102 value int 30
 write reg 103 value int 40
-read reg 104
+read reg 104 int
 # Forventet: 25
 
 # Test 2: Average of 0, 0, 0, 100 = 25
@@ -2966,7 +2966,7 @@ write reg 100 value int 0
 write reg 101 value int 0
 write reg 102 value int 0
 write reg 103 value int 100
-read reg 104
+read reg 104 int
 # Forventet: 25
 ```
 
@@ -3013,27 +3013,27 @@ write reg 101 value int -50
 
 # Test 1: mode=1 (ABS)
 write reg 100 value int 1
-read reg 102
+read reg 102 int
 # Forventet: 50
 
 # Test 2: mode=2 (multiply by 2)
 write reg 100 value int 2
-read reg 102
+read reg 102 int
 # Forventet: -100
 
 # Test 3: mode=3 (divide by 2)
 write reg 100 value int 3
-read reg 102
+read reg 102 int
 # Forventet: -25
 
 # Test 4: mode=4 (MIN with 100)
 write reg 100 value int 4
-read reg 102
+read reg 102 int
 # Forventet: -50
 
 # Test 5: mode=99 (ELSE)
 write reg 100 value int 99
-read reg 102
+read reg 102 int
 # Forventet: -50
 ```
 
@@ -3080,14 +3080,14 @@ set logic 1 enabled:true
 write reg 100 value int 50
 write coil 0 value 1
 # Wait 100ms
-read reg 101
+read reg 101 int
 # Forventet: 49
 
 # Test 2: threshold=10, count values 1-9 = 9
 write reg 100 value int 10
 write coil 0 value 0
 # Wait 100ms
-read reg 101
+read reg 101 int
 # Forventet: 9
 ```
 
@@ -3234,17 +3234,17 @@ set logic 1 enabled:true
 ```bash
 # Test 1: 10 * 1.5 = 15
 write reg 100 value int 10
-read reg 101
+read reg 101 uint
 # Forventet: 15
 
 # Test 2: 7 * 1.5 = 10.5 → 10
 write reg 100 value int 7
-read reg 101
+read reg 101 uint
 # Forventet: 10
 
 # Test 3: 100 * 1.5 = 150
 write reg 100 value int 100
-read reg 101
+read reg 101 uint
 # Forventet: 150
 ```
 
@@ -3294,17 +3294,17 @@ write reg 101 value int 50
 
 # Test 1: auto=TRUE, override=FALSE → mode_active=TRUE → auto_value
 write coil 0 value 1
-read reg 102
+read reg 102 int
 # Forventet: 75
 
 # Test 2: auto=TRUE, override=TRUE → mode_active=FALSE → manual_value
 write coil 0 value 1
-read reg 102
+read reg 102 int
 # Forventet: 50
 
 # Test 3: auto=FALSE, override=FALSE → mode_active=FALSE → manual_value
 write coil 0 value 0
-read reg 102
+read reg 102 int
 # Forventet: 50
 ```
 
