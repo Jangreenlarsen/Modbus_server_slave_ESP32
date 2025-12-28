@@ -165,8 +165,72 @@ static bool st_vm_exec_load_var(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
 static bool st_vm_exec_store_var(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t val;
-  if (!st_vm_pop(vm, &val)) return false;
-  st_vm_set_variable(vm, instr->arg.var_index, val);
+  st_datatype_t val_type;
+
+  // BUG-105: Pop with type information for automatic type conversion
+  if (!st_vm_pop_typed(vm, &val, &val_type)) return false;
+
+  // Get target variable type
+  st_datatype_t var_type = vm->program->var_types[instr->arg.var_index];
+
+  // Automatic type conversion on assignment (IEC 61131-3 implicit conversion)
+  st_value_t converted_val = val;
+
+  if (val_type != var_type) {
+    // REAL → INT: Truncate to 16-bit
+    if (val_type == ST_TYPE_REAL && var_type == ST_TYPE_INT) {
+      int32_t temp = (int32_t)val.real_val;
+      if (temp > INT16_MAX) temp = INT16_MAX;
+      if (temp < INT16_MIN) temp = INT16_MIN;
+      converted_val.int_val = (int16_t)temp;
+    }
+    // REAL → DINT: Truncate to 32-bit
+    else if (val_type == ST_TYPE_REAL && var_type == ST_TYPE_DINT) {
+      converted_val.dint_val = (int32_t)val.real_val;
+    }
+    // REAL → BOOL: Non-zero = TRUE
+    else if (val_type == ST_TYPE_REAL && var_type == ST_TYPE_BOOL) {
+      converted_val.bool_val = (val.real_val != 0.0f);
+    }
+    // DINT → INT: Clamp to INT16 range
+    else if (val_type == ST_TYPE_DINT && var_type == ST_TYPE_INT) {
+      int32_t temp = val.dint_val;
+      if (temp > INT16_MAX) temp = INT16_MAX;
+      if (temp < INT16_MIN) temp = INT16_MIN;
+      converted_val.int_val = (int16_t)temp;
+    }
+    // DINT → REAL: Convert to float
+    else if (val_type == ST_TYPE_DINT && var_type == ST_TYPE_REAL) {
+      converted_val.real_val = (float)val.dint_val;
+    }
+    // INT → REAL: Convert to float
+    else if (val_type == ST_TYPE_INT && var_type == ST_TYPE_REAL) {
+      converted_val.real_val = (float)val.int_val;
+    }
+    // INT → DINT: Sign-extend to 32-bit
+    else if (val_type == ST_TYPE_INT && var_type == ST_TYPE_DINT) {
+      converted_val.dint_val = (int32_t)val.int_val;
+    }
+    // INT → BOOL: Non-zero = TRUE
+    else if (val_type == ST_TYPE_INT && var_type == ST_TYPE_BOOL) {
+      converted_val.bool_val = (val.int_val != 0);
+    }
+    // BOOL → INT: TRUE=1, FALSE=0
+    else if (val_type == ST_TYPE_BOOL && var_type == ST_TYPE_INT) {
+      converted_val.int_val = val.bool_val ? 1 : 0;
+    }
+    // BOOL → REAL: TRUE=1.0, FALSE=0.0
+    else if (val_type == ST_TYPE_BOOL && var_type == ST_TYPE_REAL) {
+      converted_val.real_val = val.bool_val ? 1.0f : 0.0f;
+    }
+    // DWORD conversions (if needed, add more cases)
+    else {
+      // No conversion needed or unsupported conversion (use value as-is)
+      converted_val = val;
+    }
+  }
+
+  st_vm_set_variable(vm, instr->arg.var_index, converted_val);
   return !vm->error;
 }
 
