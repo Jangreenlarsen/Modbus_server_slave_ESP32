@@ -4886,3 +4886,156 @@ Parser tillod max 4 function argumenter, men brugte `break` i stedet for `return
 - Ved version bump: Verificer at funktionssignaturer stadig er korrekte
 - Ved refactoring: Opdater fil/linje references
 - Tilføj VERIFIED dato når bug er testet i produktion
+
+### BUG-105: INT type skal være 16-bit, ikke 32-bit (IEC 61131-3 Compliance)
+**Status:** ❌ OPEN
+**Prioritet:** 🔴 CRITICAL
+**Opdaget:** 2025-12-28
+**Version:** v5.0.0 (planned)
+
+#### Beskrivelse
+ST Logic INT type er implementeret som int32_t (32-bit signed), men bør være int16_t (16-bit signed) ifølge IEC 61131-3 standarden. Dette forårsager forkert overflow behavior og manglende support for multi-register datatyper.
+
+**Nuværende Implementation (FORKERT):**
+```c
+INT   = int32_t  (-2^31 to 2^31-1)  → 1 Modbus register (truncates!)
+DWORD = uint32_t (0 to 2^32-1)      → 1 Modbus register (truncates!)
+REAL  = float    (32-bit IEEE 754)  → 1 Modbus register (truncates!)
+```
+
+**Korrekt IEC 61131-3 Implementation:**
+```c
+BOOL  = bool     (0/1)               → 1 coil eller 1 register
+INT   = int16_t  (-32768 to 32767)   → 1 register (16-bit)
+DINT  = int32_t  (-2^31 to 2^31-1)   → 2 registers (low+high word)
+DWORD = uint32_t (0 to 2^32-1)       → 2 registers (low+high word)
+REAL  = float    (32-bit IEEE 754)   → 2 registers (IEEE split)
+```
+
+#### Impact
+1. **INT Overflow Forkert:**
+   ```
+   Test: 32767 + 1
+   Nuværende:  32768 (unsigned trunc) ❌
+   Forventet: -32768 (signed overflow) ✓
+   ```
+
+2. **DINT/REAL Mangler:**
+   - Ingen support for 32-bit integers (DINT)
+   - REAL float værdi trunceres til 16-bit i Modbus registers
+   - Multi-register auto-allocation mangler
+
+3. **Register Mapping Broken:**
+   - 32-bit værdier skrives til 1 register i stedet for 2
+   - High word (bits 16-31) går tabt
+
+#### Root Cause Analysis
+
+**Problem 1: Type Definition**
+**Fil:** `include/st_types.h:139`
+```c
+typedef enum {
+  ST_TYPE_BOOL,
+  ST_TYPE_INT,    // FORKERT: Comment siger -2^31 to 2^31-1
+  ST_TYPE_DWORD,  // Bruges som 32-bit
+  ST_TYPE_REAL,   // 32-bit float
+} st_datatype_t;
+
+typedef union {
+  bool bool_val;
+  int32_t int_val;   // ← Skulle være int16_t
+  uint32_t dword_val;
+  float real_val;
+} st_value_t;
+```
+
+**Problem 2: Register Mapping**
+**Fil:** `src/gpio_mapping.cpp:177-191`
+```c
+// OUTPUT mode: Read from ST variable, write to Modbus
+var_value = prog->bytecode.variables[map->st_var_index].int_val;  // int32_t
+registers_set_holding_register(map->coil_reg, (uint16_t)var_value); // ← Truncate!
+```
+
+**Problem 3: VM Aritmetik**
+**Fil:** `src/st_vm.cpp:219`
+```c
+result.int_val = left.int_val + right.int_val;  // 32-bit add, men Modbus kun 16-bit
+```
+
+#### Proposed Solution
+
+**OPTION 1: Quick Fix - INT til 16-bit (30 min)**
+1. Ændr `st_value_t.int_val` fra `int32_t` til `int16_t`
+2. Opdater VM aritmetik til 16-bit overflow
+3. DINT/REAL forbliver 32-bit men mapper stadig til 1 register (begrænset)
+
+**OPTION 2: Full IEC 61131-3 Implementation (3-4 timer)**
+1. Tilføj ST_TYPE_DINT til enum
+2. Opdater lexer/parser til "DINT" keyword
+3. Multi-register support i gpio_mapping.cpp
+4. Auto-allocate consecutive registers for DINT/REAL
+5. Register allocator track multi-register ranges
+
+**OPTION 3: Staged Rollout**
+- Release v4.4.x: INT 16-bit fix
+- Release v5.0.0: DINT multi-register
+
+#### Affected Files (Full Implementation)
+1. `include/st_types.h` - Add DINT type
+2. `src/st_lexer.cpp` - Add "DINT" keyword
+3. `src/st_parser.cpp` - Parse DINT, update INT range check
+4. `src/st_compiler.cpp` - Type promotion rules
+5. `src/st_vm.cpp` - 16-bit INT arithmetic, 32-bit DINT arithmetic
+6. `src/gpio_mapping.cpp` - Multi-register read/write
+7. `src/cli_commands_logic.cpp` - Auto-allocate multi-register bindings
+8. `src/register_allocator.cpp` - Track multi-register allocations
+
+#### Test Cases (After Fix)
+
+**Test 1: INT 16-bit overflow**
+```st
+VAR a: INT; b: INT; result: INT; END_VAR
+result := 32767 + 1;  # Expected: -32768 ✓
+```
+
+**Test 2: DINT 32-bit (multi-register)**
+```st
+VAR a: DINT; b: DINT; result: DINT; END_VAR
+result := 100000 + 200000;  # Expected: 300000 (HR100+HR101)
+```
+
+**Test 3: REAL float (multi-register)**
+```st
+VAR a: REAL; b: REAL; result: REAL; END_VAR
+result := 3.14159 + 2.71828;  # Expected: 5.85987 (HR100+HR101)
+```
+
+#### Breaking Changes
+1. Eksisterende ST programmer med INT vil ændre overflow behavior
+2. DINT/REAL bindings kræver 2 consecutive registers
+3. Version bump til v5.0.0 (major breaking change)
+
+#### Dependencies
+- Register allocator must support multi-register ranges
+- CLI bind command must auto-detect word count
+- Modbus read/write må håndtere 32-bit splits
+
+#### Implementation Plan
+Se detaljeret plan i: `ST_TYPE_REFACTOR_PLAN.md`
+
+**Estimated Effort:**
+- Option 1 (Quick): 30 minutes
+- Option 2 (Full): 3-4 hours
+- Option 3 (Staged): 30 min + 3 hours (split across releases)
+
+#### References
+- IEC 61131-3 Standard: Data types (Table 10)
+- Modbus Application Protocol V1.1b: Multi-register reads (FC03/04)
+- IEEE 754: Float32 format specification
+
+**Reported By:** User testing (overflow test case failure)
+**Date:** 2025-12-28
+
+---
+

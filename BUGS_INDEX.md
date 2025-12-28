@@ -85,6 +85,7 @@
 | BUG-088 | ABS funktion INT_MIN overflow | ✅ FIXED | 🔴 CRITICAL | v4.4.5 | ABS(-2147483648) returnerer -2147483648 (ikke positiv) |
 | BUG-089 | ADD/SUB/MUL integer overflow | ✅ FIXED | 🔴 CRITICAL | v4.4.5 | Ingen overflow checks på arithmetic → silent overflow |
 | BUG-104 | Function argument NULL pointer | ✅ FIXED | 🟠 MEDIUM | v4.4.5 | parser_parse_expression() NULL ikke håndteret |
+| BUG-105 | INT type skal være 16-bit, ikke 32-bit (IEC 61131-3) | ❌ OPEN | 🔴 CRITICAL | v5.0.0 | INT overflow ikke korrekt, mangler DINT/multi-register |
 
 ## Quick Lookup by Category
 
