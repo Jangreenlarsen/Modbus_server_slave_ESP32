@@ -2234,17 +2234,41 @@ void cli_cmd_show_wifi(void) {
  * ============================================================================ */
 
 void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
-  // read reg <id> [antal]  (antal er optional, default = 1)
+  // read reg <id> [antal] [int|uint]  (antal og type er optional)
   if (argc < 1) {
     debug_println("READ REG: manglende parametre");
-    debug_println("  Brug: read reg <id> [antal]");
-    debug_println("  Eksempel: read reg 90     (l\u00e6ser 1 register)");
-    debug_println("  Eksempel: read reg 90 10  (l\u00e6ser 10 registre)");
+    debug_println("  Brug: read reg <id> [antal] [int|uint]");
+    debug_println("  Eksempel: read reg 90           (l\u00e6ser 1 register som uint)");
+    debug_println("  Eksempel: read reg 90 10        (l\u00e6ser 10 registre som uint)");
+    debug_println("  Eksempel: read reg 90 1 int     (l\u00e6ser 1 register som signed int)");
+    debug_println("  Eksempel: read reg 100 5 uint   (l\u00e6ser 5 registre som unsigned int)");
     return;
   }
 
   uint16_t start_addr = atoi(argv[0]);
-  uint16_t count = (argc >= 2) ? atoi(argv[1]) : 1;  // Default: 1 register
+  uint16_t count = 1;  // Default: 1 register
+  bool display_as_signed = false;  // Default: unsigned
+
+  // Parse count (argv[1])
+  if (argc >= 2) {
+    // Check if argv[1] is a type keyword or a number
+    if (strcasecmp(argv[1], "int") == 0) {
+      display_as_signed = true;
+    } else if (strcasecmp(argv[1], "uint") == 0) {
+      display_as_signed = false;
+    } else {
+      count = atoi(argv[1]);
+    }
+  }
+
+  // Parse type (argv[2])
+  if (argc >= 3) {
+    if (strcasecmp(argv[2], "int") == 0) {
+      display_as_signed = true;
+    } else if (strcasecmp(argv[2], "uint") == 0) {
+      display_as_signed = false;
+    }
+  }
 
   // Validate parameters
   if (start_addr >= HOLDING_REGS_SIZE) {
@@ -2273,7 +2297,9 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
   debug_print_uint(start_addr);
   debug_print(" til ");
   debug_print_uint(start_addr + count - 1);
-  debug_println(":\n");
+  debug_print(" (");
+  debug_print(display_as_signed ? "signed int" : "unsigned int");
+  debug_println("):\n");
 
   for (uint16_t i = 0; i < count; i++) {
     uint16_t addr = start_addr + i;
@@ -2282,7 +2308,21 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
     debug_print("Reg[");
     debug_print_uint(addr);
     debug_print("]: ");
-    debug_print_uint(value);
+
+    if (display_as_signed) {
+      // Display as signed 16-bit integer (-32768 to 32767)
+      int16_t signed_value = (int16_t)value;
+      if (signed_value < 0) {
+        debug_print("-");
+        debug_print_uint((uint16_t)(-signed_value));
+      } else {
+        debug_print_uint((uint16_t)signed_value);
+      }
+    } else {
+      // Display as unsigned 16-bit integer (0 to 65535)
+      debug_print_uint(value);
+    }
+
     debug_println("");
   }
   debug_println("");
