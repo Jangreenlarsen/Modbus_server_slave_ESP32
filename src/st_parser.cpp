@@ -199,7 +199,7 @@ static st_ast_node_t *parser_parse_primary(st_parser_t *parser) {
     return node;
   }
 
-  // Integer literal
+  // Integer literal (INT = 16-bit, range: -32768 to 32767)
   if (parser_match(parser, ST_TOK_INT)) {
     st_ast_node_t *node = ast_node_alloc(ST_AST_LITERAL, line);
     // BUG-066: Check malloc failure
@@ -207,16 +207,20 @@ static st_ast_node_t *parser_parse_primary(st_parser_t *parser) {
       parser_error(parser, "Out of memory");
       return NULL;
     }
-    node->data.literal.type = ST_TYPE_INT;
     // BUG-069: Check for overflow
     errno = 0;
     long val = strtol(parser->current_token.value, NULL, 0);
-    if (errno == ERANGE || val > INT32_MAX || val < INT32_MIN) {
-      parser_error(parser, "Integer literal overflow");
+
+    // INT range: -32768 to 32767 (16-bit)
+    // For DINT literals, use different parsing (future enhancement)
+    if (errno == ERANGE || val > INT16_MAX || val < INT16_MIN) {
+      parser_error(parser, "Integer literal overflow (INT range: -32768 to 32767)");
       free(node);
       return NULL;
     }
-    node->data.literal.value.int_val = (int32_t)val;
+
+    node->data.literal.type = ST_TYPE_INT;
+    node->data.literal.value.int_val = (int16_t)val;
     parser_advance(parser);
     return node;
   }
@@ -1138,6 +1142,9 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
       } else if (parser_match(parser, ST_TOK_INT_KW)) {
         datatype = ST_TYPE_INT;
         parser_advance(parser);
+      } else if (parser_match(parser, ST_TOK_DINT_KW)) {
+        datatype = ST_TYPE_DINT;
+        parser_advance(parser);
       } else if (parser_match(parser, ST_TOK_DWORD)) {
         datatype = ST_TYPE_DWORD;
         parser_advance(parser);
@@ -1145,7 +1152,7 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
         datatype = ST_TYPE_REAL;
         parser_advance(parser);
       } else {
-        parser_error(parser, "Expected data type (BOOL, INT, DWORD, REAL)");
+        parser_error(parser, "Expected data type (BOOL, INT, DINT, DWORD, REAL)");
         return false;
       }
 

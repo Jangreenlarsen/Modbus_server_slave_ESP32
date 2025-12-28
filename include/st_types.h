@@ -36,8 +36,9 @@ typedef enum {
 
   // Keywords - Data types
   ST_TOK_BOOL,              // BOOL (keyword)
-  ST_TOK_INT_KW,            // INT (keyword - different from literal ST_TOK_INT)
-  ST_TOK_DWORD,             // DWORD (or UINT32, ULINT)
+  ST_TOK_INT_KW,            // INT (keyword - 16-bit signed)
+  ST_TOK_DINT_KW,           // DINT (keyword - 32-bit signed, Double INT)
+  ST_TOK_DWORD,             // DWORD (or UINT32, ULINT - 32-bit unsigned)
   ST_TOK_REAL_KW,           // REAL (keyword - different from literal ST_TOK_REAL)
 
   // Keywords - Variable declarators (IEC 6.2.3)
@@ -135,19 +136,21 @@ typedef struct {
  * ============================================================================ */
 
 typedef enum {
-  ST_TYPE_BOOL,             // BOOL (0/1)
-  ST_TYPE_INT,              // INT (-2^31 to 2^31-1)
-  ST_TYPE_DWORD,            // DWORD (0 to 2^32-1, unsigned)
-  ST_TYPE_REAL,             // REAL (IEEE 754 32-bit float)
+  ST_TYPE_BOOL,             // BOOL (0/1) - 1 bit/register
+  ST_TYPE_INT,              // INT (-32768 to 32767) - 16-bit signed, 1 register
+  ST_TYPE_DINT,             // DINT (-2^31 to 2^31-1) - 32-bit signed, 2 registers
+  ST_TYPE_DWORD,            // DWORD (0 to 2^32-1) - 32-bit unsigned, 2 registers
+  ST_TYPE_REAL,             // REAL (IEEE 754 32-bit float) - 2 registers
   ST_TYPE_NONE,             // Used for statements (not variables)
 } st_datatype_t;
 
 /* Union to hold any ST value */
 typedef union {
-  bool bool_val;
-  int32_t int_val;
-  uint32_t dword_val;
-  float real_val;
+  bool bool_val;            // BOOL: 1 byte
+  int16_t int_val;          // INT: 16-bit signed (-32768 to 32767)
+  int32_t dint_val;         // DINT: 32-bit signed (-2^31 to 2^31-1)
+  uint32_t dword_val;       // DWORD: 32-bit unsigned (0 to 2^32-1)
+  float real_val;           // REAL: 32-bit IEEE 754 float
 } st_value_t;
 
 /* ST Variable (in VAR declarations) */

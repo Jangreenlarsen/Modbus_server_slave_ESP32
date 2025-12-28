@@ -79,6 +79,7 @@ static const keyword_entry_t keywords[] = {
   // Data types
   {"BOOL", ST_TOK_BOOL},
   {"INT", ST_TOK_INT_KW},
+  {"DINT", ST_TOK_DINT_KW},
   {"DWORD", ST_TOK_DWORD},
   {"REAL", ST_TOK_REAL_KW},
 
@@ -515,6 +516,7 @@ const char *st_token_type_to_string(st_token_type_t type) {
     case ST_TOK_CONST:          return "CONST";
     case ST_TOK_BOOL:           return "BOOL";
     case ST_TOK_INT_KW:         return "INT_KW";
+    case ST_TOK_DINT_KW:        return "DINT_KW";
     case ST_TOK_DWORD:          return "DWORD";
     case ST_TOK_REAL_KW:        return "REAL_KW";
     case ST_TOK_VAR:            return "VAR";

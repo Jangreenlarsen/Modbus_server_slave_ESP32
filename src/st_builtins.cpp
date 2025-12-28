@@ -18,9 +18,9 @@
 
 st_value_t st_builtin_abs(st_value_t x) {
   st_value_t result;
-  // BUG-088: Handle INT_MIN overflow (-INT_MIN = INT_MIN, not positive)
-  if (x.int_val == INT32_MIN) {
-    result.int_val = INT32_MAX;  // Clamp to max positive value
+  // BUG-088 & BUG-105: Handle INT16_MIN overflow (-INT16_MIN = INT16_MIN, not positive)
+  if (x.int_val == INT16_MIN) {
+    result.int_val = INT16_MAX;  // Clamp to max positive value (32767)
   } else {
     result.int_val = (x.int_val < 0) ? -x.int_val : x.int_val;
   }
@@ -52,25 +52,41 @@ st_value_t st_builtin_sqrt(st_value_t x) {
 
 st_value_t st_builtin_round(st_value_t x) {
   st_value_t result;
-  result.int_val = (int32_t)roundf(x.real_val);
+  // BUG-105: Clamp to INT16 range (-32768 to 32767)
+  int32_t temp = (int32_t)roundf(x.real_val);
+  if (temp > INT16_MAX) temp = INT16_MAX;
+  if (temp < INT16_MIN) temp = INT16_MIN;
+  result.int_val = (int16_t)temp;
   return result;
 }
 
 st_value_t st_builtin_trunc(st_value_t x) {
   st_value_t result;
-  result.int_val = (int32_t)truncf(x.real_val);
+  // BUG-105: Clamp to INT16 range (-32768 to 32767)
+  int32_t temp = (int32_t)truncf(x.real_val);
+  if (temp > INT16_MAX) temp = INT16_MAX;
+  if (temp < INT16_MIN) temp = INT16_MIN;
+  result.int_val = (int16_t)temp;
   return result;
 }
 
 st_value_t st_builtin_floor(st_value_t x) {
   st_value_t result;
-  result.int_val = (int32_t)floorf(x.real_val);
+  // BUG-105: Clamp to INT16 range (-32768 to 32767)
+  int32_t temp = (int32_t)floorf(x.real_val);
+  if (temp > INT16_MAX) temp = INT16_MAX;
+  if (temp < INT16_MIN) temp = INT16_MIN;
+  result.int_val = (int16_t)temp;
   return result;
 }
 
 st_value_t st_builtin_ceil(st_value_t x) {
   st_value_t result;
-  result.int_val = (int32_t)ceilf(x.real_val);
+  // BUG-105: Clamp to INT16 range (-32768 to 32767)
+  int32_t temp = (int32_t)ceilf(x.real_val);
+  if (temp > INT16_MAX) temp = INT16_MAX;
+  if (temp < INT16_MIN) temp = INT16_MIN;
+  result.int_val = (int16_t)temp;
   return result;
 }
 
@@ -134,7 +150,11 @@ st_value_t st_builtin_int_to_real(st_value_t i) {
 
 st_value_t st_builtin_real_to_int(st_value_t r) {
   st_value_t result;
-  result.int_val = (int32_t)r.real_val;
+  // BUG-105: Clamp to INT16 range (-32768 to 32767)
+  int32_t temp = (int32_t)r.real_val;
+  if (temp > INT16_MAX) temp = INT16_MAX;
+  if (temp < INT16_MIN) temp = INT16_MIN;
+  result.int_val = (int16_t)temp;
   return result;
 }
 
@@ -152,11 +172,11 @@ st_value_t st_builtin_int_to_bool(st_value_t i) {
 
 st_value_t st_builtin_dword_to_int(st_value_t d) {
   st_value_t result;
-  // Clamp to INT range if overflow
-  if (d.dword_val > 2147483647) {
-    result.int_val = 2147483647;
+  // BUG-105: Clamp to INT16 range (-32768 to 32767)
+  if (d.dword_val > (uint32_t)INT16_MAX) {
+    result.int_val = INT16_MAX;  // 32767
   } else {
-    result.int_val = (int32_t)d.dword_val;
+    result.int_val = (int16_t)d.dword_val;
   }
   return result;
 }

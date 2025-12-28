@@ -200,25 +200,31 @@ static bool st_vm_exec_add(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
 
-  // If either operand is REAL, result is REAL
+  // REAL type promotion
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    // Convert operands to REAL
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.real_val = left_f + right_f;
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
-  } else {
-    // BUG-089: Check for integer overflow in addition
-    // Overflow: (left > 0 && right > 0 && left > INT32_MAX - right)
-    // Underflow: (left < 0 && right < 0 && left < INT32_MIN - right)
-    if ((left.int_val > 0 && right.int_val > 0 && left.int_val > INT32_MAX - right.int_val) ||
-        (left.int_val < 0 && right.int_val < 0 && left.int_val < INT32_MIN - right.int_val)) {
-      // Promote to REAL on overflow
-      result.real_val = (float)left.int_val + (float)right.int_val;
-      return st_vm_push_typed(vm, result, ST_TYPE_REAL);
-    }
-    result.int_val = left.int_val + right.int_val;
-    return st_vm_push_typed(vm, result, ST_TYPE_INT);
   }
+
+  // DINT + DINT = DINT (32-bit arithmetic)
+  if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.dint_val = left_d + right_d;  // Wraps on overflow
+    return st_vm_push_typed(vm, result, ST_TYPE_DINT);
+  }
+
+  // INT + INT = INT (16-bit arithmetic with natural wrapping)
+  // BUG-105 FIX: INT is now 16-bit, overflow wraps: 32767 + 1 = -32768
+  result.int_val = (int16_t)(left.int_val + right.int_val);  // Cast ensures 16-bit wrap
+  return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
 static bool st_vm_exec_sub(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -229,25 +235,31 @@ static bool st_vm_exec_sub(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
 
-  // If either operand is REAL, result is REAL
+  // REAL type promotion
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    // Convert operands to REAL
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.real_val = left_f - right_f;
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
-  } else {
-    // BUG-089: Check for integer overflow in subtraction
-    // Overflow: (left > 0 && right < 0 && left > INT32_MAX + right)
-    // Underflow: (left < 0 && right > 0 && left < INT32_MIN + right)
-    if ((left.int_val > 0 && right.int_val < 0 && left.int_val > INT32_MAX + right.int_val) ||
-        (left.int_val < 0 && right.int_val > 0 && left.int_val < INT32_MIN + right.int_val)) {
-      // Promote to REAL on overflow
-      result.real_val = (float)left.int_val - (float)right.int_val;
-      return st_vm_push_typed(vm, result, ST_TYPE_REAL);
-    }
-    result.int_val = left.int_val - right.int_val;
-    return st_vm_push_typed(vm, result, ST_TYPE_INT);
   }
+
+  // DINT - DINT = DINT (32-bit arithmetic)
+  if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.dint_val = left_d - right_d;  // Wraps on overflow
+    return st_vm_push_typed(vm, result, ST_TYPE_DINT);
+  }
+
+  // INT - INT = INT (16-bit arithmetic with natural wrapping)
+  // BUG-105 FIX: INT is now 16-bit, overflow wraps
+  result.int_val = (int16_t)(left.int_val - right.int_val);  // Cast ensures 16-bit wrap
+  return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
 static bool st_vm_exec_mul(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -258,24 +270,31 @@ static bool st_vm_exec_mul(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
 
-  // If either operand is REAL, result is REAL
+  // REAL type promotion
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    // Convert operands to REAL
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.real_val = left_f * right_f;
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
-  } else {
-    // BUG-089: Check for integer overflow in multiplication
-    // Use int64_t to detect overflow
-    int64_t result_64 = (int64_t)left.int_val * (int64_t)right.int_val;
-    if (result_64 > INT32_MAX || result_64 < INT32_MIN) {
-      // Promote to REAL on overflow
-      result.real_val = (float)left.int_val * (float)right.int_val;
-      return st_vm_push_typed(vm, result, ST_TYPE_REAL);
-    }
-    result.int_val = (int32_t)result_64;
-    return st_vm_push_typed(vm, result, ST_TYPE_INT);
   }
+
+  // DINT * DINT = DINT (32-bit arithmetic)
+  if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.dint_val = left_d * right_d;  // Wraps on overflow
+    return st_vm_push_typed(vm, result, ST_TYPE_DINT);
+  }
+
+  // INT * INT = INT (16-bit arithmetic with natural wrapping)
+  // BUG-105 FIX: INT is now 16-bit, overflow wraps
+  result.int_val = (int16_t)(left.int_val * right.int_val);  // Cast ensures 16-bit wrap
+  return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
 static bool st_vm_exec_div(st_vm_t *vm, st_bytecode_instr_t *instr) {
@@ -287,8 +306,15 @@ static bool st_vm_exec_div(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
 
   // Division always returns REAL (to preserve precision)
-  float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-  float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+  // Convert all types to REAL before division
+  float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                 (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                 (left_type == ST_TYPE_DINT) ? (float)left.dint_val :
+                 (float)left.dword_val;
+  float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                  (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                  (right_type == ST_TYPE_DINT) ? (float)right.dint_val :
+                  (float)right.dword_val;
 
   if (right_f == 0.0f) {
     snprintf(vm->error_msg, sizeof(vm->error_msg), "Division by zero");
@@ -302,22 +328,48 @@ static bool st_vm_exec_div(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
 static bool st_vm_exec_mod(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t right, left, result;
-  if (!st_vm_pop(vm, &right)) return false;
-  if (!st_vm_pop(vm, &left)) return false;
+  st_datatype_t right_type, left_type;
 
+  // BUG-050: Pop with type information
+  if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
+  if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // DINT % DINT = DINT (32-bit modulo)
+  if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+
+    if (right_d == 0) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "Modulo by zero");
+      vm->error = 1;
+      return false;
+    }
+
+    // BUG-083: Handle INT32_MIN % -1 overflow (undefined behavior in C/C++)
+    if (left_d == INT32_MIN && right_d == -1) {
+      result.dint_val = 0;  // Mathematically correct (INT_MIN % -1 = 0)
+      return st_vm_push_typed(vm, result, ST_TYPE_DINT);
+    }
+
+    result.dint_val = left_d % right_d;
+    return st_vm_push_typed(vm, result, ST_TYPE_DINT);
+  }
+
+  // INT % INT = INT (16-bit modulo)
+  // BUG-105 FIX: INT is now 16-bit
   if (right.int_val == 0) {
     snprintf(vm->error_msg, sizeof(vm->error_msg), "Modulo by zero");
     vm->error = 1;
     return false;
   }
 
-  // BUG-083: Handle INT_MIN % -1 overflow (undefined behavior in C/C++)
-  if (left.int_val == INT32_MIN && right.int_val == -1) {
-    result.int_val = 0;  // Mathematically correct (INT_MIN % -1 = 0)
+  // BUG-083: Handle INT16_MIN % -1 overflow (undefined behavior in C/C++)
+  if (left.int_val == INT16_MIN && right.int_val == -1) {
+    result.int_val = 0;  // Mathematically correct (INT16_MIN % -1 = 0)
     return st_vm_push_typed(vm, result, ST_TYPE_INT);
   }
 
-  result.int_val = left.int_val % right.int_val;
+  result.int_val = (int16_t)(left.int_val % right.int_val);  // Cast to 16-bit
   return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
@@ -332,14 +384,24 @@ static bool st_vm_exec_neg(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (val_type == ST_TYPE_REAL) {
     result.real_val = -val.real_val;
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
-  } else {
-    // BUG-087: Handle INT_MIN negation (undefined behavior in C/C++)
-    if (val.int_val == INT32_MIN) {
-      // -INT_MIN overflows to INT_MAX+1, convert to REAL for safe negation
-      result.real_val = -(float)val.int_val;  // 2147483648.0
+  } else if (val_type == ST_TYPE_DINT) {
+    // BUG-087: Handle INT32_MIN negation (undefined behavior in C/C++)
+    if (val.dint_val == INT32_MIN) {
+      // -INT32_MIN overflows to INT32_MAX+1, convert to REAL for safe negation
+      result.real_val = -(float)val.dint_val;  // 2147483648.0
       return st_vm_push_typed(vm, result, ST_TYPE_REAL);
     }
-    result.int_val = -val.int_val;
+    result.dint_val = -val.dint_val;
+    return st_vm_push_typed(vm, result, ST_TYPE_DINT);
+  } else {
+    // INT type (16-bit)
+    // BUG-087 & BUG-105: Handle INT16_MIN negation (undefined behavior in C/C++)
+    if (val.int_val == INT16_MIN) {
+      // -INT16_MIN overflows to INT16_MAX+1, convert to REAL for safe negation
+      result.real_val = -(float)val.int_val;  // 32768.0
+      return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+    }
+    result.int_val = (int16_t)(-val.int_val);  // Cast to 16-bit
     return st_vm_push_typed(vm, result, ST_TYPE_INT);
   }
 }
@@ -397,10 +459,20 @@ static bool st_vm_exec_eq(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
   // If either operand is REAL, compare as REAL
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.bool_val = (left_f == right_f);
+  } else if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    // DINT comparison (promote INT to DINT)
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.bool_val = (left_d == right_d);
   } else {
+    // INT comparison (16-bit)
     result.bool_val = (left.int_val == right.int_val);
   }
   return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
@@ -416,10 +488,20 @@ static bool st_vm_exec_ne(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
   // If either operand is REAL, compare as REAL
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.bool_val = (left_f != right_f);
+  } else if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    // DINT comparison (promote INT to DINT)
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.bool_val = (left_d != right_d);
   } else {
+    // INT comparison (16-bit)
     result.bool_val = (left.int_val != right.int_val);
   }
   return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
@@ -435,10 +517,20 @@ static bool st_vm_exec_lt(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
   // If either operand is REAL, compare as REAL
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.bool_val = (left_f < right_f);
+  } else if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    // DINT comparison (promote INT to DINT)
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.bool_val = (left_d < right_d);
   } else {
+    // INT comparison (16-bit)
     result.bool_val = (left.int_val < right.int_val);
   }
   return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
@@ -454,10 +546,20 @@ static bool st_vm_exec_gt(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
   // If either operand is REAL, compare as REAL
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.bool_val = (left_f > right_f);
+  } else if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    // DINT comparison (promote INT to DINT)
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.bool_val = (left_d > right_d);
   } else {
+    // INT comparison (16-bit)
     result.bool_val = (left.int_val > right.int_val);
   }
   return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
@@ -473,10 +575,20 @@ static bool st_vm_exec_le(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
   // If either operand is REAL, compare as REAL
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.bool_val = (left_f <= right_f);
+  } else if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    // DINT comparison (promote INT to DINT)
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.bool_val = (left_d <= right_d);
   } else {
+    // INT comparison (16-bit)
     result.bool_val = (left.int_val <= right.int_val);
   }
   return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
@@ -492,10 +604,20 @@ static bool st_vm_exec_ge(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
   // If either operand is REAL, compare as REAL
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
-    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val : (float)left.int_val;
-    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val : (float)right.int_val;
+    float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
+                   (left_type == ST_TYPE_INT) ? (float)left.int_val :
+                   (float)left.dint_val;
+    float right_f = (right_type == ST_TYPE_REAL) ? right.real_val :
+                    (right_type == ST_TYPE_INT) ? (float)right.int_val :
+                    (float)right.dint_val;
     result.bool_val = (left_f >= right_f);
+  } else if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
+    // DINT comparison (promote INT to DINT)
+    int32_t left_d = (left_type == ST_TYPE_DINT) ? left.dint_val : (int32_t)left.int_val;
+    int32_t right_d = (right_type == ST_TYPE_DINT) ? right.dint_val : (int32_t)right.int_val;
+    result.bool_val = (left_d >= right_d);
   } else {
+    // INT comparison (16-bit)
     result.bool_val = (left.int_val >= right.int_val);
   }
   return st_vm_push_typed(vm, result, ST_TYPE_BOOL);
@@ -507,33 +629,65 @@ static bool st_vm_exec_ge(st_vm_t *vm, st_bytecode_instr_t *instr) {
 
 static bool st_vm_exec_shl(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t right, left, result;
-  if (!st_vm_pop(vm, &right)) return false;
-  if (!st_vm_pop(vm, &left)) return false;
+  st_datatype_t right_type, left_type;
 
-  // BUG-073: Check shift amount (undefined behavior if >= 32)
-  if (right.int_val < 0 || right.int_val >= 32) {
-    snprintf(vm->error_msg, sizeof(vm->error_msg), "Shift amount out of range (0-31)");
+  // BUG-050: Pop with type information
+  if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
+  if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // DINT shift left (32-bit)
+  if (left_type == ST_TYPE_DINT) {
+    // BUG-073: Check shift amount (undefined behavior if >= 32)
+    if (right.int_val < 0 || right.int_val >= 32) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "Shift amount out of range for DINT (0-31)");
+      vm->error = 1;
+      return false;
+    }
+    result.dint_val = left.dint_val << right.int_val;
+    return st_vm_push_typed(vm, result, ST_TYPE_DINT);
+  }
+
+  // INT shift left (16-bit)
+  // BUG-073 & BUG-105: Check shift amount (undefined behavior if >= 16)
+  if (right.int_val < 0 || right.int_val >= 16) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg), "Shift amount out of range for INT (0-15)");
     vm->error = 1;
     return false;
   }
 
-  result.int_val = left.int_val << right.int_val;
+  result.int_val = (int16_t)(left.int_val << right.int_val);  // Cast to 16-bit
   return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
 static bool st_vm_exec_shr(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_value_t right, left, result;
-  if (!st_vm_pop(vm, &right)) return false;
-  if (!st_vm_pop(vm, &left)) return false;
+  st_datatype_t right_type, left_type;
 
-  // BUG-073: Check shift amount (undefined behavior if >= 32)
-  if (right.int_val < 0 || right.int_val >= 32) {
-    snprintf(vm->error_msg, sizeof(vm->error_msg), "Shift amount out of range (0-31)");
+  // BUG-050: Pop with type information
+  if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
+  if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // DINT shift right (32-bit)
+  if (left_type == ST_TYPE_DINT) {
+    // BUG-073: Check shift amount (undefined behavior if >= 32)
+    if (right.int_val < 0 || right.int_val >= 32) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "Shift amount out of range for DINT (0-31)");
+      vm->error = 1;
+      return false;
+    }
+    result.dint_val = left.dint_val >> right.int_val;
+    return st_vm_push_typed(vm, result, ST_TYPE_DINT);
+  }
+
+  // INT shift right (16-bit)
+  // BUG-073 & BUG-105: Check shift amount (undefined behavior if >= 16)
+  if (right.int_val < 0 || right.int_val >= 16) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg), "Shift amount out of range for INT (0-15)");
     vm->error = 1;
     return false;
   }
 
-  result.int_val = left.int_val >> right.int_val;
+  result.int_val = (int16_t)(left.int_val >> right.int_val);  // Cast to 16-bit
   return st_vm_push_typed(vm, result, ST_TYPE_INT);
 }
 
