@@ -87,6 +87,7 @@
 | BUG-104 | Function argument NULL pointer | ✅ FIXED | 🟠 MEDIUM | v4.4.5 | parser_parse_expression() NULL ikke håndteret |
 | BUG-105 | INT type skal være 16-bit, ikke 32-bit (IEC 61131-3) | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | INT overflow ikke korrekt, mangler DINT/multi-register |
 | BUG-106 | Division by zero gemmer gamle værdier | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | Variabler kopieres tilbage fra VM også ved runtime error |
+| BUG-107 | CLI bind display viser "HR#X" for coil input | ✅ FIXED | 🔵 LOW | v5.0.0 | Forvirrende CLI output, men funktionalitet virker |
 
 ## Quick Lookup by Category
 

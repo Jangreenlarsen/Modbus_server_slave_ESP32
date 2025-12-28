@@ -606,8 +606,11 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
     // Print confirmation
     debug_printf("[OK] Logic%d: var[%d] (%s) ", program_id + 1, var_index, prog->bytecode.var_names[var_index]);
 
+    // BUG-107 FIX: Display correct type for all input/output combinations
     if (is_input && input_type == 1) {
       debug_printf("<- Modbus INPUT#%d\n", modbus_reg);
+    } else if (is_input && input_type == 2) {
+      debug_printf("<- Modbus COIL#%d\n", modbus_reg);
     } else if (is_input) {
       debug_printf("<- Modbus HR#%d\n", modbus_reg);
     } else if (output_type == 1) {
