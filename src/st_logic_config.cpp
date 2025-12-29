@@ -163,16 +163,27 @@ bool st_logic_delete(st_logic_engine_state_t *state, uint8_t program_id) {
       // BUG-047 FIX: Free allocated registers before removing binding
       VariableMapping *map = &g_persist_config.var_maps[i];
 
-      // Free input register if allocated (HR type)
+      // BUG-109 FIX: Free multi-register bindings (DINT/REAL use word_count=2)
+      uint8_t word_count = (map->word_count > 0) ? map->word_count : 1;
+
+      // Free input register(s) if allocated (HR type)
       if (map->is_input && map->input_type == 0 && map->input_reg < ALLOCATOR_SIZE) {
-        register_allocator_free(map->input_reg);
+        for (uint8_t w = 0; w < word_count; w++) {
+          if (map->input_reg + w < ALLOCATOR_SIZE) {
+            register_allocator_free(map->input_reg + w);
+          }
+        }
       }
 
       // Free output register/coil if allocated
       if (!map->is_input) {
         if (map->output_type == 0 && map->coil_reg < ALLOCATOR_SIZE) {
-          // Holding register
-          register_allocator_free(map->coil_reg);
+          // Holding register - free all words
+          for (uint8_t w = 0; w < word_count; w++) {
+            if (map->coil_reg + w < ALLOCATOR_SIZE) {
+              register_allocator_free(map->coil_reg + w);
+            }
+          }
         }
         // Note: Coils don't use register allocator (only HR 0-299 tracked)
       }

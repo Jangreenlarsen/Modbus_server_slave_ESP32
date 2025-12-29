@@ -795,11 +795,33 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     } else {
       result = st_builtin_call(func_id, arg1, arg2);
     }
+  } else if (func_id == ST_BUILTIN_SUM && arg_count == 2) {
+    // BUG-110 FIX: SUM is type-polymorphic like ADD operator
+    // REAL type promotion
+    if (arg1_type == ST_TYPE_REAL || arg2_type == ST_TYPE_REAL) {
+      float left_f = (arg1_type == ST_TYPE_REAL) ? arg1.real_val :
+                     (arg1_type == ST_TYPE_INT) ? (float)arg1.int_val :
+                     (float)arg1.dint_val;
+      float right_f = (arg2_type == ST_TYPE_REAL) ? arg2.real_val :
+                      (arg2_type == ST_TYPE_INT) ? (float)arg2.int_val :
+                      (float)arg2.dint_val;
+      result.real_val = left_f + right_f;
+    }
+    // DINT + DINT = DINT (32-bit arithmetic)
+    else if (arg1_type == ST_TYPE_DINT || arg2_type == ST_TYPE_DINT) {
+      int32_t left_d = (arg1_type == ST_TYPE_DINT) ? arg1.dint_val : (int32_t)arg1.int_val;
+      int32_t right_d = (arg2_type == ST_TYPE_DINT) ? arg2.dint_val : (int32_t)arg2.int_val;
+      result.dint_val = left_d + right_d;
+    }
+    // INT + INT = INT (16-bit arithmetic)
+    else {
+      result.int_val = (int16_t)(arg1.int_val + arg2.int_val);
+    }
   } else {
     result = st_builtin_call(func_id, arg1, arg2);
   }
 
-  // BUG-077: Infer return type for polymorphic functions (SEL, LIMIT)
+  // BUG-077: Infer return type for polymorphic functions (SEL, LIMIT, SUM)
   st_datatype_t return_type;
   if (func_id == ST_BUILTIN_SEL) {
     // SEL returns same type as in0/in1 (arg2 and arg3)
@@ -812,6 +834,16 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
       return_type = ST_TYPE_REAL;
     } else {
       return_type = arg1_type;  // All are INT/BOOL/DWORD → use first
+    }
+  } else if (func_id == ST_BUILTIN_SUM) {
+    // BUG-110 FIX: SUM returns same type as ADD operator
+    // If either is REAL, return REAL (type promotion)
+    if (arg1_type == ST_TYPE_REAL || arg2_type == ST_TYPE_REAL) {
+      return_type = ST_TYPE_REAL;
+    } else if (arg1_type == ST_TYPE_DINT || arg2_type == ST_TYPE_DINT) {
+      return_type = ST_TYPE_DINT;
+    } else {
+      return_type = ST_TYPE_INT;
     }
   } else {
     // Non-polymorphic function: use static return type
