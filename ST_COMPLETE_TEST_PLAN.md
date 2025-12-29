@@ -2039,7 +2039,7 @@ read HR101-104 → Forventet: 1000 (DWORD format)
 **Prerequisites (kør disse først):**
 ```bash
 # Step 1: Opret en persist gruppe (hvis ikke allerede gjort)
-set persist create-group test_gruppe 100-105
+set persist group test_gruppe add 100-105
 
 # Step 2: Skriv nogle testværdier til gruppen
 write reg 100 value uint 1234
@@ -2201,7 +2201,7 @@ LOAD(0) failed: Could not restore group
 **Step 1: Setup persist gruppe:**
 ```bash
 # Opret gruppe til counter data
-set persist create-group counter_backup 200-202
+set persist group counter_backup add 200-202
 ```
 
 **Step 2: Upload ST program:**

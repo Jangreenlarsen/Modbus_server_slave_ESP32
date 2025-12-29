@@ -1023,6 +1023,97 @@ void cli_cmd_load(void) {
  * PERSISTENCE GROUP MANAGEMENT (v4.0+)
  * ============================================================================ */
 
+/**
+ * @brief Parse register range notation (supports ranges and comma-separated values)
+ *
+ * Examples:
+ *   "100-105"           -> [100, 101, 102, 103, 104, 105]
+ *   "110,112"           -> [110, 112]
+ *   "100-105,110,120-122" -> [100, 101, 102, 103, 104, 105, 110, 120, 121, 122]
+ *
+ * @param input String containing register ranges/values
+ * @param output Array to store parsed register addresses
+ * @param max_output Maximum size of output array
+ * @return Number of registers parsed, or -1 on error
+ */
+static int parse_register_range(const char* input, uint16_t* output, uint16_t max_output) {
+  char buffer[256];
+  strncpy(buffer, input, sizeof(buffer) - 1);
+  buffer[sizeof(buffer) - 1] = '\0';
+
+  uint16_t count = 0;
+  char* token = strtok(buffer, ",");
+
+  while (token != NULL && count < max_output) {
+    // Trim leading/trailing whitespace
+    while (*token == ' ') token++;
+    char* end = token + strlen(token) - 1;
+    while (end > token && *end == ' ') *end-- = '\0';
+
+    // Check if it's a range (contains '-')
+    char* dash = strchr(token, '-');
+
+    if (dash != NULL) {
+      // Parse range (e.g., "100-105")
+      *dash = '\0';  // Split at dash
+      uint16_t start = atoi(token);
+      uint16_t end_val = atoi(dash + 1);
+
+      // Validate range
+      if (start > end_val) {
+        debug_print("ERROR: Invalid range '");
+        debug_print(token);
+        debug_print("-");
+        debug_print(dash + 1);
+        debug_println("' (start > end)");
+        return -1;
+      }
+
+      if (end_val >= HOLDING_REGS_SIZE) {
+        debug_print("ERROR: Register address ");
+        debug_print_uint(end_val);
+        debug_print(" out of range (max ");
+        debug_print_uint(HOLDING_REGS_SIZE - 1);
+        debug_println(")");
+        return -1;
+      }
+
+      // Add all registers in range
+      for (uint16_t addr = start; addr <= end_val && count < max_output; addr++) {
+        output[count++] = addr;
+      }
+
+    } else {
+      // Parse single register
+      uint16_t addr = atoi(token);
+
+      if (addr >= HOLDING_REGS_SIZE) {
+        debug_print("ERROR: Register address ");
+        debug_print_uint(addr);
+        debug_print(" out of range (max ");
+        debug_print_uint(HOLDING_REGS_SIZE - 1);
+        debug_println(")");
+        return -1;
+      }
+
+      output[count++] = addr;
+    }
+
+    token = strtok(NULL, ",");
+  }
+
+  if (count == 0) {
+    debug_println("ERROR: No valid registers found in input");
+    return -1;
+  }
+
+  if (count >= max_output) {
+    debug_println("WARNING: Register list truncated (max 256 registers per command)");
+  }
+
+  return count;
+}
+
 void cli_cmd_set_persist_group(uint8_t argc, char* argv[]) {
   // Syntax:
   //   set persist group <name> add <reg1> [reg2] [reg3] ...
@@ -1047,17 +1138,36 @@ void cli_cmd_set_persist_group(uint8_t argc, char* argv[]) {
       }
     }
 
-    // Add registers (argv[2], argv[3], ...)
+    // Add registers (supports ranges: 100-105,110,112,120-122)
     if (argc < 3) {
       debug_println("ERROR: No registers specified");
-      debug_println("Usage: set persist group <name> add <reg1> [reg2] [reg3] ...");
+      debug_println("Usage: set persist group <name> add <reg_spec>");
+      debug_println("Examples:");
+      debug_println("  set persist group test add 100-105");
+      debug_println("  set persist group test add 110,112,115");
+      debug_println("  set persist group test add 100-105,110,120-122");
+      debug_println("  set persist group test add 100 101 102  (old syntax also works)");
       return;
     }
 
-    uint8_t added = 0;
+    // Concatenate all arguments from argv[2] onwards (allows both old and new syntax)
+    char range_spec[256] = "";
     for (uint8_t i = 2; i < argc; i++) {
-      uint16_t reg_addr = atoi(argv[i]);
-      if (registers_persist_group_add_reg(group_name, reg_addr)) {
+      if (i > 2) strcat(range_spec, ",");
+      strncat(range_spec, argv[i], sizeof(range_spec) - strlen(range_spec) - 1);
+    }
+
+    // Parse register range/list
+    static uint16_t reg_list[256];
+    int reg_count = parse_register_range(range_spec, reg_list, 256);
+    if (reg_count < 0) {
+      return;  // Error already printed
+    }
+
+    // Add all registers to group
+    uint8_t added = 0;
+    for (int i = 0; i < reg_count; i++) {
+      if (registers_persist_group_add_reg(group_name, reg_list[i])) {
         added++;
       }
     }

@@ -759,13 +759,21 @@ The Persistent Registers system allows you to save selected Modbus holding regis
 
 **Create a Group:**
 ```bash
-# Create group with name (max 15 chars)
-> set persist group "sensors" add 100 101 102
-✓ Added 3 registers to group 'sensors'
+# Create group with range notation (recommended)
+> set persist group "sensors" add 100-105
+✓ Added 6 registers to group 'sensors'
 
-# Add more registers to existing group (max 16 total)
-> set persist group "sensors" add 103 104
-✓ Added 2 registers to group 'sensors'
+# Or use comma-separated values
+> set persist group "calibration" add 200,202,204,206
+✓ Added 4 registers to group 'calibration'
+
+# Or combine ranges and individual values
+> set persist group "production" add 100-105,110,112,120-122
+✓ Added 10 registers to group 'production'
+
+# Old syntax still works (individual arguments)
+> set persist group "legacy" add 150 151 152
+✓ Added 3 registers to group 'legacy'
 ```
 
 **Remove Registers:**
@@ -845,8 +853,8 @@ Persistence system DISABLED
 
 **Complete Workflow:**
 ```bash
-# 1. Create group
-> set persist group "recipe" add 150 151 152
+# 1. Create group (using range notation)
+> set persist group "recipe" add 150-152
 
 # 2. Write values to registers
 > write reg 150 value 250   # Temperature setpoint
@@ -923,8 +931,8 @@ When auto-load is enabled, the system automatically executes during boot (after 
 
 **Return Values:**
 - `0` = Success
-- `1` = Group not found
-- `2` = Rate limit exceeded (too frequent saves)
+- `-1` = Error (group not found, NVS error, persistence disabled)
+- `-2` = Rate limit exceeded (SAVE only, max 1 per 5 seconds)
 
 **Example 1: Calibration Save on Trigger**
 ```st
@@ -1576,8 +1584,8 @@ Telnet: ENABLED (port 23)
 > **📖 For complete documentation, see:** [Persistent Registers (v4.0+)](#persistent-registers-v40) | [Auto-Load on Boot (v4.3.0)](#3-auto-load-on-boot-v430)
 
 ```bash
-# Create persistence group for sensor calibration
-> set persist group "calibration" add 200 201 202
+# Create persistence group for sensor calibration (using range notation)
+> set persist group "calibration" add 200-202
 ✓ Added 3 registers to group 'calibration'
 
 # Enable persistence system
