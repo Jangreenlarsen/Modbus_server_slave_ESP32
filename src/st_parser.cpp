@@ -779,11 +779,12 @@ static st_ast_node_t *parser_parse_case_statement(st_parser_t *parser) {
   if (parser_match(parser, ST_TOK_ELSE)) {
     parser_advance(parser);
 
-    if (!parser_expect(parser, ST_TOK_COLON)) {
-      parser_error(parser, "Expected : after ELSE");
-    } else {
-      node->data.case_stmt.else_body = st_parser_parse_statements(parser);
+    // BUG-121 FIX: Colon after ELSE is optional (IEC 61131-3 doesn't require it)
+    if (parser_match(parser, ST_TOK_COLON)) {
+      parser_advance(parser);
     }
+
+    node->data.case_stmt.else_body = st_parser_parse_statements(parser);
   }
 
   if (!parser_expect(parser, ST_TOK_END_CASE)) {
@@ -949,11 +950,10 @@ static st_ast_node_t *parser_parse_repeat_statement(st_parser_t *parser) {
     return NULL;
   }
 
-  if (!parser_expect(parser, ST_TOK_END_REPEAT)) {
-    parser_error(parser, "Expected END_REPEAT");
-    st_ast_node_free(body);
-    st_ast_node_free(condition);
-    return NULL;
+  // BUG-122 FIX: END_REPEAT is optional in IEC 61131-3 (UNTIL terminates the loop)
+  // Consume optional END_REPEAT for compatibility
+  if (parser_match(parser, ST_TOK_END_REPEAT)) {
+    parser_advance(parser);
   }
 
   // Consume optional semicolon
