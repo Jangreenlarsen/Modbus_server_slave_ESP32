@@ -785,7 +785,25 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (arg_count == 3) {
     // Special handling for 3-arg functions
     if (func_id == ST_BUILTIN_LIMIT) {
-      result = st_builtin_limit(arg1, arg2, arg3);
+      // BUG-119 FIX: LIMIT is type-polymorphic
+      // arg1 = min, arg2 = value, arg3 = max
+      if (arg1_type == ST_TYPE_REAL || arg2_type == ST_TYPE_REAL || arg3_type == ST_TYPE_REAL) {
+        float min_f = (arg1_type == ST_TYPE_REAL) ? arg1.real_val :
+                      (arg1_type == ST_TYPE_INT) ? (float)arg1.int_val : (float)arg1.dint_val;
+        float val_f = (arg2_type == ST_TYPE_REAL) ? arg2.real_val :
+                      (arg2_type == ST_TYPE_INT) ? (float)arg2.int_val : (float)arg2.dint_val;
+        float max_f = (arg3_type == ST_TYPE_REAL) ? arg3.real_val :
+                      (arg3_type == ST_TYPE_INT) ? (float)arg3.int_val : (float)arg3.dint_val;
+        result.real_val = (val_f < min_f) ? min_f : ((val_f > max_f) ? max_f : val_f);
+      } else if (arg1_type == ST_TYPE_DINT || arg2_type == ST_TYPE_DINT || arg3_type == ST_TYPE_DINT) {
+        int32_t min_d = (arg1_type == ST_TYPE_DINT) ? arg1.dint_val : (int32_t)arg1.int_val;
+        int32_t val_d = (arg2_type == ST_TYPE_DINT) ? arg2.dint_val : (int32_t)arg2.int_val;
+        int32_t max_d = (arg3_type == ST_TYPE_DINT) ? arg3.dint_val : (int32_t)arg3.int_val;
+        result.dint_val = (val_d < min_d) ? min_d : ((val_d > max_d) ? max_d : val_d);
+      } else {
+        result.int_val = (arg2.int_val < arg1.int_val) ? arg1.int_val :
+                         ((arg2.int_val > arg3.int_val) ? arg3.int_val : arg2.int_val);
+      }
     } else if (func_id == ST_BUILTIN_SEL) {
       result = st_builtin_sel(arg1, arg2, arg3);
     } else if (func_id == ST_BUILTIN_MB_WRITE_COIL) {
@@ -817,6 +835,57 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     else {
       result.int_val = (int16_t)(arg1.int_val + arg2.int_val);
     }
+  } else if (func_id == ST_BUILTIN_MIN && arg_count == 2) {
+    // BUG-117 FIX: MIN is type-polymorphic
+    if (arg1_type == ST_TYPE_REAL || arg2_type == ST_TYPE_REAL) {
+      float left_f = (arg1_type == ST_TYPE_REAL) ? arg1.real_val :
+                     (arg1_type == ST_TYPE_INT) ? (float)arg1.int_val :
+                     (float)arg1.dint_val;
+      float right_f = (arg2_type == ST_TYPE_REAL) ? arg2.real_val :
+                      (arg2_type == ST_TYPE_INT) ? (float)arg2.int_val :
+                      (float)arg2.dint_val;
+      result.real_val = (left_f < right_f) ? left_f : right_f;
+    } else if (arg1_type == ST_TYPE_DINT || arg2_type == ST_TYPE_DINT) {
+      int32_t left_d = (arg1_type == ST_TYPE_DINT) ? arg1.dint_val : (int32_t)arg1.int_val;
+      int32_t right_d = (arg2_type == ST_TYPE_DINT) ? arg2.dint_val : (int32_t)arg2.int_val;
+      result.dint_val = (left_d < right_d) ? left_d : right_d;
+    } else {
+      result.int_val = (arg1.int_val < arg2.int_val) ? arg1.int_val : arg2.int_val;
+    }
+  } else if (func_id == ST_BUILTIN_MAX && arg_count == 2) {
+    // BUG-117 FIX: MAX is type-polymorphic
+    if (arg1_type == ST_TYPE_REAL || arg2_type == ST_TYPE_REAL) {
+      float left_f = (arg1_type == ST_TYPE_REAL) ? arg1.real_val :
+                     (arg1_type == ST_TYPE_INT) ? (float)arg1.int_val :
+                     (float)arg1.dint_val;
+      float right_f = (arg2_type == ST_TYPE_REAL) ? arg2.real_val :
+                      (arg2_type == ST_TYPE_INT) ? (float)arg2.int_val :
+                      (float)arg2.dint_val;
+      result.real_val = (left_f > right_f) ? left_f : right_f;
+    } else if (arg1_type == ST_TYPE_DINT || arg2_type == ST_TYPE_DINT) {
+      int32_t left_d = (arg1_type == ST_TYPE_DINT) ? arg1.dint_val : (int32_t)arg1.int_val;
+      int32_t right_d = (arg2_type == ST_TYPE_DINT) ? arg2.dint_val : (int32_t)arg2.int_val;
+      result.dint_val = (left_d > right_d) ? left_d : right_d;
+    } else {
+      result.int_val = (arg1.int_val > arg2.int_val) ? arg1.int_val : arg2.int_val;
+    }
+  } else if (func_id == ST_BUILTIN_ABS && arg_count == 1) {
+    // BUG-118 FIX: ABS is type-polymorphic
+    if (arg1_type == ST_TYPE_REAL) {
+      result.real_val = (arg1.real_val < 0.0f) ? -arg1.real_val : arg1.real_val;
+    } else if (arg1_type == ST_TYPE_DINT) {
+      if (arg1.dint_val == INT32_MIN) {
+        result.dint_val = INT32_MAX;  // Clamp overflow
+      } else {
+        result.dint_val = (arg1.dint_val < 0) ? -arg1.dint_val : arg1.dint_val;
+      }
+    } else {
+      if (arg1.int_val == INT16_MIN) {
+        result.int_val = INT16_MAX;  // Clamp overflow
+      } else {
+        result.int_val = (arg1.int_val < 0) ? -arg1.int_val : arg1.int_val;
+      }
+    }
   } else {
     result = st_builtin_call(func_id, arg1, arg2);
   }
@@ -845,6 +914,18 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     } else {
       return_type = ST_TYPE_INT;
     }
+  } else if (func_id == ST_BUILTIN_MIN || func_id == ST_BUILTIN_MAX) {
+    // BUG-117 FIX: MIN/MAX return type based on operand types
+    if (arg1_type == ST_TYPE_REAL || arg2_type == ST_TYPE_REAL) {
+      return_type = ST_TYPE_REAL;
+    } else if (arg1_type == ST_TYPE_DINT || arg2_type == ST_TYPE_DINT) {
+      return_type = ST_TYPE_DINT;
+    } else {
+      return_type = ST_TYPE_INT;
+    }
+  } else if (func_id == ST_BUILTIN_ABS) {
+    // BUG-118 FIX: ABS returns same type as input
+    return_type = arg1_type;
   } else {
     // Non-polymorphic function: use static return type
     return_type = st_builtin_return_type(func_id);

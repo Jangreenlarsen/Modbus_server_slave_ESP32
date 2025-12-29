@@ -264,6 +264,13 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
       else if (strcasecmp(node->data.function_call.func_name, "INT_TO_DWORD") == 0) func_id = ST_BUILTIN_INT_TO_DWORD;
       else if (strcasecmp(node->data.function_call.func_name, "SAVE") == 0) func_id = ST_BUILTIN_PERSIST_SAVE;
       else if (strcasecmp(node->data.function_call.func_name, "LOAD") == 0) func_id = ST_BUILTIN_PERSIST_LOAD;
+      // BUG-116 FIX: Modbus Master functions (v4.4+)
+      else if (strcasecmp(node->data.function_call.func_name, "MB_READ_COIL") == 0) func_id = ST_BUILTIN_MB_READ_COIL;
+      else if (strcasecmp(node->data.function_call.func_name, "MB_READ_INPUT") == 0) func_id = ST_BUILTIN_MB_READ_INPUT;
+      else if (strcasecmp(node->data.function_call.func_name, "MB_READ_HOLDING") == 0) func_id = ST_BUILTIN_MB_READ_HOLDING;
+      else if (strcasecmp(node->data.function_call.func_name, "MB_READ_INPUT_REG") == 0) func_id = ST_BUILTIN_MB_READ_INPUT_REG;
+      else if (strcasecmp(node->data.function_call.func_name, "MB_WRITE_COIL") == 0) func_id = ST_BUILTIN_MB_WRITE_COIL;
+      else if (strcasecmp(node->data.function_call.func_name, "MB_WRITE_HOLDING") == 0) func_id = ST_BUILTIN_MB_WRITE_HOLDING;
       else {
         char msg[128];
         snprintf(msg, sizeof(msg), "Unknown function: %s", node->data.function_call.func_name);

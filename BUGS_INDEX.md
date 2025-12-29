@@ -91,6 +91,10 @@
 | BUG-108 | CLI mangler `write reg value real` kommando | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | Kan ikke skrive REAL værdier korrekt via CLI |
 | BUG-109 | Multi-register bindings ikke frigivet korrekt ved delete | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | DINT/REAL bindings frigiver kun 1 register ved sletning |
 | BUG-110 | SUM funktion ikke type-aware (returnerer kun første parameter) | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | SUM(5,3) returnerer 5 i stedet for 8 |
+| BUG-116 | Modbus Master funktioner ikke registreret i compiler | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | MB_READ_COIL, MB_WRITE_HOLDING osv. kan ikke kompileres |
+| BUG-117 | MIN/MAX funktioner ikke type-aware | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | MIN/MAX med REAL værdier giver forkerte resultater |
+| BUG-118 | ABS funktion kun INT type | ✅ FIXED | 🟡 HIGH | v5.0.0 | ABS(-1.5) returnerer 1 i stedet for 1.5 |
+| BUG-119 | LIMIT funktion ikke type-aware | ✅ FIXED | 🟡 HIGH | v5.0.0 | LIMIT med REAL værdier clampes forkert |
 
 ## Quick Lookup by Category
 
