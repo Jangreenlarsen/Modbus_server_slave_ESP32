@@ -5039,3 +5039,197 @@ Se detaljeret plan i: `ST_TYPE_REFACTOR_PLAN.md`
 
 ---
 
+## BUG-124: Counter 32/64-bit DINT/DWORD Register Byte Order (v5.0.0)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Opdaget:** 2025-12-29
+**Fixet:** 2025-12-29
+**Version:** v5.0.0, Build #834
+
+### Beskrivelse
+
+Counter engine og CLI kommandoer brugte forkert byte order for multi-register værdier (DINT/DWORD/REAL). Counter engine skrev LSW først (korrekt), men CLI kommandoer læste/skrev MSW først (forkert).
+
+**Problem:**
+- Counter skriver 32-bit værdi 100000 til HR100-101
+- Counter: HR100=34464 (LSW), HR101=1 (MSW) ✓
+- CLI læste: MSW først → forkert værdi!
+
+**Symptomer:**
+```bash
+> read reg 100 2
+Reg[100]: 1      # CLI læste MSW først (forkert)
+Reg[101]: 34464  # CLI læste LSW anden (forkert)
+# Skulle være: HR100=34464 (LSW), HR101=1 (MSW)
+```
+
+### Root Cause
+
+**Fil:** `src/cli_commands.cpp` (DINT/DWORD/REAL write kommandoer)
+
+Alle multi-register skrive-kommandoer brugte MSW-first ordre:
+```cpp
+// FORKERT (Build #792):
+registers_set_holding_register(addr, high_word);      // MSW first
+registers_set_holding_register(addr + 1, low_word);   // LSW second
+```
+
+**Korrekt ordre (BUG-124 fix):**
+```cpp
+// LSW first, MSW second (little-endian)
+registers_set_holding_register(addr, low_word);       // LSW at base
+registers_set_holding_register(addr + 1, high_word);  // MSW at base+1
+```
+
+### Implementeret Fix
+
+**Filer modificeret:**
+1. `src/cli_commands.cpp` - DINT/DWORD/REAL write kommandoer (line 1592-1677)
+
+**DINT Fix (line 1627-1629):**
+```cpp
+// BUG-124 FIX: Little-endian register order
+registers_set_holding_register(addr, low_word);       // LSW at base address
+registers_set_holding_register(addr + 1, high_word);  // MSW at base+1
+```
+
+**DWORD Fix (line 1663-1664):** Samme ændring
+**REAL Fix (line 1592-1593):** Samme ændring
+
+### Resultat
+
+- ✅ Alle multi-register CLI kommandoer bruger nu LSW-first ordre
+- ✅ Konsistent med counter engine implementation
+- ✅ Konsistent med IEC 61131-3 standard
+- ✅ DINT, DWORD, REAL værdier læses/skrives korrekt
+
+**Build #834:** ✅ Compiled successfully
+
+**Test verification:**
+```bash
+write reg 100 value dint 100000
+read reg 100 2
+# Output: HR100=34464 (LSW), HR101=1 (MSW) ✓
+```
+
+---
+
+## BUG-125: ST Logic Multi-Register Byte Order (DINT/DWORD/REAL INPUT/OUTPUT) (v5.0.0)
+
+**Status:** ✅ FIXED
+**Prioritet:** 🔴 CRITICAL
+**Opdaget:** 2025-12-29
+**Fixet:** 2025-12-29
+**Version:** v5.0.0, Build #860
+
+### Beskrivelse
+
+ST Logic variable INPUT/OUTPUT bindings brugte forkert byte order for 32-bit typer (DINT/DWORD/REAL). Bindings læste/skrev MSW først, men skulle bruge LSW først for at være konsistent med BUG-124 fix.
+
+**Problem:**
+- ST Logic DINT addition: `result := a + b` (1 + 3 = 4)
+- Forventet: HR114=4 (LSW), HR115=0 (MSW)
+- Aktuel: HR114=4, HR115=-27680 (garbage i MSW)
+
+**Symptomer:**
+```bash
+write reg 110 value dint 1     # a = 1
+write reg 112 value dint 3     # b = 3
+read reg 114 2                 # result
+# FØR FIX: HR114=4, HR115=-27680 ❌
+# EFTER FIX: HR114=4, HR115=0 ✅
+```
+
+### Root Cause
+
+**Fil:** `src/gpio_mapping.cpp`
+
+Alle ST Logic INPUT/OUTPUT bindings for 32-bit typer brugte MSW-first ordre:
+
+**DINT INPUT (line 113-119) - FORKERT:**
+```cpp
+// MSW først (BIG ENDIAN)
+uint16_t high_word = registers_get_holding_register(map->input_reg);
+uint16_t low_word = registers_get_holding_register(map->input_reg + 1);
+```
+
+**DINT OUTPUT (line 218-225) - FORKERT:**
+```cpp
+// MSW først
+registers_set_holding_register(map->coil_reg, high_word);
+registers_set_holding_register(map->coil_reg + 1, low_word);
+```
+
+Samme problem for DWORD og REAL typer.
+
+### Implementeret Fix
+
+**Fil:** `src/gpio_mapping.cpp`
+
+Alle 6 steder ændret til LSW-first ordre (konsistent med BUG-124):
+
+**1. DINT INPUT (line 114-119):**
+```cpp
+// BUG-125 FIX: DINT: 32-bit signed, 2 registers (LSW first, MSW second)
+uint16_t low_word = registers_get_holding_register(map->input_reg);       // LSW at base
+uint16_t high_word = registers_get_holding_register(map->input_reg + 1);  // MSW at base+1
+int32_t dint_value = ((int32_t)high_word << 16) | low_word;
+prog->bytecode.variables[map->st_var_index].dint_val = dint_value;
+```
+
+**2. DWORD INPUT (line 121-126):** Samme ændring
+**3. REAL INPUT (line 128-135):** Samme ændring
+
+**4. DINT OUTPUT (line 219-224):**
+```cpp
+// BUG-125 FIX: DINT: 32-bit signed, 2 registers (LSW first, MSW second)
+int32_t dint_value = prog->bytecode.variables[map->st_var_index].dint_val;
+uint16_t low_word = (uint16_t)(dint_value & 0xFFFF);
+uint16_t high_word = (uint16_t)((dint_value >> 16) & 0xFFFF);
+registers_set_holding_register(map->coil_reg, low_word);       // LSW at base
+registers_set_holding_register(map->coil_reg + 1, high_word);  // MSW at base+1
+```
+
+**5. DWORD OUTPUT (line 227-233):** Samme ændring
+**6. REAL OUTPUT (line 235-243):** Samme ændring
+
+### Resultat
+
+- ✅ ST Logic DINT/DWORD/REAL INPUT bindings bruger LSW-first ordre
+- ✅ ST Logic DINT/DWORD/REAL OUTPUT bindings bruger LSW-first ordre
+- ✅ Konsistent med BUG-124 fix (CLI kommandoer, counter engine)
+- ✅ Konsistent med IEC 61131-3 standard
+- ✅ 32-bit aritmetik fungerer korrekt i ST Logic
+
+**Build #860:** ✅ Compiled successfully
+
+**Test verification:**
+```bash
+# Test 1: Simple addition (1 + 3 = 4)
+write reg 110 value dint 1
+write reg 112 value dint 3
+read reg 114 2
+# Output: HR114=4, HR115=0 ✓
+
+# Test 2: Large values (100000 + 200000 = 300000)
+write reg 110 value dint 100000
+write reg 112 value dint 200000
+read reg 114 2
+# Output: HR114=37856, HR115=4 ✓ (0x000493E0)
+
+# Test 3: Negative values (-500000 + 100 = -499900)
+write reg 110 value dint -500000
+write reg 112 value dint 100
+read reg 114 2
+# Output: HR114=24388, HR115=65528 ✓ (0xFFF85F44)
+```
+
+### Relation
+
+- **BUG-124:** Fastlagde LSW-first som standard for counter engine og CLI
+- **BUG-125:** Anvender samme standard på ST Logic variable bindings
+- **Konsistent byte order:** Alle multi-register operationer bruger nu LSW first, MSW second
+
+---
+

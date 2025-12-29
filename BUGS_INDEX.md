@@ -100,6 +100,7 @@
 | BUG-122 | CLI show logic timing og reset logic stats ikke tilgængelige | ✅ FIXED | 🟠 MEDIUM | v5.0.0 | Funktioner implementeret men ikke eksponeret i parser/header |
 | BUG-123 | Parser accepterer syntax fejl (reserved keywords i statement position) | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | "THEN THEN", "END_IF x := 5" accepteres uden fejl |
 | BUG-124 | Counter 32/64-bit DINT/DWORD register byte order | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | CLI read/write brugte MSW først, counter skriver LSW først |
+| BUG-125 | ST Logic multi-register byte order (DINT/DWORD/REAL INPUT/OUTPUT) | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | Variable bindings brugte MSW først, skulle bruge LSW først |
 
 ## Quick Lookup by Category
 
@@ -130,6 +131,9 @@
 - **BUG-056:** Buffer overflow i compiler symbol table (FIXED v4.4.3)
 - **BUG-059:** Comparison operators ignorerer REAL type (FIXED v4.4.3)
 - **BUG-067:** Lexer strcpy buffer overflow (FIXED v4.4.4)
+- **BUG-105:** INT type skal være 16-bit, ikke 32-bit (FIXED v5.0.0 Build #822)
+- **BUG-124:** Counter 32/64-bit DINT/DWORD register byte order (FIXED v5.0.0 Build #834)
+- **BUG-125:** ST Logic multi-register byte order DINT/DWORD/REAL (FIXED v5.0.0 Build #860)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
