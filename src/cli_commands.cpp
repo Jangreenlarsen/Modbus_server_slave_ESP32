@@ -1587,12 +1587,13 @@ void cli_cmd_write_reg(uint8_t argc, char* argv[]) {
     uint32_t bits;
     memcpy(&bits, &real_val, sizeof(float));
 
-    uint16_t high_word = (uint16_t)((bits >> 16) & 0xFFFF);
     uint16_t low_word = (uint16_t)(bits & 0xFFFF);
+    uint16_t high_word = (uint16_t)((bits >> 16) & 0xFFFF);
 
-    // Write to 2 consecutive registers
-    registers_set_holding_register(addr, high_word);
-    registers_set_holding_register(addr + 1, low_word);
+    // Write to 2 consecutive registers (LSW first, MSW second - matches counter_engine)
+    // BUG-124 FIX: Little-endian register order
+    registers_set_holding_register(addr, low_word);      // LSW at base address
+    registers_set_holding_register(addr + 1, high_word); // MSW at base+1
 
     debug_print("Register ");
     debug_print_uint(addr);
@@ -1622,12 +1623,13 @@ void cli_cmd_write_reg(uint8_t argc, char* argv[]) {
 
     // Convert DINT to 2 words (high word, low word)
     uint32_t bits = (uint32_t)dint_val;
-    uint16_t high_word = (uint16_t)((bits >> 16) & 0xFFFF);
     uint16_t low_word = (uint16_t)(bits & 0xFFFF);
+    uint16_t high_word = (uint16_t)((bits >> 16) & 0xFFFF);
 
-    // Write to 2 consecutive registers
-    registers_set_holding_register(addr, high_word);
-    registers_set_holding_register(addr + 1, low_word);
+    // Write to 2 consecutive registers (LSW first, MSW second - matches counter_engine)
+    // BUG-124 FIX: Little-endian register order
+    registers_set_holding_register(addr, low_word);      // LSW at base address
+    registers_set_holding_register(addr + 1, high_word); // MSW at base+1
 
     debug_print("Register ");
     debug_print_uint(addr);
@@ -1656,12 +1658,13 @@ void cli_cmd_write_reg(uint8_t argc, char* argv[]) {
     }
 
     // Convert DWORD to 2 words (high word, low word)
-    uint16_t high_word = (uint16_t)((dword_val >> 16) & 0xFFFF);
     uint16_t low_word = (uint16_t)(dword_val & 0xFFFF);
+    uint16_t high_word = (uint16_t)((dword_val >> 16) & 0xFFFF);
 
-    // Write to 2 consecutive registers
-    registers_set_holding_register(addr, high_word);
-    registers_set_holding_register(addr + 1, low_word);
+    // Write to 2 consecutive registers (LSW first, MSW second - matches counter_engine)
+    // BUG-124 FIX: Little-endian register order
+    registers_set_holding_register(addr, low_word);      // LSW at base address
+    registers_set_holding_register(addr + 1, high_word); // MSW at base+1
 
     debug_print("Register ");
     debug_print_uint(addr);

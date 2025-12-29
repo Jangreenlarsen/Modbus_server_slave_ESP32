@@ -2333,8 +2333,9 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
     }
 
     // Read 2 consecutive registers and convert to float
-    uint16_t high_word = registers_get_holding_register(start_addr);
-    uint16_t low_word = registers_get_holding_register(start_addr + 1);
+    // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
+    uint16_t low_word = registers_get_holding_register(start_addr);      // LSW at base address
+    uint16_t high_word = registers_get_holding_register(start_addr + 1); // MSW at base+1
     uint32_t bits = ((uint32_t)high_word << 16) | low_word;
     float real_value;
     memcpy(&real_value, &bits, sizeof(float));
@@ -2378,8 +2379,9 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
     }
 
     // Read 2 consecutive registers and convert to DINT
-    uint16_t high_word = registers_get_holding_register(start_addr);
-    uint16_t low_word = registers_get_holding_register(start_addr + 1);
+    // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
+    uint16_t low_word = registers_get_holding_register(start_addr);      // LSW at base address
+    uint16_t high_word = registers_get_holding_register(start_addr + 1); // MSW at base+1
     uint32_t bits = ((uint32_t)high_word << 16) | low_word;
     int32_t dint_value = (int32_t)bits;
 
@@ -2422,8 +2424,9 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
     }
 
     // Read 2 consecutive registers and convert to DWORD
-    uint16_t high_word = registers_get_holding_register(start_addr);
-    uint16_t low_word = registers_get_holding_register(start_addr + 1);
+    // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
+    uint16_t low_word = registers_get_holding_register(start_addr);      // LSW at base address
+    uint16_t high_word = registers_get_holding_register(start_addr + 1); // MSW at base+1
     uint32_t dword_value = ((uint32_t)high_word << 16) | low_word;
 
     debug_println("\n=== L\u00c6SNING AF HOLDING REGISTERS ===");
