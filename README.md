@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v5.0.0 | **Build:** #815 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v5.0.0 | **Build:** #860 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, telnet CLI interface, og komplet Modbus register dokumentation.
 
@@ -2400,43 +2400,98 @@ Please describe:
 
 ## 📚 Additional Documentation
 
-### Core Documentation (Root)
+### 🎯 Quick Start Guides
+- **[docs/SETUP_GUIDE.md](docs/SETUP_GUIDE.md)** - Initial setup and configuration
+- **[docs/GPIO2_ST_QUICK_START.md](docs/GPIO2_ST_QUICK_START.md)** - Quick start: GPIO2 + ST Logic integration
+- **[docs/COUNTER_COMPARE_QUICK_START.md](docs/COUNTER_COMPARE_QUICK_START.md)** - Quick start: Counter compare feature
+
+### 📖 Core Documentation (Root)
 - **[MODBUS_REGISTER_MAP.md](MODBUS_REGISTER_MAP.md)** - ⭐ **COMPLETE Modbus register reference**
   - All registers: Fixed (ST Logic) + Dynamic (Counters/Timers/GPIO)
   - IR 200-293: ST Logic status & performance statistics
   - HR 200-237: ST Logic control & interval
+  - Multi-register byte order (DINT/DWORD/REAL: LSW first, MSW second)
   - Address collision avoidance guide
   - Python pymodbus examples
+
+- **[CHANGELOG.md](CHANGELOG.md)** - Complete version history
+  - v5.0.0: IEC 61131-3 type system (INT 16-bit, DINT 32-bit)
+  - v4.1.0: Performance monitoring & Modbus integration
+  - v4.0.0-v4.0.2: Persistent registers & watchdog
+  - v3.0.0-v3.3.0: Telnet & Wi-Fi features
+
+### 🔧 Feature Guides (docs/)
+- **[docs/FEATURE_GUIDE.md](docs/FEATURE_GUIDE.md)** - Feature-by-feature documentation
+- **[docs/ESP32_Module_Architecture.md](docs/ESP32_Module_Architecture.md)** - Architecture deep-dive
+- **[docs/GPIO_MAPPING_GUIDE.md](docs/GPIO_MAPPING_GUIDE.md)** - GPIO configuration guide
+
+### 📊 ST Logic Programming
+- **[docs/README_ST_LOGIC.md](docs/README_ST_LOGIC.md)** - ⭐ **ST Logic programming guide** (Start here!)
+  - Data types: BOOL, INT (16-bit), DINT (32-bit), DWORD, REAL
+  - Variable binding examples
+  - Built-in functions reference
+
+- **[docs/ST_USAGE_GUIDE.md](docs/ST_USAGE_GUIDE.md)** - ST Logic usage guide
+  - Quick start (4 steps)
+  - Syntax examples
+  - Best practices
+
+- **[docs/ST_IEC61131_COMPLIANCE.md](docs/ST_IEC61131_COMPLIANCE.md)** - IEC 61131-3 compliance reference
+  - Standard compliance matrix
+  - Data type specifications
+  - Operator reference
 
 - **[ST_MONITORING.md](ST_MONITORING.md)** - ⭐ **ST Logic performance tuning guide**
   - CLI commands: show logic stats, show logic X timing
   - Performance monitoring workflow
   - Optimization strategies
   - Modbus register access examples
-  - Common issues & solutions
 
 - **[TIMING_ANALYSIS.md](TIMING_ANALYSIS.md)** - ST Logic timing deep dive
   - Fixed rate scheduler analysis
   - Execution interval control
   - Jitter analysis and recommendations
 
-- **[BUGS.md](BUGS.md)** - Bug tracking system
-  - 7 bugs (all FIXED in v4.1.0)
-  - Test plans and function references
+- **[ST_COMPLETE_TEST_PLAN.md](ST_COMPLETE_TEST_PLAN.md)** - Complete ST Logic test suite
+  - 59 test cases covering all features
+  - Copy/paste ready CLI commands
+  - DINT/DWORD/REAL multi-register tests
 
-- **[CHANGELOG.md](CHANGELOG.md)** - Complete version history
-  - v4.1.0: Performance monitoring & Modbus integration
-  - v4.0.0-v4.0.2: Persistent registers & watchdog
-  - v3.0.0-v3.3.0: Telnet & Wi-Fi features
+- **[docs/ST_FUNCTION_TESTS.md](docs/ST_FUNCTION_TESTS.md)** - ST builtin function tests
+- **[docs/ST_FUNCTIONS_TODO.md](docs/ST_FUNCTIONS_TODO.md)** - Future ST function ideas
 
-- **[CLAUDE.md](CLAUDE.md)** - Developer guidelines (Danish)
-  - Architecture overview
-  - Coding standards
-  - Version control workflow
+### ⚙️ Counter & Timer Guides
+- **[docs/COUNTER_COMPARE_REFERENCE.md](docs/COUNTER_COMPARE_REFERENCE.md)** - Counter compare feature reference
+- **[docs/COUNTER_CONFIG_TEMPLATES.md](docs/COUNTER_CONFIG_TEMPLATES.md)** - Counter configuration templates
 
-### Feature Guides (docs/)
-- **[docs/README_ST_LOGIC.md](docs/README_ST_LOGIC.md)** - ST Logic programming guide
-- **[docs/FEATURE_GUIDE.md](docs/FEATURE_GUIDE.md)** - Feature-by-feature documentation
-- **[docs/ESP32_Module_Architecture.md](docs/ESP32_Module_Architecture.md)** - Architecture deep-dive
-- **[docs/GPIO_MAPPING_GUIDE.md](docs/GPIO_MAPPING_GUIDE.md)** - GPIO configuration guide
-- **[docs/COUNTER_COMPARE_REFERENCE.md](docs/COUNTER_COMPARE_REFERENCE.md)** - Counter compare feature
+### 🐛 Development & Debugging
+- **[CLAUDE.md](CLAUDE.md)** - ⭐ **Developer navigation hub** (Danish)
+  - Quick links by task
+  - Documentation modules overview
+  - 30-second project summary
+
+- **[CLAUDE_INDEX.md](CLAUDE_INDEX.md)** - Main entry point for developers
+- **[CLAUDE_SETUP.md](CLAUDE_SETUP.md)** - Security rules & working directory
+- **[CLAUDE_WORKFLOW.md](CLAUDE_WORKFLOW.md)** - Code modification guidelines
+- **[CLAUDE_ARCH.md](CLAUDE_ARCH.md)** - Layered architecture & file reference
+
+- **[BUGS.md](BUGS.md)** - Complete bug tracking (125+ bugs documented)
+  - All fixes with code examples
+  - Root cause analysis
+  - Test verification
+
+- **[BUGS_INDEX.md](BUGS_INDEX.md)** - ⭐ **Quick bug lookup** (Read this first!)
+  - Status summary (all critical bugs fixed)
+  - Quick lookup by category
+  - 10 seconds to find relevant bugs
+
+### 🔬 Analysis & Architecture
+- **[ST_MODULE_ANALYSIS.md](ST_MODULE_ANALYSIS.md)** - ST Logic module analysis
+- **[ST_SYNTAX_ANALYSIS.md](ST_SYNTAX_ANALYSIS.md)** - ST syntax analysis
+- **[ST_TYPE_REFACTOR_PLAN.md](ST_TYPE_REFACTOR_PLAN.md)** - Type system refactor plan
+- **[docs/LOGIC_BLOCK_HLD.md](docs/LOGIC_BLOCK_HLD.md)** - Logic block high-level design
+- **[docs/ESP32_Migration_Analysis.md](docs/ESP32_Migration_Analysis.md)** - ESP32 migration analysis
+- **[docs/W5500_Ethernet_Integration_Plan.md](docs/W5500_Ethernet_Integration_Plan.md)** - Ethernet integration plan
+
+### 🧪 Testing
+- **[docs/TEST_GPIO2_ST_LOGIC.md](docs/TEST_GPIO2_ST_LOGIC.md)** - GPIO2 + ST Logic tests
