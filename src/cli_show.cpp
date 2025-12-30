@@ -40,7 +40,12 @@
  * ============================================================================ */
 
 void cli_cmd_show_config(void) {
-  debug_println("\n=== CONFIGURATION ===");
+  debug_println("\n=== CONFIGURATION ===\n");
+
+  // =========================================================================
+  // SYSTEM INFO
+  // =========================================================================
+  debug_println("[SYSTEM]");
   debug_print("Version: ");
   debug_print(PROJECT_VERSION);
   debug_print(" Build #");
@@ -54,12 +59,15 @@ void cli_cmd_show_config(void) {
   debug_print(GIT_HASH);
   debug_println(")");
 
-  // Show hostname
   debug_print("Hostname: ");
   debug_println(g_persist_config.hostname[0] ? g_persist_config.hostname : "(NOT SET)");
+  debug_println("");
 
-  // Show Modbus Slave configuration
-  debug_print("Modbus Slave: ");
+  // =========================================================================
+  // MODBUS
+  // =========================================================================
+  debug_println("[MODBUS]");
+  debug_print("Slave: ");
   debug_println(g_persist_config.modbus_slave.enabled ? "ENABLED" : "DISABLED");
   debug_print("  Unit-ID: ");
   debug_print_uint(g_persist_config.modbus_slave.slave_id);
@@ -79,9 +87,7 @@ void cli_cmd_show_config(void) {
   debug_print_uint(g_persist_config.modbus_slave.inter_frame_delay);
   debug_println(" ms");
 
-  // Show Modbus Master configuration (v4.4+)
-  debug_println("");
-  debug_print("Modbus Master: ");
+  debug_print("Master: ");
   debug_println(g_persist_config.modbus_master.enabled ? "ENABLED" : "DISABLED");
   if (g_persist_config.modbus_master.enabled) {
     debug_print("  Baudrate: ");
@@ -105,12 +111,13 @@ void cli_cmd_show_config(void) {
     debug_print_uint(g_persist_config.modbus_master.max_requests_per_cycle);
     debug_println("");
   }
+  debug_println("");
 
-  debug_println("=====================\n");
-
-  // Counter configuration block (Mega2560 format)
+  // =========================================================================
+  // COUNTERS
+  // =========================================================================
+  debug_println("[COUNTERS]");
   bool any_counter = false;
-  debug_println("counters");
   for (uint8_t id = 1; id <= 4; id++) {
     CounterConfig cfg;
     if (counter_config_get(id, &cfg) && cfg.enabled) {
@@ -226,9 +233,11 @@ void cli_cmd_show_config(void) {
     }
   }
 
-  // Timer configuration block
+  // =========================================================================
+  // TIMERS
+  // =========================================================================
+  debug_println("\n[TIMERS]");
   bool any_timer = false;
-  debug_println("\ntimers");
   for (uint8_t id = 1; id <= 4; id++) {
     TimerConfig cfg;
     if (timer_engine_get_config(id, &cfg) && cfg.enabled) {
@@ -295,10 +304,13 @@ void cli_cmd_show_config(void) {
   if (!any_timer) {
     debug_println("  (none configured)");
   }
-  debug_println("");
+  // =========================================================================
+  // GPIO
+  // =========================================================================
+  debug_println("\n[GPIO]");
 
-  // GPIO Mappings section
-  debug_println("gpio");
+  // Get ST Logic state (needed for ST variable name lookup in GPIO mappings)
+  st_logic_engine_state_t *st_state = st_logic_get_state();
 
   // GPIO2 status (heartbeat control)
   debug_print("  gpio2: ");
@@ -319,17 +331,13 @@ void cli_cmd_show_config(void) {
   debug_println("  GPIO 33 - Counter 4 HW (PCNT Unit 3)");
   debug_println("");
 
-  // Separate GPIO and ST Logic mappings
+  // Count GPIO mappings
   uint8_t gpio_count = 0;
-  uint8_t st_count = 0;
 
-  // Count each type
   for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
     const VariableMapping* map = &g_persist_config.var_maps[i];
     if (map->source_type == MAPPING_SOURCE_GPIO) {
       gpio_count++;
-    } else if (map->source_type == MAPPING_SOURCE_ST_VAR) {
-      st_count++;
     }
   }
 
@@ -342,178 +350,76 @@ void cli_cmd_show_config(void) {
       const VariableMapping* map = &g_persist_config.var_maps[i];
       if (map->source_type != MAPPING_SOURCE_GPIO) continue;
 
-      debug_print("  gpio");
+      debug_print("  set gpio ");
       debug_print_uint(map->gpio_pin);
-      debug_print(" -> ");
+      debug_print(" ");
       if (map->is_input) {
-        debug_print("input:");
+        debug_print("input ");
         debug_print_uint(map->input_reg);
       } else {
-        debug_print("coil:");
+        debug_print("coil ");
         debug_print_uint(map->coil_reg);
       }
-      if (map->associated_counter != 0xff) {
-        debug_print(" (counter");
-        debug_print_uint(map->associated_counter);
-        debug_print(")");
+
+      // Check if this register is used by ST Logic variable binding
+      bool found_st_var = false;
+      for (uint8_t j = 0; j < g_persist_config.var_map_count; j++) {
+        const VariableMapping* st_map = &g_persist_config.var_maps[j];
+        if (st_map->source_type != MAPPING_SOURCE_ST_VAR) continue;
+
+        // Check if same register
+        bool same_reg = false;
+        if (map->is_input && st_map->is_input) {
+          // Both input - check if same input register
+          same_reg = (map->input_reg == st_map->input_reg && map->input_type == st_map->input_type);
+        } else if (!map->is_input && !st_map->is_input) {
+          // Both output - check if same coil/reg
+          same_reg = (map->coil_reg == st_map->coil_reg && map->output_type == st_map->output_type);
+        }
+
+        if (same_reg) {
+          // Found ST variable using this register
+          debug_print(" [ST VAR:logic");
+          debug_print_uint(st_map->st_program_id + 1);
+          debug_print(".");
+          st_logic_program_config_t *prog = st_logic_get_program(st_state, st_map->st_program_id);
+          if (prog && prog->compiled && st_map->st_var_index < prog->bytecode.var_count) {
+            debug_print(prog->bytecode.var_names[st_map->st_var_index]);
+          } else {
+            debug_print("var");
+            debug_print_uint(st_map->st_var_index);
+          }
+          debug_print("]");
+          found_st_var = true;
+          break;
+        }
       }
-      if (map->associated_timer != 0xff) {
-        debug_print(" (timer");
-        debug_print_uint(map->associated_timer);
-        debug_print(")");
+
+      if (!found_st_var) {
+        // Not used by ST Logic
+        if (map->associated_counter != 0xff) {
+          debug_print(" [Counter");
+          debug_print_uint(map->associated_counter);
+          debug_print("]");
+        } else if (map->associated_timer != 0xff) {
+          debug_print(" [Timer");
+          debug_print_uint(map->associated_timer);
+          debug_print("]");
+        } else {
+          debug_print(" [Manual]");
+        }
       }
+
       debug_println("");
     }
   } else {
     debug_println("mappings: (none)");
   }
 
-  // Show ST Logic variable bindings
-  if (st_count > 0) {
-    debug_print("bindings (");
-    debug_print_uint(st_count);
-    debug_println("):");
-
-    st_logic_engine_state_t *st_state = st_logic_get_state();
-
-    for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
-      const VariableMapping* map = &g_persist_config.var_maps[i];
-      if (map->source_type != MAPPING_SOURCE_ST_VAR) continue;
-
-      debug_print("  logic");
-      debug_print_uint(map->st_program_id + 1);
-      debug_print(".");
-
-      // Lookup variable name from bytecode
-      st_logic_program_config_t *prog = st_logic_get_program(st_state, map->st_program_id);
-      if (prog && prog->compiled && map->st_var_index < prog->bytecode.var_count) {
-        debug_print(prog->bytecode.var_names[map->st_var_index]);
-      } else {
-        debug_print("var");
-        debug_print_uint(map->st_var_index);
-      }
-
-      debug_print(" ");
-
-      if (map->is_input) {
-        // INPUT mode: check if it's a Holding Register or Discrete Input
-        debug_print("<- ");
-        if (map->input_type == 1) {
-          debug_print("input:");  // Discrete Input
-        } else {
-          debug_print("reg:");    // Holding Register input
-        }
-        debug_print_uint(map->input_reg);
-      } else {
-        // OUTPUT mode: check if it's a Coil or Holding Register
-        debug_print("-> ");
-        if (map->output_type == 1) {
-          debug_print("coil:");  // Coil output
-        } else {
-          debug_print("reg:");   // Holding Register output
-        }
-        debug_print_uint(map->coil_reg);
-      }
-      debug_println("");
-    }
-  } else {
-    debug_println("bindings: (none)");
-  }
-  debug_println("");
-
-  // ST Logic section moved to later (after persistence) for better grouping
-  st_logic_engine_state_t *st_state = st_logic_get_state();
-
   // =========================================================================
-  // WIFI/NETWORK (v3.0+)
+  // ST LOGIC
   // =========================================================================
-  debug_println("wifi");
-  debug_print("  status: ");
-  debug_println(g_persist_config.network.enabled ? "enabled" : "disabled");
-
-  debug_print("  ssid: ");
-  debug_println(g_persist_config.network.ssid[0] ? g_persist_config.network.ssid : "(not set)");
-
-  debug_print("  password: ");
-  debug_println(g_persist_config.network.password[0] ? "********" : "(not set)");
-
-  debug_print("  dhcp: ");
-  debug_println(g_persist_config.network.dhcp_enabled ? "enabled" : "disabled");
-
-  if (!g_persist_config.network.dhcp_enabled) {
-    char ip_str[16];
-    debug_print("  static ip: ");
-    network_config_ip_to_str(g_persist_config.network.static_ip, ip_str);
-    debug_println(ip_str);
-
-    debug_print("  gateway: ");
-    network_config_ip_to_str(g_persist_config.network.static_gateway, ip_str);
-    debug_println(ip_str);
-
-    debug_print("  netmask: ");
-    network_config_ip_to_str(g_persist_config.network.static_netmask, ip_str);
-    debug_println(ip_str);
-
-    debug_print("  dns: ");
-    network_config_ip_to_str(g_persist_config.network.static_dns, ip_str);
-    debug_println(ip_str);
-  }
-
-  debug_println("telnet");
-  debug_print("  status: ");
-  debug_println(g_persist_config.network.telnet_enabled ? "enabled" : "disabled");
-
-  debug_print("  port: ");
-  debug_print_uint(g_persist_config.network.telnet_port);
-  debug_println("");
-
-  debug_print("  username: ");
-  debug_println(g_persist_config.network.telnet_username[0] ? g_persist_config.network.telnet_username : "(not set)");
-
-  debug_print("  password: ");
-  debug_println(g_persist_config.network.telnet_password[0] ? "********" : "(not set)");
-
-  // =========================================================================
-  // PERSISTENCE (v4.0+)
-  // =========================================================================
-  debug_println("persistence");
-  debug_print("  status: ");
-  debug_println(g_persist_config.persist_regs.enabled ? "enabled" : "disabled");
-
-  debug_print("  groups: ");
-  debug_print_uint(g_persist_config.persist_regs.group_count);
-  debug_print(" / ");
-  debug_print_uint(PERSIST_MAX_GROUPS);
-  debug_println("");
-
-  if (g_persist_config.persist_regs.group_count > 0) {
-    for (uint8_t i = 0; i < g_persist_config.persist_regs.group_count; i++) {
-      PersistGroup* grp = &g_persist_config.persist_regs.groups[i];
-      debug_print("  grp");
-      debug_print_uint(i + 1);  // Group number (1-indexed for ST Logic)
-      debug_print(" \"");
-      debug_print(grp->name);
-      debug_print("\" (");
-      debug_print_uint(grp->reg_count);
-      debug_print(" regs): ");
-
-      // Show register addresses
-      for (uint8_t j = 0; j < grp->reg_count; j++) {
-        if (j > 0) debug_print(", ");
-        debug_print_uint(grp->reg_addresses[j]);
-      }
-      debug_println("");
-    }
-  } else {
-    debug_println("  (none configured)");
-  }
-
-  // =========================================================================
-  // ST LOGIC (v3.0+)
-  // =========================================================================
-  // st_state already declared earlier in this function (line 397)
-
-  debug_println("st-logic");
+  debug_println("\n[ST LOGIC]");
   debug_print("  status: ");
   debug_println(st_state->enabled ? "enabled" : "disabled");
 
@@ -528,6 +434,7 @@ void cli_cmd_show_config(void) {
   debug_print_uint(st_state->total_cycles);
   debug_println("");
 
+  debug_println("\nprograms:");
   // Show individual programs (all 4 slots, even if empty)
   for (uint8_t i = 0; i < 4; i++) {
     st_logic_program_config_t* prog = &st_state->programs[i];
@@ -570,6 +477,169 @@ void cli_cmd_show_config(void) {
       }
     }
     debug_println("");
+  }
+
+  // Show ST Logic variable bindings
+  uint8_t st_count = 0;
+  for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+    if (g_persist_config.var_maps[i].source_type == MAPPING_SOURCE_ST_VAR) {
+      st_count++;
+    }
+  }
+
+  if (st_count > 0) {
+    debug_println("\nvariable bindings:");
+
+    // Group bindings by program
+    for (uint8_t prog_id = 0; prog_id < 4; prog_id++) {
+      bool has_bindings = false;
+
+      // Check if this program has any bindings
+      for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+        const VariableMapping* map = &g_persist_config.var_maps[i];
+        if (map->source_type == MAPPING_SOURCE_ST_VAR && map->st_program_id == prog_id) {
+          has_bindings = true;
+          break;
+        }
+      }
+
+      if (!has_bindings) continue;
+
+      // Print program header
+      debug_print("logic");
+      debug_print_uint(prog_id + 1);
+      debug_println(":");
+
+      // Print all bindings for this program
+      for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
+        const VariableMapping* map = &g_persist_config.var_maps[i];
+        if (map->source_type != MAPPING_SOURCE_ST_VAR || map->st_program_id != prog_id) continue;
+
+        debug_print("  var ");
+
+        // Lookup variable name from bytecode
+        st_logic_program_config_t *prog = st_logic_get_program(st_state, map->st_program_id);
+        if (prog && prog->compiled && map->st_var_index < prog->bytecode.var_count) {
+          debug_print(prog->bytecode.var_names[map->st_var_index]);
+        } else {
+          debug_print("var");
+          debug_print_uint(map->st_var_index);
+        }
+
+        // Pad variable name for alignment (assume max 15 chars)
+        debug_print(" ");
+
+        if (map->is_input) {
+          // INPUT mode: check if it's a Holding Register, Discrete Input, or Coil
+          debug_print("<-- ");
+          if (map->input_type == 1) {
+            debug_print("input:");  // Discrete Input
+          } else if (map->input_type == 2) {
+            debug_print("coil:");   // Coil input
+          } else {
+            debug_print("reg:");    // Holding Register input
+          }
+          debug_print_uint(map->input_reg);
+          debug_print(" as input");
+        } else {
+          // OUTPUT mode: check if it's a Coil or Holding Register
+          debug_print("--> ");
+          if (map->output_type == 1) {
+            debug_print("coil:");  // Coil output
+          } else {
+            debug_print("reg:");   // Holding Register output
+          }
+          debug_print_uint(map->coil_reg);
+          debug_print(" as output");
+        }
+        debug_println("");
+      }
+    }
+  }
+
+  // =========================================================================
+  // NETWORK
+  // =========================================================================
+  debug_println("\n[NETWORK]");
+  debug_println("wifi:");
+  debug_print("  status: ");
+  debug_println(g_persist_config.network.enabled ? "enabled" : "disabled");
+
+  debug_print("  ssid: ");
+  debug_println(g_persist_config.network.ssid[0] ? g_persist_config.network.ssid : "(not set)");
+
+  debug_print("  password: ");
+  debug_println(g_persist_config.network.password[0] ? "********" : "(not set)");
+
+  debug_print("  dhcp: ");
+  debug_println(g_persist_config.network.dhcp_enabled ? "enabled" : "disabled");
+
+  if (!g_persist_config.network.dhcp_enabled) {
+    char ip_str[16];
+    debug_print("  static ip: ");
+    network_config_ip_to_str(g_persist_config.network.static_ip, ip_str);
+    debug_println(ip_str);
+
+    debug_print("  gateway: ");
+    network_config_ip_to_str(g_persist_config.network.static_gateway, ip_str);
+    debug_println(ip_str);
+
+    debug_print("  netmask: ");
+    network_config_ip_to_str(g_persist_config.network.static_netmask, ip_str);
+    debug_println(ip_str);
+
+    debug_print("  dns: ");
+    network_config_ip_to_str(g_persist_config.network.static_dns, ip_str);
+    debug_println(ip_str);
+  }
+
+  debug_println("\ntelnet:");
+  debug_print("  status: ");
+  debug_println(g_persist_config.network.telnet_enabled ? "enabled" : "disabled");
+
+  debug_print("  port: ");
+  debug_print_uint(g_persist_config.network.telnet_port);
+  debug_println("");
+
+  debug_print("  username: ");
+  debug_println(g_persist_config.network.telnet_username[0] ? g_persist_config.network.telnet_username : "(not set)");
+
+  debug_print("  password: ");
+  debug_println(g_persist_config.network.telnet_password[0] ? "********" : "(not set)");
+
+  // =========================================================================
+  // PERSISTENCE
+  // =========================================================================
+  debug_println("\n[PERSISTENCE]");
+  debug_print("  status: ");
+  debug_println(g_persist_config.persist_regs.enabled ? "enabled" : "disabled");
+
+  debug_print("  groups: ");
+  debug_print_uint(g_persist_config.persist_regs.group_count);
+  debug_print(" / ");
+  debug_print_uint(PERSIST_MAX_GROUPS);
+  debug_println("");
+
+  if (g_persist_config.persist_regs.group_count > 0) {
+    for (uint8_t i = 0; i < g_persist_config.persist_regs.group_count; i++) {
+      PersistGroup* grp = &g_persist_config.persist_regs.groups[i];
+      debug_print("  grp");
+      debug_print_uint(i + 1);  // Group number (1-indexed for ST Logic)
+      debug_print(" \"");
+      debug_print(grp->name);
+      debug_print("\" (");
+      debug_print_uint(grp->reg_count);
+      debug_print(" regs): ");
+
+      // Show register addresses
+      for (uint8_t j = 0; j < grp->reg_count; j++) {
+        if (j > 0) debug_print(", ");
+        debug_print_uint(grp->reg_addresses[j]);
+      }
+      debug_println("");
+    }
+  } else {
+    debug_println("  (none configured)");
   }
 
   // =========================================================================
