@@ -64,6 +64,61 @@
 
 ---
 
+## 📍 Register Allocation for Tests
+
+### Safe Register Ranges
+
+Alle test cases bruger **safe register ranges** for at undgå konflikter med system funktioner:
+
+#### Holding Registers (HR)
+| Range | Brug i Tests | Undgår Konflikt Med |
+|-------|--------------|---------------------|
+| **HR 20-29** | Basis INT test variables (a, b, result) | Counter default range (HR 100-179) |
+| **HR 40-55** | DINT/DWORD tests (multi-register, 32-bit) | Counter default range |
+| **HR 60-69** | REAL tests (multi-register, float) | Counter default range |
+| **HR 70-89** | Fase 2 kombinerede tests (setpoint, actual, output) | Counter default range |
+
+#### Coils & Discrete Inputs
+| Range | Brug i Tests |
+|-------|--------------|
+| **Coils 0-20** | Test outputs, boolean variables |
+| **DI 0-20** | Test inputs, sensor simulation |
+
+### ⚠️ Hvorfor IKKE HR 100+?
+
+**Counter default allocation:**
+- Counter 1: HR 100-119 (20 registers)
+- Counter 2: HR 120-139 (20 registers)
+- Counter 3: HR 140-159 (20 registers)
+- Counter 4: HR 160-179 (20 registers)
+
+**ST Logic system registers:**
+- IR/HR 200-293: Status, control, statistics (SYSTEM RESERVED)
+
+Hvis test cases bruger HR 100-179, kolliderer de med counter registers, hvilket forhindrer ST Logic i at læse/skrive korrekt.
+
+### 💡 Best Practice
+
+**For almindelige tests:**
+```bash
+# ✅ KORREKT - Safe range
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
+```
+
+**Undgå:**
+```bash
+# ❌ FORKERT - Kolliderer med Counter 1!
+set logic 1 bind a reg:100 input    # Counter 1 value_reg
+set logic 1 bind b reg:101 input
+set logic 1 bind result reg:102 output
+```
+
+**Se også:** `MODBUS_REGISTER_MAP.md` § Register Allocation Guide for komplet dokumentation.
+
+---
+
 ## Hardware Setup
 
 ### GPIO Konfiguration

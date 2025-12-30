@@ -24,6 +24,166 @@ Dette dokument beskriver **ALLE** Modbus registre, coils og discrete inputs som 
 
 ---
 
+## 🎯 Register Allocation Guide
+
+### Safe Register Ranges (Avoiding Conflicts)
+
+For at undgå konflikter mellem system funktioner og bruger data, skal du bruge disse safe ranges:
+
+#### 📊 Holding Registers (HR) - Safe Ranges
+
+| Range | Status | Anbefalet Brug | Konflikt Med |
+|-------|--------|----------------|-------------|
+| **HR 0-19** | ✅ **SAFE** | General purpose data, test variables | Ingen |
+| **HR 20-89** | ✅ **SAFE** | ST Logic test variables, temporary data | Ingen |
+| **HR 90-99** | ✅ **SAFE** | Reserved for future use | Ingen |
+| **HR 100-179** | ⚠️ **RESERVED** | Counter default allocation (4 counters × 20 registers) | Counter engine |
+| **HR 180-199** | ✅ **SAFE** | Custom data, persistent registers | Ingen |
+| **HR 200-293** | 🔒 **SYSTEM** | ST Logic fixed registers (status, control, stats) | ST Logic engine |
+| **HR 294-499** | ✅ **SAFE** | Custom data, persistent registers, large datasets | Ingen |
+| **HR 500+** | ✅ **SAFE** | User-defined data | Ingen |
+
+#### 🎚️ Coils (C) - Safe Ranges
+
+| Range | Status | Anbefalet Brug | Konflikt Med |
+|-------|--------|----------------|-------------|
+| **C 0-49** | ✅ **SAFE** | GPIO outputs, timer outputs, ST Logic outputs | Ingen (med omtanke) |
+| **C 50-255** | ✅ **SAFE** | Custom control bits, alarms, status flags | Ingen |
+
+#### 📥 Discrete Inputs (DI) - Safe Ranges
+
+| Range | Status | Anbefalet Brug | Konflikt Med |
+|-------|--------|----------------|-------------|
+| **DI 0-49** | ✅ **SAFE** | GPIO inputs, sensor inputs | Ingen (med omtanke) |
+| **DI 50-255** | ✅ **SAFE** | Custom sensor inputs, status bits | Ingen |
+
+#### 🔢 Input Registers (IR) - Safe Ranges
+
+| Range | Status | Anbefalet Brug | Konflikt Med |
+|-------|--------|----------------|-------------|
+| **IR 0-199** | ✅ **SAFE** | Read-only sensor data, calculated values | Ingen |
+| **IR 200-293** | 🔒 **SYSTEM** | ST Logic status & statistics | ST Logic engine |
+| **IR 294-499** | ✅ **SAFE** | Read-only data, monitoring values | Ingen |
+| **IR 500+** | ✅ **SAFE** | User-defined read-only data | Ingen |
+
+---
+
+### 💡 Best Practices
+
+#### 1. **Test og Development**
+- **HR 20-89:** Brug dette område til ST Logic tests og temporary variables
+- **C 0-20:** Brug til test outputs/inputs
+- Eksempel:
+  ```bash
+  set logic 1 bind test_input reg:20 input
+  set logic 1 bind test_output reg:25 output
+  ```
+
+#### 2. **Counter Configuration**
+Counter default allocation bruger **HR 100-179** (4 counters × 20 registers):
+- Counter 1: HR 100-119
+- Counter 2: HR 120-139
+- Counter 3: HR 140-159
+- Counter 4: HR 160-179
+
+**⚠️ VIGTIGT:** Hvis du IKKE bruger counters, er HR 100-179 safe for andre formål.
+
+**Bedste praksis:**
+- Hvis du bruger counters: Undgå HR 100-179 helt
+- Hvis du IKKE bruger counters: Du kan bruge HR 100-179 frit
+- Brug altid `show counters` for at tjekke om counters er konfigureret
+
+#### 3. **ST Logic Variable Bindings**
+ST Logic bruger **IR/HR 200-293** til system registers:
+- IR 200-293: Status, statistics, performance (READ-ONLY)
+- HR 200-237: Control, interval settings (READ-WRITE)
+
+**⚠️ UNDGÅ:**
+```bash
+# FORKERT - Kolliderer med ST Logic system registers!
+set logic 1 bind my_var reg:200 input
+```
+
+**✅ BRUG:**
+```bash
+# KORREKT - Safe range
+set logic 1 bind my_var reg:20 input
+set logic 1 bind result reg:25 output
+```
+
+#### 4. **Multi-Register Typer (DINT/DWORD/REAL)**
+32-bit typer kræver 2 på hinanden følgende registers:
+- **DINT:** 2 registers (eksempel: HR 40-41)
+- **DWORD:** 2 registers (eksempel: HR 42-43)
+- **REAL:** 2 registers (eksempel: HR 60-61)
+
+**Byte order:** LSW first, MSW second (little-endian)
+
+**Eksempel:**
+```bash
+# DINT variable "large_value" bruger HR 40-41
+set logic 1 bind large_value reg:40 input
+
+# Skriv DINT værdi (CLI håndterer automatisk LSW/MSW split)
+write reg 40 value dint 100000
+# Resultat: HR40=34464 (LSW), HR41=1 (MSW)
+```
+
+**⚠️ VIGTIGT:** Sørg for at HR N+1 også er i safe range!
+
+#### 5. **Persistent Registers**
+Persistent registers kan gemmes til NVS og genindlæses ved boot.
+
+**Best practice:**
+- Brug HR 294-499 for persistent data
+- Undgå counter range (HR 100-179) og ST Logic range (HR 200-293)
+- Eksempel:
+  ```bash
+  set persist group "recipe1" add 300-310
+  save registers group "recipe1"
+  ```
+
+#### 6. **Collision Detection**
+Systemet tjekker automatisk for register konflikter ved configuration.
+
+**Hvis du får fejl:**
+```
+ERROR: Register 100 already allocated (Counter 1: value_reg)
+```
+
+**Løsning:**
+1. Brug `show counters` for at se hvilke registers er i brug
+2. Vælg et register fra safe range (HR 20-89 eller HR 294+)
+3. Opdater din configuration
+
+#### 7. **Documentation i Kode**
+Når du bruger registers i ST Logic, dokumentér altid:
+```structured-text
+VAR
+  setpoint: INT;      (* HR 20 - Temperature setpoint *)
+  actual: INT;        (* HR 21 - Current temperature *)
+  output: INT;        (* HR 25 - Heater control value *)
+  alarm: BOOL;        (* Coil 10 - Temperature alarm *)
+END_VAR
+```
+
+---
+
+### 📋 Quick Reference: Anbefalede Ranges
+
+**For almindelig brug:**
+- **Test variables:** HR 20-89
+- **Production data:** HR 294-499
+- **Control bits:** Coils 0-49
+- **Sensor inputs:** DI 0-49
+- **Calculated values:** IR 0-199
+
+**Undgå altid:**
+- ❌ HR 200-293 (ST Logic system)
+- ⚠️ HR 100-179 (Counter default - tjek først med `show counters`)
+
+---
+
 ## 🔧 Register Kategorier
 
 ### 1. Fixed Register Mappings
