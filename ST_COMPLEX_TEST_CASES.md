@@ -44,7 +44,7 @@ All test cases are **copy/paste ready** for Telnet CLI.
 - `error` (REAL): Setpoint - actual (calculated)
 
 **Bindings:**
-- IN: Coil 0 → enable, HR 20 → temp_setpoint (REAL at 20-21), IR 30 → temp_actual (REAL at 30-31)
+- IN: Coil 0 → enable, HR 20 → temp_setpoint (REAL at 20-21), HR 30 → temp_actual (REAL at 30-31)
 - OUT: Coil 10 → alarm, HR 40 → power_output
 
 **Test Commands:**
@@ -63,11 +63,11 @@ set logic 1 var alarm type bool
 set logic 1 var error type real
 
 # Bindings
-set logic 1 bind coil 0 to enable in
-set logic 1 bind reg 20 to temp_setpoint in real
-set logic 1 bind input 30 to temp_actual in real
-set logic 1 bind coil 10 to alarm out
-set logic 1 bind reg 40 to power_output out
+set logic 1 bind enable coil:0
+set logic 1 bind temp_setpoint reg:20 input
+set logic 1 bind temp_actual reg:30 input
+set logic 1 bind alarm coil:10 output
+set logic 1 bind power_output reg:40 output
 
 # Upload program
 set logic 1 upload start
@@ -148,27 +148,27 @@ show config logic
 write coil 0 value 1
 write reg 20 value uint 50
 write reg 21 value uint 0
-write input 30 value uint 25
-write input 31 value uint 0
+write reg 30 value uint 25
+write reg 31 value uint 0
 show logic 1
 read reg 40
 read coil 10
 
 # Scenario 2: Approaching setpoint
-write input 30 value uint 48
-write input 31 value uint 0
+write reg 30 value uint 48
+write reg 31 value uint 0
 show logic 1
 read reg 40
 
 # Scenario 3: Too hot - needs cooling
-write input 30 value uint 60
-write input 31 value uint 0
+write reg 30 value uint 60
+write reg 31 value uint 0
 show logic 1
 read reg 40
 
 # Scenario 4: Temperature alarm (out of range)
-write input 30 value uint 95
-write input 31 value uint 0
+write reg 30 value uint 95
+write reg 31 value uint 0
 show logic 1
 read coil 10
 ```
@@ -218,17 +218,17 @@ set logic 2 var overflow_alarm type bool
 set logic 2 var underflow_alarm type bool
 set logic 2 var auto_mode type bool
 
-# Bindings (IR 50-61 for tank levels, Coils 20-25 for pumps/alarms)
-set logic 2 bind input 50 to tank1_level in real
-set logic 2 bind input 52 to tank2_level in real
-set logic 2 bind input 54 to tank3_level in real
-set logic 2 bind coil 0 to auto_mode in
-set logic 2 bind coil 20 to pump1_on out
-set logic 2 bind coil 21 to pump2_on out
-set logic 2 bind coil 22 to pump3_on out
-set logic 2 bind coil 23 to overflow_alarm out
-set logic 2 bind coil 24 to underflow_alarm out
-set logic 2 bind reg 50 to total_volume out real
+# Bindings (HR 50-61 for tank levels, Coils 20-25 for pumps/alarms)
+set logic 2 bind tank1_level reg:50 input
+set logic 2 bind tank2_level reg:52 input
+set logic 2 bind tank3_level reg:54 input
+set logic 2 bind auto_mode coil:0
+set logic 2 bind pump1_on coil:20 output
+set logic 2 bind pump2_on coil:21 output
+set logic 2 bind pump3_on coil:22 output
+set logic 2 bind overflow_alarm coil:23 output
+set logic 2 bind underflow_alarm coil:24 output
+set logic 2 bind total_volume reg:56 output
 
 # Upload
 set logic 2 upload start
@@ -316,29 +316,29 @@ show config logic
 
 # Scenario 1: All tanks empty - start fill
 write coil 0 value 1
-write input 50 value uint 10
-write input 51 value uint 0
-write input 52 value uint 10
-write input 53 value uint 0
-write input 54 value uint 10
-write input 55 value uint 0
+write reg 50 value uint 10
+write reg 51 value uint 0
+write reg 52 value uint 10
+write reg 53 value uint 0
+write reg 54 value uint 10
+write reg 55 value uint 0
 show logic 2
 read coil 20 3
 
 # Scenario 2: Tank1 full, Tank2 empty - cascade
-write input 50 value uint 75
-write input 52 value uint 20
-write input 54 value uint 30
+write reg 50 value uint 75
+write reg 52 value uint 20
+write reg 54 value uint 30
 show logic 2
 read coil 20 3
 
 # Scenario 3: Overflow condition
-write input 50 value uint 97
+write reg 50 value uint 97
 show logic 2
 read coil 23
 
 # Scenario 4: Underflow alarm
-write input 52 value uint 3
+write reg 52 value uint 3
 show logic 2
 read coil 24
 ```
@@ -385,13 +385,13 @@ set logic 3 var quality_alarm type bool
 set logic 3 var state type int
 
 # Bindings
-set logic 3 bind coil 0 to running in
-set logic 3 bind reg 60 to good_count in
-set logic 3 bind reg 61 to bad_count in
-set logic 3 bind coil 30 to batch_complete out
-set logic 3 bind coil 31 to quality_alarm out
-set logic 3 bind reg 70 to quality_percent out real
-set logic 3 bind reg 72 to batch_number out
+set logic 3 bind running coil:0
+set logic 3 bind good_count reg:60 input
+set logic 3 bind bad_count reg:61 input
+set logic 3 bind batch_complete coil:30 output
+set logic 3 bind quality_alarm coil:31 output
+set logic 3 bind quality_percent reg:70 output
+set logic 3 bind batch_number reg:72 output
 
 # Upload
 set logic 3 upload start
@@ -541,20 +541,20 @@ set logic 4 var system_enable type bool
 set logic 4 var eco_mode type bool
 
 # Bindings
-set logic 4 bind input 80 to zone1_temp in real
-set logic 4 bind input 82 to zone2_temp in real
-set logic 4 bind input 84 to zone3_temp in real
-set logic 4 bind input 86 to zone4_temp in real
-set logic 4 bind reg 80 to setpoint in
-set logic 4 bind coil 0 to system_enable in
-set logic 4 bind coil 1 to eco_mode in
-set logic 4 bind coil 40 to heating_on out
-set logic 4 bind coil 41 to cooling_on out
-set logic 4 bind coil 42 to zone1_alarm out
-set logic 4 bind coil 43 to zone2_alarm out
-set logic 4 bind coil 44 to zone3_alarm out
-set logic 4 bind coil 45 to zone4_alarm out
-set logic 4 bind reg 90 to avg_temp out real
+set logic 4 bind zone1_temp reg:80 input
+set logic 4 bind zone2_temp reg:82 input
+set logic 4 bind zone3_temp reg:84 input
+set logic 4 bind zone4_temp reg:86 input
+set logic 4 bind setpoint reg:88 input
+set logic 4 bind system_enable coil:0
+set logic 4 bind eco_mode coil:1
+set logic 4 bind heating_on coil:40 output
+set logic 4 bind cooling_on coil:41 output
+set logic 4 bind zone1_alarm coil:42 output
+set logic 4 bind zone2_alarm coil:43 output
+set logic 4 bind zone3_alarm coil:44 output
+set logic 4 bind zone4_alarm coil:45 output
+set logic 4 bind avg_temp reg:90 output
 
 # Upload
 set logic 4 upload start
@@ -633,15 +633,15 @@ show config logic
 # Scenario 1: All zones normal, avg < setpoint
 write coil 0 value 1
 write coil 1 value 0
-write reg 80 value int 22
-write input 80 value uint 20
-write input 81 value uint 0
-write input 82 value uint 21
-write input 83 value uint 0
-write input 84 value uint 19
-write input 85 value uint 0
-write input 86 value uint 20
-write input 87 value uint 0
+write reg 88 value int 22
+write reg 80 value uint 20
+write reg 81 value uint 0
+write reg 82 value uint 21
+write reg 83 value uint 0
+write reg 84 value uint 19
+write reg 85 value uint 0
+write reg 86 value uint 20
+write reg 87 value uint 0
 show logic 4
 read reg 90 2
 read coil 40 2
@@ -652,16 +652,16 @@ show logic 4
 read coil 40 2
 
 # Scenario 3: Zone alarm (zone1 too cold)
-write input 80 value uint 12
-write input 81 value uint 0
+write reg 80 value uint 12
+write reg 81 value uint 0
 show logic 4
 read coil 42
 
 # Scenario 4: Too hot - cooling needed
-write input 80 value uint 25
-write input 82 value uint 26
-write input 84 value uint 24
-write input 86 value uint 25
+write reg 80 value uint 25
+write reg 82 value uint 26
+write reg 84 value uint 24
+write reg 86 value uint 25
 show logic 4
 read reg 90 2
 read coil 40 2
@@ -709,20 +709,20 @@ set logic 1 var batch_complete type bool
 set logic 1 var safety_alarm type bool
 
 # Bindings
-set logic 1 bind input 100 to weight in real
-set logic 1 bind input 102 to temperature in real
-set logic 1 bind reg 100 to target_weight in
-set logic 1 bind reg 101 to target_temp in
-set logic 1 bind coil 0 to recipe_running in
-set logic 1 bind coil 1 to door_closed in
-set logic 1 bind coil 2 to estop in
-set logic 1 bind coil 50 to fill_valve out
-set logic 1 bind coil 51 to mix_motor out
-set logic 1 bind coil 52 to heater out
-set logic 1 bind coil 53 to cooler out
-set logic 1 bind coil 54 to drain_valve out
-set logic 1 bind coil 55 to batch_complete out
-set logic 1 bind coil 56 to safety_alarm out
+set logic 1 bind weight reg:100 input
+set logic 1 bind temperature reg:102 input
+set logic 1 bind target_weight reg:104 input
+set logic 1 bind target_temp reg:105 input
+set logic 1 bind recipe_running coil:0
+set logic 1 bind door_closed coil:1
+set logic 1 bind estop coil:2
+set logic 1 bind fill_valve coil:50 output
+set logic 1 bind mix_motor coil:51 output
+set logic 1 bind heater coil:52 output
+set logic 1 bind cooler coil:53 output
+set logic 1 bind drain_valve coil:54 output
+set logic 1 bind batch_complete coil:55 output
+set logic 1 bind safety_alarm coil:56 output
 
 # Upload
 set logic 1 upload start
@@ -840,18 +840,18 @@ show config logic
 write coil 0 value 1
 write coil 1 value 1
 write coil 2 value 0
-write reg 100 value int 100
-write reg 101 value int 60
-write input 100 value uint 0
-write input 101 value uint 0
-write input 102 value uint 20
-write input 103 value uint 0
+write reg 104 value int 100
+write reg 105 value int 60
+write reg 100 value uint 0
+write reg 101 value uint 0
+write reg 102 value uint 20
+write reg 103 value uint 0
 show logic 1
 read coil 50
 
 # Scenario 2: Weight reached - move to mix
-write input 100 value uint 100
-write input 101 value uint 0
+write reg 100 value uint 100
+write reg 101 value uint 0
 show logic 1
 read coil 50 2
 
@@ -867,12 +867,12 @@ read coil 50 5
 
 # Scenario 5: Resume and complete
 write coil 1 value 1
-write input 102 value uint 65
-write input 103 value uint 0
+write reg 102 value uint 65
+write reg 103 value uint 0
 show logic 1
-write input 102 value uint 25
+write reg 102 value uint 25
 show logic 1
-write input 100 value uint 2
+write reg 100 value uint 2
 show logic 1
 read coil 55
 ```
