@@ -286,16 +286,16 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "5.0.0"
+#define PROJECT_VERSION     "4.4.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
- * v5.0.0 (2025-12-29): IEC 61131-3 Type System - INT=16-bit, DINT=32-bit, REAL=32-bit float
- *                      Multi-register I/O, type-aware operators, CLI read/write int/uint/real
- *                      Fixed: BUG-105 to BUG-110 (division by zero, SUM function, multi-register delete)
- * v4.4.2 (2025-12-25): Config mode now displays all SET commands (copy/paste ready)
- * v4.4.1 (2025-12-24): Modbus Slave CLI commands (set modbus-slave ...)
- * v4.4.0 (2025-12-24): Modbus Master implementation (UART1)
+ * v4.4.0 (2025-12-30): CLI Documentation & ST Logic Debugging Enhancements
+ *                      - Comprehensive CLI Commands Reference (650+ lines)
+ *                      - show logic <id> bytecode command
+ *                      - show config reorganization (8 sections with ST variable annotations)
+ *                      - README Table of Contents refactor (all 16 documents)
+ *                      Fixed: BUG-126, BUG-127, BUG-128 (normalize_alias BYTECODE/TIMING)
  * v4.3.0 (2025-12-20): Auto-Load Persistent Register Groups on boot + CLI parser fixes
  * v4.2.9 (2025-12-18): Counter control parameter restructuring
  * v3.1.1 (2025-12-08): Telnet insert mode & ST upload copy/paste
