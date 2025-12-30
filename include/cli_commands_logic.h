@@ -111,6 +111,12 @@ int cli_cmd_show_logic_code_all(st_logic_engine_state_t *logic_state);
 int cli_cmd_show_logic_timing(st_logic_engine_state_t *logic_state, uint8_t program_id);
 
 /**
+ * @brief show logic <id> bytecode
+ * Show compiled bytecode instructions for a specific logic program
+ */
+int cli_cmd_show_logic_bytecode(st_logic_engine_state_t *logic_state, uint8_t program_id);
+
+/**
  * @brief reset logic stats [all|<id>]
  * Reset execution statistics for one or all logic programs
  * @param target "all" or program ID as string

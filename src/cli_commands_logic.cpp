@@ -828,6 +828,179 @@ int cli_cmd_show_logic_code_all(st_logic_engine_state_t *logic_state) {
 }
 
 /**
+ * @brief show logic <id> bytecode - Display compiled bytecode for a program
+ *
+ * Shows the compiled bytecode instructions with opcodes and arguments
+ *
+ * @param logic_state ST Logic engine state
+ * @param program_id Program ID (0-3)
+ * @return 0 on success, -1 on error
+ */
+int cli_cmd_show_logic_bytecode(st_logic_engine_state_t *logic_state, uint8_t program_id) {
+  if (program_id >= 4) {
+    debug_printf("ERROR: Invalid program ID (1-4)\n");
+    return -1;
+  }
+
+  st_logic_program_config_t *prog = &logic_state->programs[program_id];
+
+  debug_printf("\n======== Logic%d Bytecode Dump ========\n\n", program_id + 1);
+
+  if (!prog->compiled || prog->bytecode.instr_count == 0) {
+    debug_printf("Program not compiled or empty.\n\n");
+    return 0;
+  }
+
+  debug_printf("Program: %s\n", prog->name);
+  debug_printf("Status:  %s\n", prog->enabled ? "ENABLED" : "DISABLED");
+  debug_printf("Instructions: %u\n", prog->bytecode.instr_count);
+  debug_printf("Variables: %u\n\n", prog->bytecode.var_count);
+
+  // Show variable table
+  if (prog->bytecode.var_count > 0) {
+    debug_printf("--- Variable Table ---\n");
+    for (uint8_t i = 0; i < prog->bytecode.var_count; i++) {
+      debug_printf("  [%d] %s (type=%d)\n", i, prog->bytecode.var_names[i], prog->bytecode.var_types[i]);
+    }
+    debug_printf("\n");
+  }
+
+  // Show bytecode instructions
+  debug_printf("--- Bytecode Instructions ---\n");
+  for (uint16_t i = 0; i < prog->bytecode.instr_count; i++) {
+    const st_bytecode_instr_t *instr = &prog->bytecode.instructions[i];
+    debug_printf("%04d: ", i);
+
+    switch (instr->opcode) {
+      case ST_OP_PUSH_BOOL:
+        debug_printf("PUSH_BOOL %d", instr->arg.bool_arg);
+        break;
+      case ST_OP_PUSH_INT:
+        debug_printf("PUSH_INT %d", instr->arg.int_arg);
+        break;
+      case ST_OP_PUSH_DWORD:
+        debug_printf("PUSH_DWORD %u", (unsigned int)instr->arg.dword_arg);
+        break;
+      case ST_OP_PUSH_REAL:
+        debug_printf("PUSH_REAL %f", instr->arg.float_arg);
+        break;
+      case ST_OP_PUSH_VAR:
+        debug_printf("PUSH_VAR [%d]", instr->arg.var_index);
+        if (instr->arg.var_index < prog->bytecode.var_count) {
+          debug_printf(" ; %s", prog->bytecode.var_names[instr->arg.var_index]);
+        }
+        break;
+      case ST_OP_DUP:
+        debug_printf("DUP");
+        break;
+      case ST_OP_POP:
+        debug_printf("POP");
+        break;
+      case ST_OP_ADD:
+        debug_printf("ADD");
+        break;
+      case ST_OP_SUB:
+        debug_printf("SUB");
+        break;
+      case ST_OP_MUL:
+        debug_printf("MUL");
+        break;
+      case ST_OP_DIV:
+        debug_printf("DIV");
+        break;
+      case ST_OP_MOD:
+        debug_printf("MOD");
+        break;
+      case ST_OP_NEG:
+        debug_printf("NEG");
+        break;
+      case ST_OP_AND:
+        debug_printf("AND");
+        break;
+      case ST_OP_OR:
+        debug_printf("OR");
+        break;
+      case ST_OP_NOT:
+        debug_printf("NOT");
+        break;
+      case ST_OP_XOR:
+        debug_printf("XOR");
+        break;
+      case ST_OP_SHL:
+        debug_printf("SHL");
+        break;
+      case ST_OP_SHR:
+        debug_printf("SHR");
+        break;
+      case ST_OP_EQ:
+        debug_printf("EQ");
+        break;
+      case ST_OP_NE:
+        debug_printf("NE");
+        break;
+      case ST_OP_LT:
+        debug_printf("LT");
+        break;
+      case ST_OP_GT:
+        debug_printf("GT");
+        break;
+      case ST_OP_LE:
+        debug_printf("LE");
+        break;
+      case ST_OP_GE:
+        debug_printf("GE");
+        break;
+      case ST_OP_JMP:
+        debug_printf("JMP %d", instr->arg.int_arg);
+        break;
+      case ST_OP_JMP_IF_FALSE:
+        debug_printf("JMP_IF_FALSE %d", instr->arg.int_arg);
+        break;
+      case ST_OP_JMP_IF_TRUE:
+        debug_printf("JMP_IF_TRUE %d", instr->arg.int_arg);
+        break;
+      case ST_OP_STORE_VAR:
+        debug_printf("STORE_VAR [%d]", instr->arg.var_index);
+        if (instr->arg.var_index < prog->bytecode.var_count) {
+          debug_printf(" ; %s", prog->bytecode.var_names[instr->arg.var_index]);
+        }
+        break;
+      case ST_OP_LOAD_VAR:
+        debug_printf("LOAD_VAR [%d]", instr->arg.var_index);
+        if (instr->arg.var_index < prog->bytecode.var_count) {
+          debug_printf(" ; %s", prog->bytecode.var_names[instr->arg.var_index]);
+        }
+        break;
+      case ST_OP_LOOP_INIT:
+        debug_printf("LOOP_INIT");
+        break;
+      case ST_OP_LOOP_TEST:
+        debug_printf("LOOP_TEST");
+        break;
+      case ST_OP_LOOP_NEXT:
+        debug_printf("LOOP_NEXT");
+        break;
+      case ST_OP_CALL_BUILTIN:
+        debug_printf("CALL_BUILTIN %d", instr->arg.int_arg);
+        break;
+      case ST_OP_NOP:
+        debug_printf("NOP");
+        break;
+      case ST_OP_HALT:
+        debug_printf("HALT");
+        break;
+      default:
+        debug_printf("UNKNOWN_OP(%d)", instr->opcode);
+        break;
+    }
+    debug_printf("\n");
+  }
+
+  debug_printf("\n========================================\n\n");
+  return 0;
+}
+
+/**
  * @brief show logic stats - Display performance statistics for all programs (v4.1.0)
  */
 int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {

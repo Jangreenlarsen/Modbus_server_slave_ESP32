@@ -467,14 +467,15 @@ static void print_persist_help(void) {
 static void print_logic_help(void) {
   debug_println("");
   debug_println("Available 'show logic' commands:");
-  debug_println("  show logic <id>        - Vis specifikt program (1-4)");
-  debug_println("  show logic all         - Vis alle programmer");
-  debug_println("  show logic program     - Vis oversigt over alle programmer");
-  debug_println("  show logic errors      - Vis kun programmer med fejl");
-  debug_println("  show logic stats       - Vis statistik");
-  debug_println("  show logic <id> code   - Vis program source code");
-  debug_println("  show logic all code    - Vis alle programmer source code");
-  debug_println("  show logic <id> timing - Vis timing info (execution times)");
+  debug_println("  show logic <id>          - Vis specifikt program (1-4)");
+  debug_println("  show logic all           - Vis alle programmer");
+  debug_println("  show logic program       - Vis oversigt over alle programmer");
+  debug_println("  show logic errors        - Vis kun programmer med fejl");
+  debug_println("  show logic stats         - Vis statistik");
+  debug_println("  show logic <id> code     - Vis program source code");
+  debug_println("  show logic all code      - Vis alle programmer source code");
+  debug_println("  show logic <id> timing   - Vis timing info (execution times)");
+  debug_println("  show logic <id> bytecode - Vis compileret bytecode instruktioner");
   debug_println("");
   debug_println("Available 'reset logic' commands:");
   debug_println("  reset logic stats      - Nulstil alle programs statistik");
@@ -657,8 +658,18 @@ bool cli_parser_execute(char* line) {
             debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
             return false;
           }
+        } else if (!strcmp(subcommand2_norm, "BYTECODE")) {
+          // show logic <id> bytecode
+          uint8_t program_id = atoi(subcommand);
+          if (program_id > 0 && program_id <= 4) {
+            cli_cmd_show_logic_bytecode(st_logic_get_state(), program_id - 1);
+            return true;
+          } else {
+            debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
+            return false;
+          }
         }
-        // If argv[3] exists but is not "code"/"timing", fall through to normal handling
+        // If argv[3] exists but is not "code"/"timing"/"bytecode", fall through to normal handling
       }
 
       // Handle other subcommands (without code)
