@@ -150,9 +150,9 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 
 set logic 1 enabled:true
 ```
@@ -161,27 +161,27 @@ set logic 1 enabled:true
 ```bash
 # Via Modbus eller CLI
 # Test 1: 5 + 3 = 8
-write reg 100 value int 5
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 5
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 8
 
 # Test 2: -10 + 15 = 5
-write reg 100 value int -10
-write reg 101 value int 15
-read reg 102 int
+write reg 20 value int -10
+write reg 21 value int 15
+read reg 22 int
 # Forventet: 5
 
 # Test 3: 0 + 0 = 0
-write reg 100 value int 0
-write reg 101 value int 0
-read reg 102 int
+write reg 20 value int 0
+write reg 21 value int 0
+read reg 22 int
 # Forventet: 0
 
 # Test 4: Overflow test (INT_MAX + 1)
-write reg 100 value int 32767
-write reg 101 value int 1
-read reg 102 int
+write reg 20 value int 32767
+write reg 21 value int 1
+read reg 22 int
 # Forventet: -32768
 ```
 
@@ -212,30 +212,30 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: 10 - 3 = 7
-write reg 100 value int 10
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 10
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 7
 
 # Test 2: 5 - 10 = -5
-write reg 100 value int 5
-write reg 101 value int 10
-read reg 102 int
+write reg 20 value int 5
+write reg 21 value int 10
+read reg 22 int
 # Forventet: -5
 
 # Test 3: 0 - 0 = 0
-write reg 100 value int 0
-write reg 101 value int 0
-read reg 102 int
+write reg 20 value int 0
+write reg 21 value int 0
+read reg 22 int
 # Forventet: 0
 ```
 
@@ -265,30 +265,30 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: 5 * 3 = 15
-write reg 100 value int 5
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 5
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 15
 
 # Test 2: -4 * 5 = -20
-write reg 100 value int -4
-write reg 101 value int 5
-read reg 102 int
+write reg 20 value int -4
+write reg 21 value int 5
+read reg 22 int
 # Forventet: -20
 
 # Test 3: 0 * 100 = 0
-write reg 100 value int 0
-write reg 101 value int 100
-read reg 102 int
+write reg 20 value int 0
+write reg 21 value int 100
+read reg 22 int
 # Forventet: 0
 ```
 
@@ -318,36 +318,36 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: 10 / 2 = 5
-write reg 100 value int 10
-write reg 101 value int 2
-read reg 102 int
+write reg 20 value int 10
+write reg 21 value int 2
+read reg 22 int
 # Forventet: 5
 
 # Test 2: 7 / 2 = 3 (integer division)
-write reg 100 value int 7
-write reg 101 value int 2
-read reg 102 int
+write reg 20 value int 7
+write reg 21 value int 2
+read reg 22 int
 # Forventet: 3
 
 # Test 3: -10 / 3 = -3
-write reg 100 value int -10
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int -10
+write reg 21 value int 3
+read reg 22 int
 # Forventet: -3
 
 # Test 4: Division by zero (should handle gracefully)
-write reg 100 value int 10
-write reg 101 value int 0
-read reg 102 int
+write reg 20 value int 10
+write reg 21 value int 0
+read reg 22 int
 # Forventet: 0
 ```
 
@@ -378,30 +378,30 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: 10 MOD 3 = 1
-write reg 100 value int 10
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 10
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 1
 
 # Test 2: 7 MOD 2 = 1
-write reg 100 value int 7
-write reg 101 value int 2
-read reg 102 int
+write reg 20 value int 7
+write reg 21 value int 2
+read reg 22 int
 # Forventet: 1
 
 # Test 3: 8 MOD 4 = 0
-write reg 100 value int 8
-write reg 101 value int 4
-read reg 102 int
+write reg 20 value int 8
+write reg 21 value int 4
+read reg 22 int
 # Forventet: 0
 ```
 
@@ -430,26 +430,26 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100 input
-set logic 1 bind result reg:101 output
+set logic 1 bind a reg:20 input
+set logic 1 bind result reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: -5 → -5
-write reg 100 value int 5
-read reg 101 int
+write reg 20 value int 5
+read reg 21 int
 # Forventet: -5
 
 # Test 2: -(-10) → 10
-write reg 100 value int -10
-read reg 101 int
+write reg 20 value int -10
+read reg 21 int
 # Forventet: 10
 
 # Test 3: -0 → 0
-write reg 100 value int 0
-read reg 101 int
+write reg 20 value int 0
+read reg 21 int
 # Forventet: 0
 ```
 
@@ -690,30 +690,30 @@ BEGIN
   result := value SHL shift;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind value reg:100 input
-set logic 1 bind shift reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind value reg:20 input
+set logic 1 bind shift reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: 1 SHL 3 = 8
-write reg 100 value int 1
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 1
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 8
 
 # Test 2: 5 SHL 2 = 20
-write reg 100 value int 5
-write reg 101 value int 2
-read reg 102 int
+write reg 20 value int 5
+write reg 21 value int 2
+read reg 22 int
 # Forventet: 20
 
 # Test 3: 1 SHL 0 = 1
-write reg 100 value int 1
-write reg 101 value int 0
-read reg 102 int
+write reg 20 value int 1
+write reg 21 value int 0
+read reg 22 int
 # Forventet: 1
 ```
 
@@ -742,30 +742,30 @@ BEGIN
   result := value SHR shift;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind value reg:100 input
-set logic 1 bind shift reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind value reg:20 input
+set logic 1 bind shift reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: 8 SHR 3 = 1
-write reg 100 value int 8
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 8
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 1
 
 # Test 2: 20 SHR 2 = 5
-write reg 100 value int 20
-write reg 101 value int 2
-read reg 102 int
+write reg 20 value int 20
+write reg 21 value int 2
+read reg 22 int
 # Forventet: 5
 
 # Test 3: 1 SHR 0 = 1
-write reg 100 value int 1
-write reg 101 value int 0
-read reg 102 int
+write reg 20 value int 1
+write reg 21 value int 0
+read reg 22 int
 # Forventet: 1
 ```
 
@@ -796,8 +796,8 @@ BEGIN
   result := (a = b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
 set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
@@ -805,20 +805,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 = 5 → TRUE
-write reg 100 value int 5
-write reg 101 value int 5
+write reg 20 value int 5
+write reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 = 3 → FALSE
-write reg 100 value int 5
-write reg 101 value int 3
+write reg 20 value int 5
+write reg 21 value int 3
 read coil 0
 # Forventet: 0
 
 # Test 3: 0 = 0 → TRUE
-write reg 100 value int 0
-write reg 101 value int 0
+write reg 20 value int 0
+write reg 21 value int 0
 read coil 0
 # Forventet: 1
 ```
@@ -848,8 +848,8 @@ BEGIN
   result := (a <> b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
 set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
@@ -857,14 +857,14 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 <> 3 → TRUE
-write reg 100 value int 5
-write reg 101 value int 3
+write reg 20 value int 5
+write reg 21 value int 3
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 <> 5 → FALSE
-write reg 100 value int 5
-write reg 101 value int 5
+write reg 20 value int 5
+write reg 21 value int 5
 read coil 0
 # Forventet: 0
 ```
@@ -893,8 +893,8 @@ BEGIN
   result := (a < b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
 set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
@@ -902,20 +902,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 3 < 5 → TRUE
-write reg 100 value int 3
-write reg 101 value int 5
+write reg 20 value int 3
+write reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 < 3 → FALSE
-write reg 100 value int 5
-write reg 101 value int 3
+write reg 20 value int 5
+write reg 21 value int 3
 read coil 0
 # Forventet: 0
 
 # Test 3: 5 < 5 → FALSE
-write reg 100 value int 5
-write reg 101 value int 5
+write reg 20 value int 5
+write reg 21 value int 5
 read coil 0
 # Forventet: 0
 ```
@@ -945,8 +945,8 @@ BEGIN
   result := (a > b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
 set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
@@ -954,20 +954,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 > 3 → TRUE
-write reg 100 value int 5
-write reg 101 value int 3
+write reg 20 value int 5
+write reg 21 value int 3
 read coil 0
 # Forventet: 1
 
 # Test 2: 3 > 5 → FALSE
-write reg 100 value int 3
-write reg 101 value int 5
+write reg 20 value int 3
+write reg 21 value int 5
 read coil 0
 # Forventet: 0
 
 # Test 3: 5 > 5 → FALSE
-write reg 100 value int 5
-write reg 101 value int 5
+write reg 20 value int 5
+write reg 21 value int 5
 read coil 0
 # Forventet: 0
 ```
@@ -997,8 +997,8 @@ BEGIN
   result := (a <= b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
 set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
@@ -1006,20 +1006,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 3 <= 5 → TRUE
-write reg 100 value int 3
-write reg 101 value int 5
+write reg 20 value int 3
+write reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 <= 5 → TRUE
-write reg 100 value int 5
-write reg 101 value int 5
+write reg 20 value int 5
+write reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 3: 5 <= 3 → FALSE
-write reg 100 value int 5
-write reg 101 value int 3
+write reg 20 value int 5
+write reg 21 value int 3
 read coil 0
 # Forventet: 0
 ```
@@ -1049,8 +1049,8 @@ BEGIN
   result := (a >= b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
 set logic 1 bind result coil:0 output
 set logic 1 enabled:true
 ```
@@ -1058,20 +1058,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 >= 3 → TRUE
-write reg 100 value int 5
-write reg 101 value int 3
+write reg 20 value int 5
+write reg 21 value int 3
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 >= 5 → TRUE
-write reg 100 value int 5
-write reg 101 value int 5
+write reg 20 value int 5
+write reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 3: 3 >= 5 → FALSE
-write reg 100 value int 3
-write reg 101 value int 5
+write reg 20 value int 3
+write reg 21 value int 5
 read coil 0
 # Forventet: 0
 ```
@@ -1102,26 +1102,26 @@ BEGIN
   output := ABS(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100 input
-set logic 1 bind output reg:101 output
+set logic 1 bind input reg:20 input
+set logic 1 bind output reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: ABS(-5) = 5
-write reg 100 value int -5
-read reg 101 int
+write reg 20 value int -5
+read reg 21 int
 # Forventet: 5
 
 # Test 2: ABS(10) = 10
-write reg 100 value int 10
-read reg 101 int
+write reg 20 value int 10
+read reg 21 int
 # Forventet: 10
 
 # Test 3: ABS(0) = 0
-write reg 100 value int 0
-read reg 101 int
+write reg 20 value int 0
+read reg 21 int
 # Forventet: 0
 ```
 
@@ -1150,30 +1150,30 @@ BEGIN
   result := MIN(a, b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: MIN(5, 3) = 3
-write reg 100 value int 5
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 5
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 3
 
 # Test 2: MIN(-10, 5) = -10
-write reg 100 value int -10
-write reg 101 value int 5
-read reg 102 int
+write reg 20 value int -10
+write reg 21 value int 5
+read reg 22 int
 # Forventet: -10
 
 # Test 3: MIN(7, 7) = 7
-write reg 100 value int 7
-write reg 101 value int 7
-read reg 102 int
+write reg 20 value int 7
+write reg 21 value int 7
+read reg 22 int
 # Forventet: 7
 ```
 
@@ -1202,30 +1202,30 @@ BEGIN
   result := MAX(a, b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: MAX(5, 3) = 5
-write reg 100 value int 5
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 5
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 5
 
 # Test 2: MAX(-10, 5) = 5
-write reg 100 value int -10
-write reg 101 value int 5
-read reg 102 int
+write reg 20 value int -10
+write reg 21 value int 5
+read reg 22 int
 # Forventet: 5
 
 # Test 3: MAX(7, 7) = 7
-write reg 100 value int 7
-write reg 101 value int 7
-read reg 102 int
+write reg 20 value int 7
+write reg 21 value int 7
+read reg 22 int
 # Forventet: 7
 ```
 
@@ -1253,31 +1253,31 @@ BEGIN
   output := SQRT(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100 input
-set logic 1 bind output reg:102 output
+set logic 1 bind input reg:20 input
+set logic 1 bind output reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: SQRT(16.0) = 4.0
-write reg 100 value real 16.0
-read reg 102 real
+write reg 20 value real 16.0
+read reg 22 real
 # Forventet: 4.000000 (0x40800000)
 
 # Test 2: SQRT(2.0) ≈ 1.414
-write reg 100 value real 2.0
-read reg 102 real
+write reg 20 value real 2.0
+read reg 22 real
 # Forventet: 1.414214 (0x3FB504F3)
 
 # Test 3: SQRT(9.0) = 3.0
-write reg 100 value real 9.0
-read reg 102 real
+write reg 20 value real 9.0
+read reg 22 real
 # Forventet: 3.000000 (0x40400000)
 
 # Test 4: SQRT(0.0) = 0.0
-write reg 100 value real 0.0
-read reg 102 real
+write reg 20 value real 0.0
+read reg 22 real
 # Forventet: 0.000000 (0x00000000)
 ```
 
@@ -1306,31 +1306,31 @@ BEGIN
   output := ROUND(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100 input
-set logic 1 bind output reg:102 output
+set logic 1 bind input reg:20 input
+set logic 1 bind output reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: ROUND(3.4) = 3
-write reg 100 value real 3.4
-read reg 102 int
+write reg 20 value real 3.4
+read reg 22 int
 # Forventet: 3
 
 # Test 2: ROUND(3.6) = 4
-write reg 100 value real 3.6
-read reg 102 int
+write reg 20 value real 3.6
+read reg 22 int
 # Forventet: 4
 
 # Test 3: ROUND(3.5) = 4 (banker's rounding eller 3?)
-write reg 100 value real 3.5
-read reg 102 int
+write reg 20 value real 3.5
+read reg 22 int
 # Forventet: 4 (or 3 depending on implementation)
 
 # Test 4: ROUND(-2.7) = -3
-write reg 100 value real -2.7
-read reg 102 int
+write reg 20 value real -2.7
+read reg 22 int
 # Forventet: -3
 ```
 
@@ -1359,26 +1359,26 @@ BEGIN
   output := TRUNC(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100 input
-set logic 1 bind output reg:102 output
+set logic 1 bind input reg:20 input
+set logic 1 bind output reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: TRUNC(3.9) = 3
-write reg 100 value real 3.9
-read reg 102 int
+write reg 20 value real 3.9
+read reg 22 int
 # Forventet: 3
 
 # Test 2: TRUNC(-3.9) = -3
-write reg 100 value real -3.9
-read reg 102 int
+write reg 20 value real -3.9
+read reg 22 int
 # Forventet: -3
 
 # Test 3: TRUNC(5.1) = 5
-write reg 100 value real 5.1
-read reg 102 int
+write reg 20 value real 5.1
+read reg 22 int
 # Forventet: 5
 ```
 
@@ -1406,26 +1406,26 @@ BEGIN
   output := FLOOR(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100 input
-set logic 1 bind output reg:102 output
+set logic 1 bind input reg:20 input
+set logic 1 bind output reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: FLOOR(3.9) = 3
-write reg 100 value real 3.9
-read reg 102 int
+write reg 20 value real 3.9
+read reg 22 int
 # Forventet: 3
 
 # Test 2: FLOOR(-3.1) = -4
-write reg 100 value real -3.1
-read reg 102 int
+write reg 20 value real -3.1
+read reg 22 int
 # Forventet: -4
 
 # Test 3: FLOOR(5.0) = 5
-write reg 100 value real 5.0
-read reg 102 int
+write reg 20 value real 5.0
+read reg 22 int
 # Forventet: 5
 ```
 
@@ -1453,26 +1453,26 @@ BEGIN
   output := CEIL(input);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind input reg:100 input
-set logic 1 bind output reg:102 output
+set logic 1 bind input reg:20 input
+set logic 1 bind output reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: CEIL(3.1) = 4
-write reg 100 value real 3.1
-read reg 102 int
+write reg 20 value real 3.1
+read reg 22 int
 # Forventet: 4
 
 # Test 2: CEIL(-3.9) = -3
-write reg 100 value real -3.9
-read reg 102 int
+write reg 20 value real -3.9
+read reg 22 int
 # Forventet: -3
 
 # Test 3: CEIL(5.0) = 5
-write reg 100 value real 5.0
-read reg 102 int
+write reg 20 value real 5.0
+read reg 22 int
 # Forventet: 5
 ```
 
@@ -1501,24 +1501,24 @@ BEGIN
   result := SUM(a, b);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: SUM(5, 3) = 8
-write reg 100 value int 5
-write reg 101 value int 3
-read reg 102 int
+write reg 20 value int 5
+write reg 21 value int 3
+read reg 22 int
 # Forventet: 8
 
 # Test 2: SUM(-10, 15) = 5
-write reg 100 value int -10
-write reg 101 value int 15
-read reg 102 int
+write reg 20 value int -10
+write reg 21 value int 15
+read reg 22 int
 # Forventet: 5
 ```
 
@@ -1549,34 +1549,34 @@ BEGIN
   result := LIMIT(min_val, value, max_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind min_val reg:100 input
-set logic 1 bind value reg:101 input
-set logic 1 bind max_val reg:102 input
-set logic 1 bind result reg:103 output
+set logic 1 bind min_val reg:20 input
+set logic 1 bind value reg:21 input
+set logic 1 bind max_val reg:22 input
+set logic 1 bind result reg:23 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: LIMIT(0, -10, 100) = 0 (clamped to min)
-write reg 100 value int 0
-write reg 101 value int -10
-write reg 102 value int 100
-read reg 103 int
+write reg 20 value int 0
+write reg 21 value int -10
+write reg 22 value int 100
+read reg 23 int
 # Forventet: 0
 
 # Test 2: LIMIT(0, 150, 100) = 100 (clamped to max)
-write reg 100 value int 0
-write reg 101 value int 150
-write reg 102 value int 100
-read reg 103 int
+write reg 20 value int 0
+write reg 21 value int 150
+write reg 22 value int 100
+read reg 23 int
 # Forventet: 100
 
 # Test 3: LIMIT(0, 50, 100) = 50 (no clamping)
-write reg 100 value int 0
-write reg 101 value int 50
-write reg 102 value int 100
-read reg 103 int
+write reg 20 value int 0
+write reg 21 value int 50
+write reg 22 value int 100
+read reg 23 int
 # Forventet: 50
 ```
 
@@ -1607,25 +1607,25 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 set logic 1 bind selector coil:0 input
-set logic 1 bind value_false reg:100 input
-set logic 1 bind value_true reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind value_false reg:20 input
+set logic 1 bind value_true reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
-write reg 100 value int 50
-write reg 101 value int 75
+write reg 20 value int 50
+write reg 21 value int 75
 
 # Test 1: SEL(FALSE, 50, 75) = 50
 write coil 0 value 0
-read reg 102 int
+read reg 22 int
 # Forventet: 50
 
 # Test 2: SEL(TRUE, 50, 75) = 75
 write coil 0 value 1
-read reg 102 int
+read reg 22 int
 # Forventet: 75
 ```
 
@@ -1654,31 +1654,31 @@ BEGIN
   result := SIN(angle);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind angle reg:100 input
-set logic 1 bind result reg:102 output
+set logic 1 bind angle reg:20 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: SIN(0) = 0.0
-write reg 100 value real 0.0
-read reg 102 real
+write reg 20 value real 0.0
+read reg 22 real
 # Forventet: 0.000000 (0x00000000)
 
 # Test 2: SIN(π/2) ≈ 1.0
-write reg 100 value real 1.5708
-read reg 102 real
+write reg 20 value real 1.5708
+read reg 22 real
 # Forventet: 1.000000 (0x3F800000)
 
 # Test 3: SIN(π) ≈ 0.0
-write reg 100 value real 3.1416
-read reg 102 real
+write reg 20 value real 3.1416
+read reg 22 real
 # Forventet: ~0.000000 (meget tæt på 0)
 
 # Test 4: SIN(π/6) = 0.5
-write reg 100 value real 0.5236
-read reg 102 real
+write reg 20 value real 0.5236
+read reg 22 real
 # Forventet: 0.500000 (0x3F000000)
 ```
 
@@ -1707,26 +1707,26 @@ BEGIN
   result := COS(angle);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind angle reg:100 input
-set logic 1 bind result reg:102 output
+set logic 1 bind angle reg:20 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: COS(0) = 1.0
-write reg 100 value real 0.0
-read reg 102 real
+write reg 20 value real 0.0
+read reg 22 real
 # Forventet: 1.000000 (0x3F800000)
 
 # Test 2: COS(π/2) ≈ 0.0
-write reg 100 value real 1.5708
-read reg 102 real
+write reg 20 value real 1.5708
+read reg 22 real
 # Forventet: ~0.000000 (meget tæt på 0)
 
 # Test 3: COS(π) ≈ -1.0
-write reg 100 value real 3.1416
-read reg 102 real
+write reg 20 value real 3.1416
+read reg 22 real
 # Forventet: -1.000000 (0xBF800000)
 ```
 
@@ -1754,21 +1754,21 @@ BEGIN
   result := TAN(angle);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind angle reg:100 input
-set logic 1 bind result reg:102 output
+set logic 1 bind angle reg:20 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: TAN(0) = 0.0
-write reg 100 value real 0.0
-read reg 102 real
+write reg 20 value real 0.0
+read reg 22 real
 # Forventet: 0.000000 (0x00000000)
 
 # Test 2: TAN(π/4) ≈ 1.0
-write reg 100 value real 0.7854
-read reg 102 real
+write reg 20 value real 0.7854
+read reg 22 real
 # Forventet: 1.000000 (0x3F800000)
 ```
 
@@ -1797,21 +1797,21 @@ BEGIN
   real_val := INT_TO_REAL(int_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind int_val reg:100 input
-set logic 1 bind real_val reg:101 output
+set logic 1 bind int_val reg:20 input
+set logic 1 bind real_val reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: INT_TO_REAL(10) = 10.0
-write reg 100 value int 10
-read reg 101 real
+write reg 20 value int 10
+read reg 21 real
 # Forventet: 10.000000 (0x41200000)
 
 # Test 2: INT_TO_REAL(-5) = -5.0
-write reg 100 value int -5
-read reg 101 real
+write reg 20 value int -5
+read reg 21 real
 # Forventet: -5.000000 (0xC0A00000)
 ```
 
@@ -1838,21 +1838,21 @@ BEGIN
   int_val := REAL_TO_INT(real_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind real_val reg:100 input
-set logic 1 bind int_val reg:102 output
+set logic 1 bind real_val reg:20 input
+set logic 1 bind int_val reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: REAL_TO_INT(10.7) = 10
-write reg 100 value real 10.7
-read reg 102 int
+write reg 20 value real 10.7
+read reg 22 int
 # Forventet: 10
 
 # Test 2: REAL_TO_INT(-5.3) = -5
-write reg 100 value real -5.3
-read reg 102 int
+write reg 20 value real -5.3
+read reg 22 int
 # Forventet: -5
 ```
 
@@ -1880,7 +1880,7 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 set logic 1 bind bool_val coil:0 input
-set logic 1 bind int_val reg:100 output
+set logic 1 bind int_val reg:20 output
 set logic 1 enabled:true
 ```
 
@@ -1888,12 +1888,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: BOOL_TO_INT(TRUE) = 1
 write coil 0 value 1
-read reg 100 int
+read reg 20 int
 # Forventet: 1
 
 # Test 2: BOOL_TO_INT(FALSE) = 0
 write coil 0 value 0
-read reg 100 int
+read reg 20 int
 # Forventet: 0
 ```
 
@@ -1920,7 +1920,7 @@ BEGIN
   bool_val := INT_TO_BOOL(int_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind int_val reg:100 input
+set logic 1 bind int_val reg:20 input
 set logic 1 bind bool_val coil:0 output
 set logic 1 enabled:true
 ```
@@ -1928,17 +1928,17 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: INT_TO_BOOL(1) = TRUE
-write reg 100 value int 1
+write reg 20 value int 1
 read coil 0
 # Forventet: 1
 
 # Test 2: INT_TO_BOOL(0) = FALSE
-write reg 100 value int 0
+write reg 20 value int 0
 read coil 0
 # Forventet: 0
 
 # Test 3: INT_TO_BOOL(42) = TRUE (non-zero)
-write reg 100 value int 42
+write reg 20 value int 42
 read coil 0
 # Forventet: 1
 ```
@@ -1967,16 +1967,16 @@ BEGIN
   int_val := DWORD_TO_INT(dword_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind dword_val reg:100 output
-set logic 1 bind int_val reg:104 output
+set logic 1 bind dword_val reg:20 output
+set logic 1 bind int_val reg:24 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: DWORD_TO_INT(1000) = 1000
-write HR100-103 = 1000 (DWORD format)
-read reg 104 uint
+write HR20-103 = 1000 (DWORD format)
+read reg 24 uint
 # Forventet: 1000
 ```
 
@@ -2002,16 +2002,16 @@ BEGIN
   dword_val := INT_TO_DWORD(int_val);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind int_val reg:100 input
-set logic 1 bind dword_val reg:101 output
+set logic 1 bind int_val reg:20 input
+set logic 1 bind dword_val reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: INT_TO_DWORD(1000) = 1000
-write reg 100 value int 1000
-read HR101-104 → Forventet: 1000 (DWORD format)
+write reg 20 value int 1000
+read HR21-104 → Forventet: 1000 (DWORD format)
 ```
 
 **Forventet Resultat:**
@@ -2042,9 +2042,9 @@ read HR101-104 → Forventet: 1000 (DWORD format)
 set persist group test_gruppe add 100-105
 
 # Step 2: Skriv nogle testværdier til gruppen
-write reg 100 value uint 1234
-write reg 101 value uint 5678
-write reg 102 value uint 9999
+write reg 20 value uint 1234
+write reg 21 value uint 5678
+write reg 22 value uint 9999
 
 # Step 3: Verificer at gruppen er oprettet
 show persist
@@ -2070,7 +2070,7 @@ show persist
   END_PROGRAM
   END_UPLOAD
   set logic 1 bind trigger coil:0 input
-  set logic 1 bind save_result reg:110 output
+  set logic 1 bind save_result reg:40 output
   set logic 1 enabled:true
 ```
 
@@ -2078,18 +2078,18 @@ show persist
 ```bash
 # Test 1: Første SAVE (skal succeed)
 write coil 0 value 1
-read reg 110 int
+read reg 40 int
 # Forventet: 0 (success)
 # Console output: "✓ SAVE(0) completed: 1 groups saved to NVS"
 
 # Test 2: Nulstil trigger
 write coil 0 value 0
-read reg 110 int
+read reg 40 int
 # Forventet: stadig 0 (sidste result)
 
 # Test 3: SAVE igen indenfor 5 sekunder (rate limited)
 write coil 0 value 1
-read reg 110 int
+read reg 40 int
 # Forventet: -2 (rate limited)
 # Console output: "SAVE(0) rate limited (wait 5s between saves)"
 
@@ -2097,7 +2097,7 @@ read reg 110 int
 # Wait 6 seconds...
 write coil 0 value 0
 write coil 0 value 1
-read reg 110 int
+read reg 40 int
 # Forventet: 0 (success igen)
 ```
 
@@ -2128,12 +2128,12 @@ SAVE(0) rate limited (wait 5s between saves)
 set persist save-group test_gruppe
 
 # Step 2: Modificer register værdier (så vi kan se LOAD virker)
-write reg 100 value uint 0
-write reg 101 value uint 0
-write reg 102 value uint 0
+write reg 20 value uint 0
+write reg 21 value uint 0
+write reg 22 value uint 0
 
 # Step 3: Verificer at værdier er ændret
-read reg 100 3
+read reg 20 3
 # Forventet: alle 0
 ```
 
@@ -2153,31 +2153,31 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 set logic 1 bind trigger coil:0 input
-set logic 1 bind load_result reg:110 output
+set logic 1 bind load_result reg:40 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: Verificer at registers er reset (fra prerequisites)
-read reg 100 3
+read reg 20 3
 # Forventet: 0, 0, 0
 
 # Test 2: Trigger LOAD operation
 write coil 0 value 1
-read reg 110 int
+read reg 40 int
 # Forventet: 0 (success)
 # Console output: "✓ LOAD(0) completed: 1 groups restored from NVS"
 
 # Test 3: Verificer at registers er restored
-read reg 100 3
+read reg 20 3
 # Forventet: 1234, 5678, 9999 (oprindelige værdier fra SAVE test)
 
 # Test 4: LOAD uden saved data (error)
 set persist delete-group test_gruppe
 write coil 0 value 0
 write coil 0 value 1
-read reg 110 int
+read reg 40 int
 # Forventet: -1 (error - gruppe ikke fundet)
 ```
 
@@ -2235,11 +2235,11 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind counter reg:200 output
+set logic 1 bind counter reg:60 output
 set logic 1 bind save_trigger coil:10 input
 set logic 1 bind load_trigger coil:11 input
-set logic 1 bind save_status reg:201 output
-set logic 1 bind load_status reg:202 output
+set logic 1 bind save_status reg:61 output
+set logic 1 bind load_status reg:62 output
 set logic 1 enabled:true
 ```
 
@@ -2247,12 +2247,12 @@ set logic 1 enabled:true
 ```bash
 # 1. Lad counter køre i 2 sekunder (~200 cycles @ 10ms interval)
 # Wait 2 seconds...
-read reg 200 int
+read reg 60 int
 # Forventet: ~200
 
 # 2. Gem counter værdi
 write coil 10 value 1
-read reg 201 int
+read reg 61 int
 # Forventet: 0 (success)
 
 # 3. Nulstil trigger
@@ -2260,25 +2260,25 @@ write coil 10 value 0
 
 # 4. Lad counter fortsætte
 # Wait 2 seconds...
-read reg 200 int
+read reg 60 int
 # Forventet: ~400
 
 # 5. Reset counter til 0 (simulér restart)
 set logic 1 enabled:false
-write reg 200 value int 0
+write reg 60 value int 0
 set logic 1 enabled:true
 
 # 6. Verificer reset
-read reg 200 int
+read reg 60 int
 # Forventet: ~1-10 (lige startet)
 
 # 7. Load saved værdi
 write coil 11 value 1
-read reg 202 int
+read reg 62 int
 # Forventet: 0 (success)
 
 # 8. Verificer at counter er restored
-read reg 200 int
+read reg 60 int
 # Forventet: ~200 (originale gemte værdi + nye cycles)
 ```
 
@@ -2357,7 +2357,7 @@ END_PROGRAM
 END_UPLOAD
 set logic 1 bind switch_input discrete:32
 set logic 1 bind led_output coil:17 output
-set logic 1 bind count reg:100 output
+set logic 1 bind count reg:20 output
 set logic 1 enabled:true
 ```
 
@@ -2365,7 +2365,7 @@ set logic 1 enabled:true
 ```bash
 # Test 1: Press switch på GPIO32
 # Expected: LED på GPIO17 tænder når switch er pressed
-#           HR100 incrementerer (kan være meget hurtigt pga. 10ms loop)
+#           HR20 incrementerer (kan være meget hurtigt pga. 10ms loop)
 
 # Test 2: Release switch
 # Expected: LED slukker
@@ -2448,19 +2448,19 @@ set logic 1 enabled:true
 set counter 1 mode:hw pin:25 scale:1 prescale:1 enabled:true
 
 # Counter 1 registers (default):
-# HR100-101: Index (scaled value, 2 words for 32-bit)
-# HR104-105: Raw (prescaled value)
-# HR108: Frequency (Hz)
+# HR20-101: Index (scaled value, 2 words for 32-bit)
+# HR24-105: Raw (prescaled value)
+# HR28: Frequency (Hz)
 ```
 
 **Test Cases:**
 ```bash
 # Manual test via CLI
 show counter 1
-# Expected: Frequency (HR108) reads ~1000 Hz
+# Expected: Frequency (HR28) reads ~1000 Hz
 
 # Verify pulse counting
-# HR104-105 (raw count) should increment steadily
+# HR24-105 (raw count) should increment steadily
 # Rate: ~1000 counts per second
 ```
 
@@ -2493,7 +2493,7 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 set logic 1 bind condition coil:0 input
-set logic 1 bind output reg:100 output
+set logic 1 bind output reg:20 output
 set logic 1 enabled:true
 ```
 
@@ -2501,12 +2501,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: condition = TRUE
 write coil 0 value 1
-read reg 100 int
+read reg 20 int
 # Forventet: 100
 
 # Test 2: condition = FALSE
 write coil 0 value 0
-read reg 100 int
+read reg 20 int
 # Forventet: 100
 ```
 
@@ -2536,7 +2536,7 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 set logic 1 bind condition coil:0 input
-set logic 1 bind output reg:100 output
+set logic 1 bind output reg:20 output
 set logic 1 enabled:true
 ```
 
@@ -2544,12 +2544,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: condition = TRUE
 write coil 0 value 1
-read reg 100 int
+read reg 20 int
 # Forventet: 100
 
 # Test 2: condition = FALSE
 write coil 0 value 0
-read reg 100 int
+read reg 20 int
 # Forventet: 200
 ```
 
@@ -2579,26 +2579,26 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind value reg:100 input
-set logic 1 bind output reg:101 output
+set logic 1 bind value reg:20 input
+set logic 1 bind output reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: value = 5 (< 10)
-write reg 100 value int 5
-read reg 101 int
+write reg 20 value int 5
+read reg 21 int
 # Forventet: 1
 
 # Test 2: value = 15 (< 20 but not < 10)
-write reg 100 value int 15
-read reg 101 int
+write reg 20 value int 15
+read reg 21 int
 # Forventet: 2
 
 # Test 3: value = 25 (>= 20)
-write reg 100 value int 25
-read reg 101 int
+write reg 20 value int 25
+read reg 21 int
 # Forventet: 3
 ```
 
@@ -2632,31 +2632,31 @@ BEGIN
   END_CASE;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind selector reg:100 input
-set logic 1 bind output reg:101 output
+set logic 1 bind selector reg:20 input
+set logic 1 bind output reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: selector = 1
-write reg 100 value int 1
-read reg 101 int
+write reg 20 value int 1
+read reg 21 int
 # Forventet: 100
 
 # Test 2: selector = 2
-write reg 100 value int 2
-read reg 101 int
+write reg 20 value int 2
+read reg 21 int
 # Forventet: 200
 
 # Test 3: selector = 3
-write reg 100 value int 3
-read reg 101 int
+write reg 20 value int 3
+read reg 21 int
 # Forventet: 300
 
 # Test 4: selector = 99 (no match)
-write reg 100 value int 99
-read reg 101 int
+write reg 20 value int 99
+read reg 21 int
 # Forventet: 999
 ```
 
@@ -2689,14 +2689,14 @@ BEGIN
   END_FOR;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind sum reg:100 output
+set logic 1 bind sum reg:20 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 100 int
+read reg 20 int
 # Forventet: 55
 ```
 
@@ -2725,14 +2725,14 @@ BEGIN
   END_FOR;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind sum reg:100 output
+set logic 1 bind sum reg:20 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: Sum 0+2+4+6+8+10 = 30
-read reg 100 int
+read reg 20 int
 # Forventet: 30
 ```
 
@@ -2765,14 +2765,14 @@ BEGIN
   END_WHILE;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind sum reg:100 output
+set logic 1 bind sum reg:20 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 100 int
+read reg 20 int
 # Forventet: 55
 ```
 
@@ -2805,14 +2805,14 @@ BEGIN
   UNTIL counter > 10;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind sum reg:100 output
+set logic 1 bind sum reg:20 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 100 int
+read reg 20 int
 # Forventet: 55
 ```
 
@@ -2843,30 +2843,30 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:100 input
-set logic 1 bind b reg:101 input
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 input
+set logic 1 bind b reg:21 input
+set logic 1 bind result reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: INT overflow (32767 + 1 = -32768)
-write reg 100 value int 32767
-write reg 101 value int 1
-read reg 102 int
+write reg 20 value int 32767
+write reg 21 value int 1
+read reg 22 int
 # Forventet: -32768
 
 # Test 2: INT underflow (-32768 - 1 = 32767)
-write reg 100 value int -32768
-write reg 101 value int -1
-read reg 102 int
+write reg 20 value int -32768
+write reg 21 value int -1
+read reg 22 int
 # Forventet: 32767
 
 # Test 3: Normal operation (100 + 200 = 300)
-write reg 100 value int 100
-write reg 101 value int 200
-read reg 102 int
+write reg 20 value int 100
+write reg 21 value int 200
+read reg 22 int
 # Forventet: 300
 ```
 
@@ -2896,32 +2896,32 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind a reg:110 input
-set logic 1 bind b reg:112 input
-set logic 1 bind result reg:114 output
+set logic 1 bind a reg:40 input
+set logic 1 bind b reg:42 input
+set logic 1 bind result reg:44 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: Large DINT values (100000 + 200000 = 300000)
-write reg 110 value dint 100000
-write reg 112 value dint 200000
+write reg 40 value dint 100000
+write reg 42 value dint 200000
 # Læs resultat (2 registers)
-read reg 114 2
-# Forventet: HR114=4, HR115=37856 (LSW, MSW) = 300000
+read reg 44 2
+# Forventet: HR44=4, HR45=37856 (LSW, MSW) = 300000
 
 # Test 2: DINT negative values (-500000 + 100 = -499900)
-write reg 110 value dint -500000
-write reg 112 value dint 100
-read reg 114 2
-# Forventet: HR114=24416, HR115=65527 (LSW, MSW) = -499900
+write reg 40 value dint -500000
+write reg 42 value dint 100
+read reg 44 2
+# Forventet: HR44=24416, HR45=65527 (LSW, MSW) = -499900
 
 # Test 3: Simple DINT addition (1 + 3 = 4)
-write reg 110 value dint 1
-write reg 112 value dint 3
-read reg 114 2
-# Forventet: HR114=4, HR115=0 (LSW, MSW) = 4
+write reg 40 value dint 1
+write reg 42 value dint 3
+read reg 44 2
+# Forventet: HR44=4, HR45=0 (LSW, MSW) = 4
 ```
 
 **Forventet Resultat:**
@@ -2953,25 +2953,25 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 
-set logic 1 bind int_val reg:120 input
-set logic 1 bind dint_val reg:122 input
-set logic 1 bind result reg:124 output
+set logic 1 bind int_val reg:50 input
+set logic 1 bind dint_val reg:52 input
+set logic 1 bind result reg:54 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: INT (1000) + DINT (200000) = DINT (201000)
-write reg 120 value int 1000
-write reg 122 value dint 200000
-read reg 124 2
-# Forventet: HR124=4392, HR125=3 (LSW, MSW) = 201000
+write reg 50 value int 1000
+write reg 52 value dint 200000
+read reg 54 2
+# Forventet: HR54=4392, HR55=3 (LSW, MSW) = 201000
 
 # Test 2: INT (-100) + DINT (50000) = DINT (49900)
-write reg 120 value int -100
-write reg 122 value dint 50000
-read reg 124 2
-# Forventet: HR124=49900, HR125=0 (LSW, MSW) = 49900
+write reg 50 value int -100
+write reg 52 value dint 50000
+read reg 54 2
+# Forventet: HR54=49900, HR55=0 (LSW, MSW) = 49900
 ```
 
 **Forventet Resultat:**
@@ -3011,39 +3011,39 @@ BEGIN
   output_limited := LIMIT(0, output, 100);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind setpoint reg:100 input
-set logic 1 bind actual reg:101 input
-set logic 1 bind kp reg:102 input
-set logic 1 bind output_limited reg:103 output
+set logic 1 bind setpoint reg:20 input
+set logic 1 bind actual reg:21 input
+set logic 1 bind kp reg:22 input
+set logic 1 bind output_limited reg:23 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
-write reg 102 value int 2
+write reg 22 value int 2
 
 # Test 1: setpoint=80, actual=70 → error=10, output=20
-write reg 100 value int 80
-write reg 101 value int 70
-read reg 103 int
+write reg 20 value int 80
+write reg 21 value int 70
+read reg 23 int
 # Forventet: 20
 
 # Test 2: setpoint=50, actual=60 → error=-10, output=-20 (limited to 0)
-write reg 100 value int 50
-write reg 101 value int 60
-read reg 103 int
+write reg 20 value int 50
+write reg 21 value int 60
+read reg 23 int
 # Forventet: 0
 
 # Test 3: setpoint=100, actual=50 → error=50, output=100
-write reg 100 value int 100
-write reg 101 value int 50
-read reg 103 int
+write reg 20 value int 100
+write reg 21 value int 50
+read reg 23 int
 # Forventet: 100
 
 # Test 4: setpoint=100, actual=0 → error=100, output=200 (limited to 100)
-write reg 100 value int 100
-write reg 101 value int 0
-read reg 103 int
+write reg 20 value int 100
+write reg 21 value int 0
+read reg 23 int
 # Forventet: 100
 ```
 
@@ -3079,36 +3079,36 @@ BEGIN
   END_IF;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind temperature reg:100 input
-set logic 1 bind pressure reg:101 input
-set logic 1 bind alarm_level reg:102 output
+set logic 1 bind temperature reg:20 input
+set logic 1 bind pressure reg:21 input
+set logic 1 bind alarm_level reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: temp=70, press=30 → Normal
-write reg 100 value int 70
-write reg 101 value int 30
-read reg 102 int
+write reg 20 value int 70
+write reg 21 value int 30
+read reg 22 int
 # Forventet: 0
 
 # Test 2: temp=90, press=30 → Warning
-write reg 100 value int 90
-write reg 101 value int 30
-read reg 102 int
+write reg 20 value int 90
+write reg 21 value int 30
+read reg 22 int
 # Forventet: 1
 
 # Test 3: temp=110, press=40 → High temp
-write reg 100 value int 110
-write reg 101 value int 40
-read reg 102 int
+write reg 20 value int 110
+write reg 21 value int 40
+read reg 22 int
 # Forventet: 2
 
 # Test 4: temp=110, press=60 → Critical
-write reg 100 value int 110
-write reg 101 value int 60
-read reg 102 int
+write reg 20 value int 110
+write reg 21 value int 60
+read reg 22 int
 # Forventet: 3
 ```
 
@@ -3142,30 +3142,30 @@ BEGIN
   average := sum / 4;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind value1 reg:100 input
-set logic 1 bind value2 reg:101 input
-set logic 1 bind value3 reg:102 input
-set logic 1 bind value4 reg:103 input
-set logic 1 bind average reg:104 output
+set logic 1 bind value1 reg:20 input
+set logic 1 bind value2 reg:21 input
+set logic 1 bind value3 reg:22 input
+set logic 1 bind value4 reg:23 input
+set logic 1 bind average reg:24 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: Average of 10, 20, 30, 40 = 25
-write reg 100 value int 10
-write reg 101 value int 20
-write reg 102 value int 30
-write reg 103 value int 40
-read reg 104 int
+write reg 20 value int 10
+write reg 21 value int 20
+write reg 22 value int 30
+write reg 23 value int 40
+read reg 24 int
 # Forventet: 25
 
 # Test 2: Average of 0, 0, 0, 100 = 25
-write reg 100 value int 0
-write reg 101 value int 0
-write reg 102 value int 0
-write reg 103 value int 100
-read reg 104 int
+write reg 20 value int 0
+write reg 21 value int 0
+write reg 22 value int 0
+write reg 23 value int 100
+read reg 24 int
 # Forventet: 25
 ```
 
@@ -3200,39 +3200,39 @@ BEGIN
   END_CASE;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind mode reg:100 input
-set logic 1 bind input reg:101 input
-set logic 1 bind output reg:102 output
+set logic 1 bind mode reg:20 input
+set logic 1 bind input reg:21 input
+set logic 1 bind output reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
-write reg 101 value int -50
+write reg 21 value int -50
 
 # Test 1: mode=1 (ABS)
-write reg 100 value int 1
-read reg 102 int
+write reg 20 value int 1
+read reg 22 int
 # Forventet: 50
 
 # Test 2: mode=2 (multiply by 2)
-write reg 100 value int 2
-read reg 102 int
+write reg 20 value int 2
+read reg 22 int
 # Forventet: -100
 
 # Test 3: mode=3 (divide by 2)
-write reg 100 value int 3
-read reg 102 int
+write reg 20 value int 3
+read reg 22 int
 # Forventet: -25
 
 # Test 4: mode=4 (MIN with 100)
-write reg 100 value int 4
-read reg 102 int
+write reg 20 value int 4
+read reg 22 int
 # Forventet: -50
 
 # Test 5: mode=99 (ELSE)
-write reg 100 value int 99
-read reg 102 int
+write reg 20 value int 99
+read reg 22 int
 # Forventet: -50
 ```
 
@@ -3268,25 +3268,25 @@ BEGIN
 END_PROGRAM
 END_UPLOAD
 set logic 1 bind start_count coil:0 input
-set logic 1 bind threshold reg:100 input
-set logic 1 bind count reg:101 output
+set logic 1 bind threshold reg:20 input
+set logic 1 bind count reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: threshold=50, count values 1-49 = 49
-write reg 100 value int 50
+write reg 20 value int 50
 write coil 0 value 1
 # Wait 100ms
-read reg 101 int
+read reg 21 int
 # Forventet: 49
 
 # Test 2: threshold=10, count values 1-9 = 9
-write reg 100 value int 10
+write reg 20 value int 10
 write coil 0 value 0
 # Wait 100ms
-read reg 101 int
+read reg 21 int
 # Forventet: 9
 ```
 
@@ -3326,17 +3326,17 @@ BEGIN
   END_WHILE;
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind target reg:100 input
-set logic 1 bind iterations reg:101 output
+set logic 1 bind target reg:20 input
+set logic 1 bind iterations reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: target=50
-write reg 100 value int 50
+write reg 20 value int 50
 # Wait 100ms
-read HR101 → Forventet: ~6-7 iterations
+read HR21 → Forventet: ~6-7 iterations
 ```
 
 **Forventet Resultat:**
@@ -3371,24 +3371,24 @@ BEGIN
   magnitude := SQRT(sum_squares);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind x reg:100 input
-set logic 1 bind y reg:102 input
-set logic 1 bind magnitude reg:104 output
+set logic 1 bind x reg:20 input
+set logic 1 bind y reg:22 input
+set logic 1 bind magnitude reg:24 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: magnitude(3.0, 4.0) = 5.0
-write reg 100 value real 3.0
-write reg 102 value real 4.0
-read reg 104 real
+write reg 20 value real 3.0
+write reg 22 value real 4.0
+read reg 24 real
 # Forventet: 5.000000 (0x40A00000)
 
 # Test 2: magnitude(5.0, 12.0) = 13.0
-write reg 100 value real 5.0
-write reg 102 value real 12.0
-read reg 104 real
+write reg 20 value real 5.0
+write reg 22 value real 12.0
+read reg 24 real
 # Forventet: 13.000000 (0x41500000)
 ```
 
@@ -3422,26 +3422,26 @@ BEGIN
   int_output := REAL_TO_INT(scaled);
 END_PROGRAM
 END_UPLOAD
-set logic 1 bind int_input reg:100 input
-set logic 1 bind int_output reg:101 output
+set logic 1 bind int_input reg:20 input
+set logic 1 bind int_output reg:21 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: 10 * 1.5 = 15
-write reg 100 value int 10
-read reg 101 uint
+write reg 20 value int 10
+read reg 21 uint
 # Forventet: 15
 
 # Test 2: 7 * 1.5 = 10.5 → 10
-write reg 100 value int 7
-read reg 101 uint
+write reg 20 value int 7
+read reg 21 uint
 # Forventet: 10
 
 # Test 3: 100 * 1.5 = 150
-write reg 100 value int 100
-read reg 101 uint
+write reg 20 value int 100
+read reg 21 uint
 # Forventet: 150
 ```
 
@@ -3478,30 +3478,30 @@ END_PROGRAM
 END_UPLOAD
 set logic 1 bind auto_mode coil:0 input
 set logic 1 bind manual_override coil:1 input
-set logic 1 bind auto_value reg:100 input
-set logic 1 bind manual_value reg:101 input
-set logic 1 bind final_output reg:102 output
+set logic 1 bind auto_value reg:20 input
+set logic 1 bind manual_value reg:21 input
+set logic 1 bind final_output reg:22 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
-write reg 100 value int 75
-write reg 101 value int 50
+write reg 20 value int 75
+write reg 21 value int 50
 
 # Test 1: auto=TRUE, override=FALSE → mode_active=TRUE → auto_value
 write coil 0 value 1
-read reg 102 int
+read reg 22 int
 # Forventet: 75
 
 # Test 2: auto=TRUE, override=TRUE → mode_active=FALSE → manual_value
 write coil 0 value 1
-read reg 102 int
+read reg 22 int
 # Forventet: 50
 
 # Test 3: auto=FALSE, override=FALSE → mode_active=FALSE → manual_value
 write coil 0 value 0
-read reg 102 int
+read reg 22 int
 # Forventet: 50
 ```
 
@@ -3556,19 +3556,19 @@ END_UPLOAD
 
 set logic 1 bind start_button coil:0 input
 set logic 1 bind stop_button coil:1 input
-set logic 1 bind sensor_count reg:100 input
-set logic 1 bind temperature reg:101 input
+set logic 1 bind sensor_count reg:20 input
+set logic 1 bind temperature reg:21 input
 set logic 1 bind motor_running coil:10 output
 set logic 1 bind alarm coil:11 output
-set logic 1 bind production_count reg:110 output
+set logic 1 bind production_count reg:40 output
 set logic 1 enabled:true
 ```
 
 **Test Cases:**
 ```bash
 # Setup initial values
-write reg 100 value int 50
-write reg 101 value real 25.0
+write reg 20 value int 50
+write reg 21 value real 25.0
 
 # Test 1: Start sequence
 write coil 0 value 1
@@ -3576,7 +3576,7 @@ read coil 10
 # Forventet: 1 (motor running)
 read coil 11
 # Forventet: 0 (no alarm)
-read reg 110 int
+read reg 40 int
 # Forventet: > 0 (production counting)
 
 # Test 2: Stop sequence
@@ -3585,7 +3585,7 @@ read coil 10
 # Forventet: 0 (motor stopped)
 
 # Test 3: Temperature alarm
-write reg 101 value real 90.0
+write reg 21 value real 90.0
 write coil 0 value 1
 read coil 10
 # Forventet: 0 (motor not starting)
@@ -3593,8 +3593,8 @@ read coil 11
 # Forventet: 1 (alarm active)
 
 # Test 4: Count alarm
-write reg 101 value real 25.0
-write reg 100 value int 1500
+write reg 21 value real 25.0
+write reg 20 value int 1500
 read coil 11
 # Forventet: 1 (alarm active)
 ```
@@ -3674,9 +3674,9 @@ END_PROGRAM
 END_UPLOAD
 
 # 2. Bind
-set logic 1 bind a reg:100 output
-set logic 1 bind b reg:101 output
-set logic 1 bind result reg:102 output
+set logic 1 bind a reg:20 output
+set logic 1 bind b reg:21 output
+set logic 1 bind result reg:22 output
 
 # 3. Enable
 set logic 1 enabled:true
@@ -3751,8 +3751,8 @@ Følg samme workflow som Fase 1, men forvent:
 **Common Fixes:**
 ```bash
 # Wrong binding direction
-❌ set logic 1 bind output reg:100  (default: input)
-✅ set logic 1 bind output reg:100  (verify it's output in program)
+❌ set logic 1 bind output reg:20  (default: input)
+✅ set logic 1 bind output reg:20  (verify it's output in program)
 
 # Timing issue
 ❌ write_register(); result = read_register();
@@ -3795,10 +3795,10 @@ read reg <addr> uint                   # Læs som unsigned
 read reg <addr> real                   # Læs som REAL (2 registers)
 
 # EKSEMPLER
-write reg 100 value real 3.14159
-read reg 102 real
-write reg 100 value int -5
-read reg 100 int
+write reg 20 value real 3.14159
+read reg 22 real
+write reg 20 value int -5
+read reg 20 int
 ```
 
 ### Legacy Python Helpers (Deprecated)
