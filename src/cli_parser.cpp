@@ -165,6 +165,8 @@ static const char* normalize_alias(const char* s) {
   if (!strcmp(s, "ERRORS") || !strcmp(s, "errors")) return "ERRORS";
   if (!strcmp(s, "ALL") || !strcmp(s, "all")) return "ALL";
   if (!strcmp(s, "CODE") || !strcmp(s, "code")) return "CODE";
+  if (!strcmp(s, "BYTECODE") || !strcmp(s, "bytecode")) return "BYTECODE";
+  if (!strcmp(s, "TIMING") || !strcmp(s, "timing")) return "TIMING";
 
   // System commands (for SET context)
   if (!strcmp(s, "REG") || !strcmp(s, "reg")) return "REG";
