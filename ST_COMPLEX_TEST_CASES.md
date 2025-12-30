@@ -126,42 +126,42 @@ set logic 1 bind power_output reg:40 output
 set logic 1 enabled:true
 
 # Test scenarios
-show config logic
-
 # Scenario 1: Cold start - needs heating
 write coil 0 value 1
 write reg 20 value uint 50
 write reg 21 value uint 0
 write reg 30 value uint 25
 write reg 31 value uint 0
-show logic 1
 read reg 40
+# Forventet: 250 → clamped to 100 (heating at max power)
 read coil 10
+# Forventet: 0 (alarm=FALSE, temp within range)
 
 # Scenario 2: Approaching setpoint
 write reg 30 value uint 48
 write reg 31 value uint 0
-show logic 1
 read reg 40
+# Forventet: 20 (proportional: (50-48)*10 = 20% power)
 
 # Scenario 3: Too hot - needs cooling
 write reg 30 value uint 60
 write reg 31 value uint 0
-show logic 1
 read reg 40
+# Forventet: -100 (max cooling, negative power)
 
 # Scenario 4: Temperature alarm (out of range)
 write reg 30 value uint 95
 write reg 31 value uint 0
-show logic 1
 read coil 10
+# Forventet: 1 (alarm=TRUE, temp > 90°C)
 ```
 
-**Expected Results:**
-- Scenario 1: state=1 (HEATING), power_output=250 (limited to 100), alarm=FALSE
-- Scenario 2: state=1 (HEATING), power_output=20 (proportional), alarm=FALSE
-- Scenario 3: state=2 (COOLING), power_output=-100 (max cooling), alarm=FALSE
-- Scenario 4: alarm=TRUE (temp > 90°C)
+**Forventet Resultat:**
+```
+✅ Scenario 1: state=1 (HEATING), power_output=100 (clamped), alarm=FALSE
+✅ Scenario 2: state=1 (HEATING), power_output=20 (proportional control)
+✅ Scenario 3: state=2 (COOLING), power_output=-100 (max cooling)
+✅ Scenario 4: alarm=TRUE (temperature out of range)
 
 ---
 
@@ -278,8 +278,6 @@ set logic 2 bind total_volume reg:56 output
 set logic 2 enabled:true
 
 # Test scenarios
-show config logic
-
 # Scenario 1: All tanks empty - start fill
 write coil 0 value 1
 write reg 50 value uint 10
@@ -288,32 +286,36 @@ write reg 52 value uint 10
 write reg 53 value uint 0
 write reg 54 value uint 10
 write reg 55 value uint 0
-show logic 2
 read coil 20 3
+# Forventet: 1 0 0 (pump1_on=TRUE, pump2_on=FALSE, pump3_on=FALSE)
 
 # Scenario 2: Tank1 full, Tank2 empty - cascade
 write reg 50 value uint 75
 write reg 52 value uint 20
 write reg 54 value uint 30
-show logic 2
 read coil 20 3
+# Forventet: 1 1 0 (pump1_on=TRUE, pump2_on=TRUE cascade, pump3_on=FALSE)
 
 # Scenario 3: Overflow condition
 write reg 50 value uint 97
-show logic 2
 read coil 23
+# Forventet: 1 (overflow_alarm=TRUE)
+read coil 20 3
+# Forventet: 0 0 0 (all pumps OFF on overflow)
 
 # Scenario 4: Underflow alarm
+write reg 50 value uint 30
 write reg 52 value uint 3
-show logic 2
 read coil 24
+# Forventet: 1 (underflow_alarm=TRUE, tank2 < 5%)
 ```
 
-**Expected Results:**
-- Scenario 1: pump1_on=TRUE (fill Tank1), others OFF
-- Scenario 2: pump1_on=TRUE, pump2_on=TRUE (cascade), pump3_on depends on Tank3
-- Scenario 3: overflow_alarm=TRUE, all pumps OFF
-- Scenario 4: underflow_alarm=TRUE
+**Forventet Resultat:**
+```
+✅ Scenario 1: pump1_on=TRUE (fill Tank1 <30%), pump2/3=FALSE
+✅ Scenario 2: pump1_on=TRUE, pump2_on=TRUE (cascade active), pump3_on=FALSE
+✅ Scenario 3: overflow_alarm=TRUE (tank1 >95%), all pumps stop
+✅ Scenario 4: underflow_alarm=TRUE (tank2 <5%)
 
 ---
 
@@ -422,39 +424,45 @@ set logic 3 bind batch_number reg:72 output
 set logic 3 enabled:true
 
 # Test scenarios
-show config logic
-
 # Scenario 1: Start production - good quality
 write coil 0 value 1
 write reg 60 value int 45
 write reg 61 value int 2
-show logic 3
 read reg 70 2
+# Forventet: 95.74% as REAL (45/(45+2)*100 = 95.74)
 
 # Scenario 2: Batch complete
 write reg 60 value int 97
 write reg 61 value int 3
-show logic 3
 read coil 30
+# Forventet: 1 (batch_complete=TRUE, 100 parts reached)
 read reg 72
+# Forventet: 1 (batch_number incremented)
 
 # Scenario 3: Poor quality alarm
+write coil 0 value 0
+write coil 0 value 1
 write reg 60 value int 15
 write reg 61 value int 10
-show logic 3
 read coil 31
+# Forventet: 1 (quality_alarm=TRUE, 60% < 95%)
 read reg 70 2
+# Forventet: 60.0% as REAL (15/25*100 = 60%)
 
 # Scenario 4: Reset
 write coil 0 value 0
-show logic 3
+read coil 30
+# Forventet: 0 (batch_complete=FALSE after reset)
+read coil 31
+# Forventet: 0 (quality_alarm=FALSE after reset)
 ```
 
-**Expected Results:**
-- Scenario 1: quality_percent = 95.74% (45/47), state=1 (RUNNING)
-- Scenario 2: batch_complete=TRUE, batch_number=1, state=2
-- Scenario 3: quality_alarm=TRUE (60% < 95%), state=3
-- Scenario 4: state=0 (STOPPED), alarms cleared
+**Forventet Resultat:**
+```
+✅ Scenario 1: quality_percent=95.74% (45/47), state=RUNNING
+✅ Scenario 2: batch_complete=TRUE, batch_number=1, state=BATCH_DONE
+✅ Scenario 3: quality_alarm=TRUE (60% < 95%), state=ALARM
+✅ Scenario 4: state=STOPPED, all alarms cleared
 
 ---
 
@@ -557,8 +565,6 @@ set logic 4 bind avg_temp reg:90 output
 set logic 4 enabled:true
 
 # Test scenarios
-show config logic
-
 # Scenario 1: All zones normal, avg < setpoint
 write coil 0 value 1
 write coil 1 value 0
@@ -571,36 +577,40 @@ write reg 84 value uint 19
 write reg 85 value uint 0
 write reg 86 value uint 20
 write reg 87 value uint 0
-show logic 4
 read reg 90 2
+# Forventet: 20.0 as REAL (avg = (20+21+19+20)/4)
 read coil 40 2
+# Forventet: 1 0 (heating_on=TRUE, cooling_on=FALSE, 20 < 22-0.5)
 
 # Scenario 2: Eco mode - wider deadband
 write coil 1 value 1
-show logic 4
 read coil 40 2
+# Forventet: 0 0 (heating_on=FALSE, cooling_on=FALSE, 20 in deadband 22±2)
 
 # Scenario 3: Zone alarm (zone1 too cold)
 write reg 80 value uint 12
 write reg 81 value uint 0
-show logic 4
 read coil 42
+# Forventet: 1 (zone1_alarm=TRUE, 12°C < 15°C)
 
 # Scenario 4: Too hot - cooling needed
+write coil 1 value 0
 write reg 80 value uint 25
 write reg 82 value uint 26
 write reg 84 value uint 24
 write reg 86 value uint 25
-show logic 4
 read reg 90 2
+# Forventet: 25.0 as REAL (avg = (25+26+24+25)/4)
 read coil 40 2
+# Forventet: 0 1 (heating_on=FALSE, cooling_on=TRUE, 25 > 22+0.5)
 ```
 
-**Expected Results:**
-- Scenario 1: avg_temp=20.0, heating_on=TRUE (20 < 22-0.5)
-- Scenario 2: heating_on=FALSE (20 > 22-2.0 in eco mode)
-- Scenario 3: zone1_alarm=TRUE (12 < 15)
-- Scenario 4: avg_temp=25.0, cooling_on=TRUE (25 > 22+0.5)
+**Forventet Resultat:**
+```
+✅ Scenario 1: avg_temp=20.0, heating_on=TRUE (normal mode, 20 < 21.5)
+✅ Scenario 2: heating_on=FALSE, cooling_on=FALSE (eco mode, within deadband)
+✅ Scenario 3: zone1_alarm=TRUE (zone1 temp 12°C < 15°C minimum)
+✅ Scenario 4: avg_temp=25.0, cooling_on=TRUE (25 > 22.5)
 
 ---
 
@@ -741,8 +751,6 @@ set logic 1 bind safety_alarm coil:56 output
 set logic 1 enabled:true
 
 # Test scenarios
-show config logic
-
 # Scenario 1: Start fill (safety OK)
 write coil 0 value 1
 write coil 1 value 1
@@ -753,43 +761,50 @@ write reg 100 value uint 0
 write reg 101 value uint 0
 write reg 102 value uint 20
 write reg 103 value uint 0
-show logic 1
 read coil 50
+# Forventet: 1 (fill_valve=TRUE, step=0 FILL)
 
 # Scenario 2: Weight reached - move to mix
 write reg 100 value uint 100
 write reg 101 value uint 0
-show logic 1
 read coil 50 2
+# Forventet: 0 1 (fill_valve=FALSE, mix_motor=TRUE, step=1 MIX)
 
 # Scenario 3: Heating phase
-show logic 1
 read coil 51 2
+# Forventet: 1 1 (mix_motor=TRUE, heater=TRUE, step=2 HEAT)
 
 # Scenario 4: Safety interlock (door open)
 write coil 1 value 0
-show logic 1
 read coil 56
+# Forventet: 1 (safety_alarm=TRUE)
 read coil 50 5
+# Forventet: 0 0 0 0 0 (all valves OFF on safety alarm)
 
 # Scenario 5: Resume and complete
 write coil 1 value 1
 write reg 102 value uint 65
 write reg 103 value uint 0
-show logic 1
+read coil 51 2
+# Forventet: 1 0 (mix_motor=TRUE, heater=FALSE, temp reached, step=3 COOL)
 write reg 102 value uint 25
-show logic 1
+read coil 51 2
+# Forventet: 0 1 (mix_motor=FALSE, cooler=TRUE, cooled down, step=4 DRAIN)
 write reg 100 value uint 2
-show logic 1
+read coil 54
+# Forventet: 1 (drain_valve=TRUE, draining)
+write reg 100 value uint 0
 read coil 55
+# Forventet: 1 (batch_complete=TRUE, step=5 COMPLETE)
 ```
 
-**Expected Results:**
-- Scenario 1: step=0 (FILL), fill_valve=TRUE
-- Scenario 2: step=1 (MIX), fill_valve=FALSE, mix_motor=TRUE
-- Scenario 3: step=2 (HEAT), heater=TRUE, mix_motor=TRUE
-- Scenario 4: safety_alarm=TRUE, all outputs FALSE
-- Scenario 5: Progression through COOL→DRAIN→COMPLETE, batch_complete=TRUE
+**Forventet Resultat:**
+```
+✅ Scenario 1: step=FILL, fill_valve=TRUE (safety OK, starting fill)
+✅ Scenario 2: step=MIX, fill_valve=FALSE, mix_motor=TRUE (weight reached)
+✅ Scenario 3: step=HEAT, heater=TRUE, mix_motor=TRUE (mixing while heating)
+✅ Scenario 4: safety_alarm=TRUE, all outputs=FALSE (door open interlock)
+✅ Scenario 5: COOL→DRAIN→COMPLETE, batch_complete=TRUE (full cycle)
 
 ---
 
