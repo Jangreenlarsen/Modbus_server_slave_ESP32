@@ -5987,3 +5987,767 @@ set counter 1 mode 1 output-hr:101     # Should fail - HR101 already allocated
 
 ---
 
+
+## BUG-134: MB_WRITE DINT Arguments Sender Garbage Data
+
+**Status:** ❌ OPEN
+**Priority:** 🔴 CRITICAL
+**Discovered:** 2026-01-01 (v4.6.0 ST analysis)
+**Fixed in:** TBD
+
+### Problem Summary
+
+Når `MB_WRITE_COIL` eller `MB_WRITE_HOLDING` kaldes med DINT-type argumenter for `slave_id` eller `address`, tilgår builtin-funktionerne `value.int_val` i stedet for `value.dint_val`, hvilket sender **garbage data** til Modbus Master funktioner.
+
+### Technical Details
+
+**Root Cause:**
+`st_value_t` er en union. Når compiler pusher DINT værdi, sættes kun `dint_val` feltet - `int_val` forbliver uninitialiseret. VM popper korrekt med type information, men builtin funktioner ignorerer type og tilgår altid `int_val`.
+
+**Code Location:** `src/st_builtin_modbus.cpp`
+
+```c
+// st_builtin_mb_write_coil() - linje 198-235
+st_value_t st_builtin_mb_write_coil(st_value_t slave_id, st_value_t address, st_value_t value) {
+  // BUG: Bruger altid int_val, uanset faktisk type!
+  if (slave_id.int_val < 1 || slave_id.int_val > 247) {
+    // ❌ Hvis slave_id er DINT, er int_val GARBAGE!
+    g_mb_last_error = MB_INVALID_SLAVE_ID;
+    return result;
+  }
+
+  if (address.int_val < 0 || address.int_val > 65535) {
+    // ❌ Hvis address er DINT, er int_val GARBAGE!
+    g_mb_last_error = MB_INVALID_ADDRESS;
+    return result;
+  }
+
+  mb_error_code_t err = modbus_master_write_coil(
+    (uint8_t)slave_id.int_val,   // ❌ GARBAGE hvis DINT!
+    (uint16_t)address.int_val,   // ❌ GARBAGE hvis DINT!
+    value.bool_val
+  );
+}
+```
+
+**Comparison med SEL/LIMIT (KORREKT implementation):**
+
+```c
+// src/st_vm.cpp:787-806 - SEL funktion (KORREKT!)
+} else if (func_id == ST_BUILTIN_SEL) {
+  if (arg1_type == ST_TYPE_REAL || arg2_type == ST_TYPE_REAL || arg3_type == ST_TYPE_REAL) {
+    // ✅ Type-aware: Konverterer til REAL hvis nødvendigt
+    float g_f = (arg1_type == ST_TYPE_REAL) ? arg1.real_val :
+                (arg1_type == ST_TYPE_DINT) ? (float)arg1.dint_val : (float)arg1.int_val;
+    // ...
+  } else if (arg1_type == ST_TYPE_DINT || arg2_type == ST_TYPE_DINT || arg3_type == ST_TYPE_DINT) {
+    // ✅ Explicit DINT handling
+  }
+}
+```
+
+### Test Case That Fails
+
+```structured-text
+VAR
+  remote_id: DINT := 3;         (* DINT type, ikke INT *)
+  coil_addr: DINT := 100;       (* DINT type, ikke INT *)
+END_VAR
+
+MB_WRITE_COIL(remote_id, coil_addr) := TRUE;
+```
+
+**Actual Behavior:**
+1. Compiler pusher `remote_id` som DINT: `value.dint_val = 3`, `value.int_val = <garbage>`
+2. Compiler pusher `coil_addr` som DINT: `value.dint_val = 100`, `value.int_val = <garbage>`
+3. VM popper korrekt med `arg1_type = ST_TYPE_DINT`, `arg2_type = ST_TYPE_DINT`
+4. **BUG:** `st_builtin_mb_write_coil()` ignorer type, tilgår `slave_id.int_val` (garbage!)
+5. Validation: `if (slave_id.int_val < 1 || slave_id.int_val > 247)` checker **garbage værdi**
+6. Resultat:
+   - Valid slave ID 3 kan afvises (hvis garbage < 1)
+   - Invalid slave ID kan accepteres (hvis garbage in range 1-247)
+   - **Data corruption på remote Modbus device!**
+
+**Expected Behavior:**
+- Type-checking i VM handler (linje 809-812 i `src/st_vm.cpp`)
+- Konverter DINT → INT med clamping: `int16_t slave = (arg1.dint_val > 247) ? 247 : (arg1.dint_val < 1) ? 1 : arg1.dint_val;`
+- **ELLER** type promotion i builtin function selv
+
+### Impact
+
+**Severity:** 🔴 CRITICAL
+
+**Affects:**
+- `MB_WRITE_COIL(DINT_slave, DINT_addr) := value` → Garbage validation
+- `MB_WRITE_HOLDING(DINT_slave, DINT_addr) := value` → Garbage validation
+- `MB_READ_COIL(DINT_slave, DINT_addr)` → Samme problem (ikke kun WRITE!)
+- `MB_READ_HOLDING(DINT_slave, DINT_addr)` → Samme problem
+
+**Does NOT Affect:**
+- INT arguments (bruges korrekt)
+- Literal arguments (always INT type)
+
+**Real-World Scenario:**
+```structured-text
+VAR
+  base_address: DINT := 40000;  (* Standard Modbus addressing *)
+  offset: INT := 5;
+END_VAR
+
+temp := MB_READ_HOLDING(1, base_address + offset);
+(* Address = 40005 som DINT → garbage sendt til Modbus Master! *)
+```
+
+### Root Cause Analysis
+
+**Why This Happened:**
+1. v4.6.0 added new MB_WRITE syntax: `MB_WRITE_XXX(id, addr) := value`
+2. Parser/compiler support expressions for all arguments → kan være DINT type
+3. VM korrekt pusher/popper typed values (VM er type-aware)
+4. **PROBLEM:** Builtin functions skrevet før type-system var robust
+5. SEL/LIMIT fik type-handling (v4.4+), men MB_WRITE/MB_READ glemtes
+
+**Historical Context:**
+- Før v4.6.0: MB_WRITE havde 3 argumenter, bruges som function call
+- Efter v4.6.0: MB_WRITE har 2 argumenter (id, addr), value fra assignment
+- **Ingen type-handling tilføjet under refactoring!**
+
+### Proposed Fix
+
+**Option A: Type Promotion i VM Handler** (ANBEFALET)
+
+```c
+// src/st_vm.cpp:809-812 - FØR (FORKERT):
+} else if (func_id == ST_BUILTIN_MB_WRITE_COIL) {
+  result = st_builtin_mb_write_coil(arg1, arg2, arg3);
+
+// src/st_vm.cpp:809-820 - EFTER (FIX):
+} else if (func_id == ST_BUILTIN_MB_WRITE_COIL) {
+  // Type promotion: DINT/DWORD → INT med clamping
+  st_value_t slave_int, addr_int;
+
+  slave_int.int_val = (arg1_type == ST_TYPE_DINT) ?
+    ((arg1.dint_val > 32767) ? 32767 : (arg1.dint_val < -32768) ? -32768 : arg1.dint_val) :
+    (arg1_type == ST_TYPE_DWORD) ?
+    ((arg1.dword_val > 32767) ? 32767 : arg1.dword_val) :
+    arg1.int_val;
+
+  addr_int.int_val = (arg2_type == ST_TYPE_DINT) ?
+    ((arg2.dint_val > 32767) ? 32767 : (arg2.dint_val < -32768) ? -32768 : arg2.dint_val) :
+    (arg2_type == ST_TYPE_DWORD) ?
+    ((arg2.dword_val > 32767) ? 32767 : arg2.dword_val) :
+    arg2.int_val;
+
+  result = st_builtin_mb_write_coil(slave_int, addr_int, arg3);
+```
+
+**Pros:**
+- Centralized type handling
+- Consistent with SEL/LIMIT pattern
+- Easy to maintain
+
+**Option B: Type Checking i Builtin Function**
+
+```c
+// src/st_builtin_modbus.cpp - Modificer function signature
+st_value_t st_builtin_mb_write_coil_typed(
+  st_value_t slave_id, st_datatype_t slave_type,
+  st_value_t address, st_datatype_t addr_type,
+  st_value_t value, st_datatype_t value_type
+) {
+  // Extract INT value with type promotion
+  int16_t slave = (slave_type == ST_TYPE_DINT) ? slave_id.dint_val : slave_id.int_val;
+  int16_t addr = (addr_type == ST_TYPE_DINT) ? address.dint_val : address.int_val;
+  // ...
+}
+```
+
+**Cons:**
+- Requires VM changes to pass types
+- More invasive refactoring
+- Inconsistent with existing pattern
+
+**ANBEFALING:** Use Option A (VM handler type promotion)
+
+### Affected Files
+
+1. `src/st_vm.cpp` - Lines 809-830 (MB_WRITE_COIL, MB_WRITE_HOLDING handlers)
+2. `src/st_vm.cpp` - Lines 750-780 (MB_READ_* handlers) - SAMME BUG!
+3. `src/st_builtin_modbus.cpp` - All 6 functions (validation logic)
+
+### Test Cases
+
+**Test 1: DINT slave_id**
+```structured-text
+VAR
+  remote: DINT := 3;
+END_VAR
+MB_WRITE_COIL(remote, 20) := TRUE;
+(* Expected: Slave 3, Coil 20 = TRUE *)
+(* Actual (BUG): Garbage slave ID validation *)
+```
+
+**Test 2: DINT address**
+```structured-text
+VAR
+  base: DINT := 40000;
+END_VAR
+temp := MB_READ_HOLDING(1, base + 5);
+(* Expected: Slave 1, Address 40005 read *)
+(* Actual (BUG): Garbage address validation *)
+```
+
+**Test 3: Expression promotion**
+```structured-text
+VAR
+  a: DINT := 30000;
+  b: INT := 10;
+END_VAR
+temp := MB_READ_HOLDING(1, a + b);
+(* a + b = DINT (30010) → garbage tilgået *)
+```
+
+**Test 4: Negative DINT clamping**
+```structured-text
+VAR
+  addr: DINT := -100;
+END_VAR
+MB_WRITE_HOLDING(1, addr) := 500;
+(* Expected: Error MB_INVALID_ADDRESS *)
+(* Actual (BUG): Garbage address → unpredictable *)
+```
+
+### Related Bugs
+
+- **BUG-135:** Same issue for value argument in MB_WRITE_HOLDING
+- **BUG-136:** Same issue for value argument in MB_WRITE_COIL
+- **ISSUE-138:** MB_READ functions have identical type problem
+
+### Estimated Effort
+
+- **Analysis:** ✅ Complete
+- **Fix Implementation:** 2 timer (VM handler + all 6 functions)
+- **Testing:** 1 time (4 test cases × 6 functions)
+- **Total:** 3 timer
+
+### Priority Justification
+
+**CRITICAL fordi:**
+1. **Silent data corruption** - Ingen compile/runtime errors
+2. **Affects production systems** - Modbus Master is critical path
+3. **Garbage validation** - Invalid requests kan accepteres, valid kan afvises
+4. **Workaround ikke acceptabelt** - Brugere skal undgå DINT for Modbus (ikke realistisk)
+
+### Workaround (Until Fixed)
+
+```structured-text
+(* DÅRLIG - Kan fejle *)
+VAR
+  base_addr: DINT := 40000;
+END_VAR
+temp := MB_READ_HOLDING(1, base_addr);
+
+(* WORKAROUND - Explicit cast *)
+VAR
+  base_addr: DINT := 40000;
+  addr_int: INT;
+END_VAR
+addr_int := DINT_TO_INT(base_addr);  (* Truncate to INT *)
+temp := MB_READ_HOLDING(1, addr_int);
+```
+
+**Problem med workaround:**
+- DINT_TO_INT truncates (40000 → -25536 efter wraparound)
+- **Ikke løsning for store addresser!**
+
+---
+
+## BUG-135: MB_WRITE_HOLDING Mangler Value Type Validering
+
+**Status:** ❌ OPEN
+**Priority:** 🔴 CRITICAL
+**Discovered:** 2026-01-01 (v4.6.0 ST analysis)
+**Fixed in:** TBD
+
+### Problem Summary
+
+`MB_WRITE_HOLDING` builtin funktion tilgår altid `value.int_val` uanset faktisk datatype, hvilket sender **garbage data** til remote Modbus holding registers når brugeren sender REAL, DINT eller DWORD værdier.
+
+### Technical Details
+
+**Root Cause:**
+Samme union-problem som BUG-134, men for `value` argumentet i stedet for `slave_id`/`address`.
+
+**Code Location:** `src/st_builtin_modbus.cpp:237-274`
+
+```c
+st_value_t st_builtin_mb_write_holding(st_value_t slave_id, st_value_t address, st_value_t value) {
+  // ... validation ...
+
+  mb_error_code_t err = modbus_master_write_holding(
+    (uint8_t)slave_id.int_val,
+    (uint16_t)address.int_val,
+    (uint16_t)value.int_val   // ❌ BUG: Altid int_val!
+  );
+
+  // Hvis value er REAL → real_val indeholder data, int_val er GARBAGE!
+  // Hvis value er DINT → dint_val indeholder data, int_val er GARBAGE!
+  // Hvis value er DWORD → dword_val indeholder data, int_val er GARBAGE!
+}
+```
+
+### Test Case That Fails
+
+**Test 1: REAL Value**
+```structured-text
+VAR
+  temperature: REAL := 42.5;
+END_VAR
+
+MB_WRITE_HOLDING(2, 200) := temperature;
+```
+
+**Actual Behavior:**
+1. Compiler evaluerer RHS: `temperature` → type REAL, `value.real_val = 42.5`
+2. Compiler pusher til stack: `{type: ST_TYPE_REAL, real_val: 42.5, int_val: <garbage>}`
+3. VM popper: `arg3_type = ST_TYPE_REAL`, `arg3.real_val = 42.5`
+4. **BUG:** `st_builtin_mb_write_holding()` tilgår `value.int_val` (garbage!)
+5. Modbus write sender garbage til remote register 200
+6. **Remote device modtager random værdi i stedet for 42!**
+
+**Expected Behavior:**
+- Type-checking: Detect REAL type
+- **Option A:** Convert REAL → INT: `(int16_t)value.real_val` → 42
+- **Option B:** Error: "Cannot write REAL to holding register" (type mismatch)
+- **ANBEFALET:** Option A (implicit conversion som IEC 61131-3 standard)
+
+**Test 2: DINT Value**
+```structured-text
+VAR
+  count: DINT := 100000;
+END_VAR
+
+MB_WRITE_HOLDING(1, 100) := count;
+```
+
+**Actual Behavior:**
+- DINT værdi 100000 → `dint_val = 100000`, `int_val = <garbage>`
+- Garbage sendt til remote register
+- **Expected:** Convert DINT → INT med clamping/truncation
+
+**Test 3: DWORD Value**
+```structured-text
+VAR
+  flags: DWORD := 16#ABCD1234;
+END_VAR
+
+MB_WRITE_HOLDING(3, 50) := flags;
+```
+
+**Actual Behavior:**
+- DWORD værdi → `dword_val = 0xABCD1234`, `int_val = <garbage>`
+- Garbage sendt til remote register
+- **Expected:** Truncate DWORD → INT (lower 16 bits)
+
+### Impact
+
+**Severity:** 🔴 CRITICAL
+
+**Affects:**
+- `MB_WRITE_HOLDING(id, addr) := REAL_var` → Garbage data
+- `MB_WRITE_HOLDING(id, addr) := DINT_var` → Garbage data
+- `MB_WRITE_HOLDING(id, addr) := DWORD_var` → Garbage data
+- `MB_WRITE_HOLDING(id, addr) := INT_expr * REAL` → Result is REAL → Garbage!
+
+**Real-World Scenarios:**
+
+**Scenario 1: Temperature Setpoint**
+```structured-text
+VAR
+  setpoint: REAL := 72.5;  (* °F *)
+END_VAR
+MB_WRITE_HOLDING(1, 100) := setpoint;
+(* Remote PLC modtager garbage i stedet for 72! *)
+```
+
+**Scenario 2: Production Counter**
+```structured-text
+VAR
+  production_count: DINT := 1000000;
+END_VAR
+MB_WRITE_HOLDING(2, 200) := production_count;
+(* Remote HMI viser garbage i stedet for 1000000 *)
+```
+
+**Scenario 3: Expression med Mixed Types**
+```structured-text
+VAR
+  a: INT := 10;
+  b: REAL := 1.5;
+  result: INT;
+END_VAR
+result := a * b;  (* result type = REAL (15.0) *)
+MB_WRITE_HOLDING(1, 50) := result;
+(* BUG: result er REAL type → garbage sendt! *)
+```
+
+### Proposed Fix
+
+**VM Handler Type Promotion** (konsistent med BUG-134 fix)
+
+```c
+// src/st_vm.cpp:809-830
+} else if (func_id == ST_BUILTIN_MB_WRITE_HOLDING) {
+  // Type promotion for all 3 arguments
+  st_value_t slave_int, addr_int, value_int;
+
+  // ... slave_id og address promotion (samme som BUG-134) ...
+
+  // Value type promotion
+  if (arg3_type == ST_TYPE_REAL) {
+    // REAL → INT: Truncate (IEC 61131-3 standard)
+    value_int.int_val = (int16_t)arg3.real_val;
+  } else if (arg3_type == ST_TYPE_DINT) {
+    // DINT → INT: Clamp til [-32768, 32767]
+    value_int.int_val = (arg3.dint_val > 32767) ? 32767 :
+                        (arg3.dint_val < -32768) ? -32768 :
+                        arg3.dint_val;
+  } else if (arg3_type == ST_TYPE_DWORD) {
+    // DWORD → INT: Truncate til lower 16 bits
+    value_int.int_val = (int16_t)(arg3.dword_val & 0xFFFF);
+  } else if (arg3_type == ST_TYPE_BOOL) {
+    // BOOL → INT: 0 eller 1
+    value_int.int_val = arg3.bool_val ? 1 : 0;
+  } else {
+    // INT type - use directly
+    value_int.int_val = arg3.int_val;
+  }
+
+  result = st_builtin_mb_write_holding(slave_int, addr_int, value_int);
+}
+```
+
+### Alternative: Multi-Register REAL/DINT Write (FUTURE)
+
+```structured-text
+(* FUTURE ENHANCEMENT: Split REAL/DINT til 2 registers *)
+VAR
+  temperature: REAL := 42.5;
+END_VAR
+
+(* Auto-split til 2 registers: HR200-201 *)
+MB_WRITE_HOLDING(1, 200) := temperature;
+```
+
+**Kræver:**
+- Modbus Master multi-register write support
+- Type-aware register allocation (2 consecutive registers)
+- Parser/compiler ændringer
+- **Effort:** 10+ timer
+
+**For nu:** Brug type conversion (REAL → INT truncation)
+
+### Test Cases
+
+**Test 1: REAL truncation**
+```structured-text
+MB_WRITE_HOLDING(1, 100) := 42.9;
+(* Expected: Write 42 (truncated) *)
+```
+
+**Test 2: DINT clamping (overflow)**
+```structured-text
+VAR val: DINT := 50000; END_VAR
+MB_WRITE_HOLDING(1, 100) := val;
+(* Expected: Write 32767 (clamped to INT_MAX) *)
+```
+
+**Test 3: DINT clamping (underflow)**
+```structured-text
+VAR val: DINT := -50000; END_VAR
+MB_WRITE_HOLDING(1, 100) := val;
+(* Expected: Write -32768 (clamped to INT_MIN) *)
+```
+
+**Test 4: DWORD truncation**
+```structured-text
+VAR flags: DWORD := 16#ABCD1234; END_VAR
+MB_WRITE_HOLDING(1, 100) := flags;
+(* Expected: Write 0x1234 (lower 16 bits) *)
+```
+
+**Test 5: BOOL conversion**
+```structured-text
+MB_WRITE_HOLDING(1, 100) := TRUE;
+(* Expected: Write 1 *)
+```
+
+### Related Bugs
+
+- **BUG-134:** Same issue for slave_id/address arguments
+- **BUG-136:** Same issue for MB_WRITE_COIL value argument
+
+### Estimated Effort
+
+- **Fix Implementation:** 1 time (part of BUG-134 fix)
+- **Testing:** 30 min (5 test cases)
+- **Total:** 1.5 timer
+
+### Workaround (Until Fixed)
+
+```structured-text
+(* DÅRLIG - Kan fejle *)
+VAR
+  temp: REAL := 42.5;
+END_VAR
+MB_WRITE_HOLDING(1, 100) := temp;  (* GARBAGE! *)
+
+(* WORKAROUND - Explicit cast *)
+VAR
+  temp: REAL := 42.5;
+  temp_int: INT;
+END_VAR
+temp_int := REAL_TO_INT(temp);  (* Convert 42.5 → 42 *)
+MB_WRITE_HOLDING(1, 100) := temp_int;  (* OK *)
+```
+
+---
+
+## BUG-136: MB_WRITE_COIL Mangler Value Type Validering
+
+**Status:** ❌ OPEN
+**Priority:** 🔴 CRITICAL
+**Discovered:** 2026-01-01 (v4.6.0 ST analysis)
+**Fixed in:** TBD
+
+### Problem Summary
+
+`MB_WRITE_COIL` builtin funktion tilgår altid `value.bool_val` uanset faktisk datatype, hvilket sender **garbage data** til remote Modbus coils når brugeren sender INT, REAL, DINT eller DWORD værdier.
+
+### Technical Details
+
+**Root Cause:**
+Samme union-problem som BUG-134/135, men for boolean coil values.
+
+**Code Location:** `src/st_builtin_modbus.cpp:198-235`
+
+```c
+st_value_t st_builtin_mb_write_coil(st_value_t slave_id, st_value_t address, st_value_t value) {
+  // ... validation ...
+
+  mb_error_code_t err = modbus_master_write_coil(
+    (uint8_t)slave_id.int_val,
+    (uint16_t)address.int_val,
+    value.bool_val   // ❌ BUG: Altid bool_val!
+  );
+
+  // Hvis value er INT → int_val indeholder data, bool_val er GARBAGE!
+  // Hvis value er REAL → real_val indeholder data, bool_val er GARBAGE!
+}
+```
+
+### Test Case That Fails
+
+**Test 1: INT Value (Non-Zero Should Be TRUE)**
+```structured-text
+MB_WRITE_COIL(3, 20) := 42;  (* INT i stedet for BOOL *)
+```
+
+**Actual Behavior:**
+1. Compiler evaluerer RHS: Literal `42` → type INT, `value.int_val = 42`
+2. Compiler pusher: `{type: ST_TYPE_INT, int_val: 42, bool_val: <garbage>}`
+3. VM popper: `arg3_type = ST_TYPE_INT`, `arg3.int_val = 42`
+4. **BUG:** `st_builtin_mb_write_coil()` tilgår `value.bool_val` (garbage!)
+5. Remote coil 20 sættes til RANDOM TRUE/FALSE (garbage værdi)
+
+**Expected Behavior:**
+- Type conversion: `42` (non-zero INT) → `TRUE`
+- IEC 61131-3 standard: Non-zero = TRUE, Zero = FALSE
+
+**Test 2: Zero INT Value**
+```structured-text
+MB_WRITE_COIL(3, 20) := 0;  (* INT 0 → should be FALSE *)
+```
+
+**Expected:** Coil = FALSE
+**Actual (BUG):** Garbage bool_val (random TRUE/FALSE)
+
+**Test 3: Expression Result**
+```structured-text
+VAR
+  temp: INT := 25;
+END_VAR
+MB_WRITE_COIL(1, 10) := temp > 20;  (* Expression evaluates to BOOL *)
+```
+
+**This works correctly** fordi `temp > 20` er type BOOL.
+
+**But this fails:**
+```structured-text
+VAR
+  enable: INT := 1;  (* Used as boolean flag *)
+END_VAR
+MB_WRITE_COIL(1, 10) := enable;  (* INT type → garbage! *)
+```
+
+### Impact
+
+**Severity:** 🔴 CRITICAL (men lavere end BUG-134/135)
+
+**Affects:**
+- `MB_WRITE_COIL(id, addr) := INT_var` → Garbage coil state
+- `MB_WRITE_COIL(id, addr) := REAL_var` → Garbage coil state
+- `MB_WRITE_COIL(id, addr) := DINT_var` → Garbage coil state
+
+**Does NOT Affect:**
+- BOOL arguments (bruges korrekt)
+- Boolean expressions (type er BOOL)
+- Literals TRUE/FALSE
+
+**Real-World Scenarios:**
+
+**Scenario 1: Enable Flag fra INT**
+```structured-text
+VAR
+  pump_enable: INT := 1;  (* 1 = enabled, 0 = disabled *)
+END_VAR
+MB_WRITE_COIL(3, 20) := pump_enable;
+(* Expected: Coil 20 = TRUE (pump on) *)
+(* Actual: Random TRUE/FALSE → pump kan være on eller off! *)
+```
+
+**Scenario 2: Comparison Result (WORKS)**
+```structured-text
+VAR
+  temperature: REAL := 75.0;
+  threshold: REAL := 70.0;
+END_VAR
+MB_WRITE_COIL(1, 10) := temperature > threshold;
+(* ✅ VIRKER - expression type er BOOL *)
+```
+
+**Scenario 3: Bitwise Operation**
+```structured-text
+VAR
+  status: INT := 16#00FF;
+  bit5: INT;
+END_VAR
+bit5 := (status AND 16#0020) SHR 5;  (* Extract bit 5 → 0 eller 1 *)
+MB_WRITE_COIL(2, 15) := bit5;
+(* Expected: bit5=1 → TRUE, bit5=0 → FALSE *)
+(* Actual: Garbage bool_val *)
+```
+
+### Proposed Fix
+
+**VM Handler Type Conversion**
+
+```c
+// src/st_vm.cpp:809-820
+} else if (func_id == ST_BUILTIN_MB_WRITE_COIL) {
+  // Type promotion for all 3 arguments
+  st_value_t slave_int, addr_int, value_bool;
+
+  // ... slave_id og address promotion (samme som BUG-134) ...
+
+  // Value type conversion til BOOL
+  if (arg3_type == ST_TYPE_BOOL) {
+    // Already BOOL - use directly
+    value_bool.bool_val = arg3.bool_val;
+  } else if (arg3_type == ST_TYPE_INT) {
+    // INT → BOOL: Non-zero = TRUE
+    value_bool.bool_val = (arg3.int_val != 0);
+  } else if (arg3_type == ST_TYPE_DINT) {
+    // DINT → BOOL: Non-zero = TRUE
+    value_bool.bool_val = (arg3.dint_val != 0);
+  } else if (arg3_type == ST_TYPE_DWORD) {
+    // DWORD → BOOL: Non-zero = TRUE
+    value_bool.bool_val = (arg3.dword_val != 0);
+  } else if (arg3_type == ST_TYPE_REAL) {
+    // REAL → BOOL: Non-zero = TRUE (epsilon comparison)
+    value_bool.bool_val = (fabs(arg3.real_val) > 0.001f);
+  }
+
+  result = st_builtin_mb_write_coil(slave_int, addr_int, value_bool);
+}
+```
+
+### Test Cases
+
+**Test 1: INT non-zero → TRUE**
+```structured-text
+MB_WRITE_COIL(3, 20) := 42;
+(* Expected: Coil 20 = TRUE *)
+```
+
+**Test 2: INT zero → FALSE**
+```structured-text
+MB_WRITE_COIL(3, 20) := 0;
+(* Expected: Coil 20 = FALSE *)
+```
+
+**Test 3: DINT conversion**
+```structured-text
+VAR val: DINT := 100000; END_VAR
+MB_WRITE_COIL(3, 20) := val;
+(* Expected: Coil 20 = TRUE (100000 != 0) *)
+```
+
+**Test 4: REAL conversion**
+```structured-text
+VAR val: REAL := 0.5; END_VAR
+MB_WRITE_COIL(3, 20) := val;
+(* Expected: Coil 20 = TRUE (0.5 > 0.001) *)
+```
+
+**Test 5: REAL near-zero**
+```structured-text
+VAR val: REAL := 0.0001; END_VAR
+MB_WRITE_COIL(3, 20) := val;
+(* Expected: Coil 20 = FALSE (0.0001 < 0.001) *)
+```
+
+### Related Bugs
+
+- **BUG-134:** Same issue for slave_id/address arguments
+- **BUG-135:** Same issue for MB_WRITE_HOLDING value argument
+
+### Estimated Effort
+
+- **Fix Implementation:** 30 min (part of BUG-134 fix)
+- **Testing:** 20 min (5 test cases)
+- **Total:** 50 min
+
+### Workaround (Until Fixed)
+
+```structured-text
+(* DÅRLIG - Kan fejle *)
+VAR
+  enable: INT := 1;
+END_VAR
+MB_WRITE_COIL(3, 20) := enable;  (* GARBAGE! *)
+
+(* WORKAROUND - Explicit conversion *)
+VAR
+  enable: INT := 1;
+  enable_bool: BOOL;
+END_VAR
+enable_bool := INT_TO_BOOL(enable);  (* 1 → TRUE, 0 → FALSE *)
+MB_WRITE_COIL(3, 20) := enable_bool;  (* OK *)
+
+(* ELLER - Direct comparison *)
+MB_WRITE_COIL(3, 20) := (enable <> 0);  (* Returns BOOL type *)
+```
+
+### Priority Justification
+
+**CRITICAL fordi:**
+1. **Random coil states** - Kan starte/stoppe udstyr uforudsigeligt
+2. **Safety-critical** - Coils ofte bruges til actuator control
+3. **Silent failure** - Ingen compile/runtime errors
+
+**Men lavere end BUG-134/135 fordi:**
+- Workaround er nemmere (comparison operator)
+- Mindre sandsynligt (folk bruger typisk BOOL for coils)
+
+---

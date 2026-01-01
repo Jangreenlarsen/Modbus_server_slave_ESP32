@@ -4,6 +4,93 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [4.6.1] - 2026-01-01 🔴 (Critical Type-Handling Bug Fixes)
+
+### 🔴 CRITICAL BUG FIXES
+- **BUG-134: MB_WRITE DINT Arguments Sender Garbage Data**
+  - **Issue:** When `slave_id` or `address` arguments are DINT type, builtin functions accessed `int_val` instead of `dint_val` → garbage data validation
+  - **Impact:** CRITICAL - Invalid Modbus requests could be accepted, valid requests could be rejected, data corruption on remote devices
+  - **Fix:** Added type promotion in VM handler - DINT/DWORD → INT with clamping
+  - **File:** `src/st_vm.cpp:809-895`
+  - **Status:** ✅ FIXED in Build #919
+
+- **BUG-135: MB_WRITE_HOLDING Mangler Value Type Validering**
+  - **Issue:** Always accessed `value.int_val` regardless of actual type (REAL/DINT/DWORD)
+  - **Impact:** CRITICAL - REAL/DINT/DWORD values sent garbage to remote holding registers
+  - **Example:** `MB_WRITE_HOLDING(1, 100) := 42.5` (REAL) → garbage sent instead of 42
+  - **Fix:** Type conversion in VM: REAL→INT truncate, DINT→INT clamp, DWORD→INT lower 16 bits
+  - **File:** `src/st_vm.cpp:852-895`
+  - **Status:** ✅ FIXED in Build #919
+
+- **BUG-136: MB_WRITE_COIL Mangler Value Type Validering**
+  - **Issue:** Always accessed `value.bool_val` regardless of actual type (INT/REAL/DINT/DWORD)
+  - **Impact:** CRITICAL - Non-BOOL values caused random coil states (garbage bool_val)
+  - **Example:** `MB_WRITE_COIL(3, 20) := 42` (INT) → random TRUE/FALSE instead of conversion
+  - **Fix:** Type conversion in VM: Non-zero → TRUE, Zero → FALSE (IEC 61131-3 standard)
+  - **File:** `src/st_vm.cpp:809-851`
+  - **Status:** ✅ FIXED in Build #919
+
+### TECHNICAL DETAILS
+
+**Root Cause:**
+- `st_value_t` is a union - when DINT pushed, only `dint_val` is valid, `int_val` is garbage
+- VM correctly pops typed values, but builtin functions ignored type information
+- SEL/LIMIT functions had correct type handling, but MB_WRITE/MB_READ functions did not
+
+**Type Conversion Logic:**
+
+**MB_WRITE_COIL:**
+```c
+// Slave ID & Address: DINT/DWORD → INT (clamp to [-32768, 32767])
+// Value: INT/REAL/DINT/DWORD → BOOL (non-zero = TRUE)
+MB_WRITE_COIL(remote_dint, addr_dint) := int_val;
+// ✅ Now works correctly with type promotion
+```
+
+**MB_WRITE_HOLDING:**
+```c
+// Slave ID & Address: DINT/DWORD → INT (clamp to [-32768, 32767])
+// Value: REAL → INT (truncate), DINT → INT (clamp), DWORD → INT (lower 16 bits)
+MB_WRITE_HOLDING(1, 100) := 42.5;  // REAL
+// ✅ Now writes 42 instead of garbage
+```
+
+**Affected Use Cases (NOW FIXED):**
+```structured-text
+VAR
+  remote_id: DINT := 3;
+  base_addr: DINT := 40000;
+  temperature: REAL := 72.5;
+  enable_flag: INT := 1;
+END_VAR
+
+(* BUG-134 FIX - DINT arguments *)
+temp := MB_READ_HOLDING(remote_id, base_addr);  (* ✅ Now works *)
+
+(* BUG-135 FIX - REAL value *)
+MB_WRITE_HOLDING(1, 100) := temperature;  (* ✅ Writes 72 *)
+
+(* BUG-136 FIX - INT to BOOL conversion *)
+MB_WRITE_COIL(3, 20) := enable_flag;  (* ✅ Writes TRUE (non-zero) *)
+```
+
+### UPGRADE NOTES
+1. **Impact:** Systems using DINT/REAL/DWORD in MB_WRITE operations were sending **garbage data**
+2. **Severity:** CRITICAL - Data corruption on remote Modbus devices possible
+3. **Recommendation:** **UPGRADE IMMEDIATELY** if using:
+   - DINT variables for slave_id or address
+   - REAL values in MB_WRITE_HOLDING
+   - INT values in MB_WRITE_COIL (expecting BOOL conversion)
+4. **Testing:** Verify all Modbus Master write operations after upgrade
+
+### BUILD INFO
+- **Version:** v4.6.1
+- **Build:** #919
+- **Flash:** 961,721 bytes (73.4%) - +336 bytes from type-handling code
+- **RAM:** 121,900 bytes (37.2%) - unchanged
+
+---
+
 ## [4.6.0] - 2026-01-01 🚀 (New MB_WRITE Syntax + Critical Bug Fix)
 
 ### 🔴 CRITICAL BUG FIX

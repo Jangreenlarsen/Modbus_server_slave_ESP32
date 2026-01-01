@@ -109,6 +109,9 @@
 | BUG-131 | CLI `set id` kommando virker ikke (SLAVE-ID vs ID mismatch) | ✅ FIXED | 🟡 HIGH | v4.5.0 | normalize_alias() returnerer "SLAVE-ID" men parser tjekker "ID" |
 | BUG-132 | CLI `set baud` kommando virker ikke (BAUDRATE vs BAUD mismatch) | ✅ FIXED | 🟡 HIGH | v4.5.0 | normalize_alias() returnerer "BAUDRATE" men parser tjekker "BAUD" |
 | BUG-133 | Modbus Master request counter reset mangler | ✅ FIXED | 🔴 CRITICAL | v4.5.2 | g_mb_request_count aldrig resettet → system blokerer efter 10 requests |
+| BUG-134 | MB_WRITE DINT arguments sender garbage data | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | DINT slave_id/address bruger int_val i stedet for dint_val → garbage validering (Build #919) |
+| BUG-135 | MB_WRITE_HOLDING mangler value type validering | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | REAL/DWORD værdier bruger int_val → garbage sendt til remote register (Build #919) |
+| BUG-136 | MB_WRITE_COIL mangler value type validering | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | INT værdier bruger bool_val i stedet for konvertering → random coil state (Build #919) |
 
 ## Feature Requests / Enhancements
 
@@ -148,6 +151,10 @@
 - **BUG-105:** INT type skal være 16-bit, ikke 32-bit (FIXED v5.0.0 Build #822)
 - **BUG-124:** Counter 32/64-bit DINT/DWORD register byte order (FIXED v5.0.0 Build #834)
 - **BUG-125:** ST Logic multi-register byte order DINT/DWORD/REAL (FIXED v5.0.0 Build #860)
+- **BUG-133:** Modbus Master request counter reset mangler (FIXED v4.5.2 Build #917)
+- **BUG-134:** MB_WRITE DINT arguments sender garbage data (FIXED v4.6.1 Build #919)
+- **BUG-135:** MB_WRITE_HOLDING mangler value type validering (FIXED v4.6.1 Build #919)
+- **BUG-136:** MB_WRITE_COIL mangler value type validering (FIXED v4.6.1 Build #919)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index

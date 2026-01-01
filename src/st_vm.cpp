@@ -807,9 +807,91 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     } else if (func_id == ST_BUILTIN_SEL) {
       result = st_builtin_sel(arg1, arg2, arg3);
     } else if (func_id == ST_BUILTIN_MB_WRITE_COIL) {
-      result = st_builtin_mb_write_coil(arg1, arg2, arg3);
+      // BUG-134/136 FIX: Type promotion for all arguments
+      // arg1 = slave_id (INT), arg2 = address (INT), arg3 = value (BOOL)
+      st_value_t slave_int, addr_int, value_bool;
+
+      // Slave ID: DINT/DWORD → INT with clamping
+      if (arg1_type == ST_TYPE_DINT) {
+        slave_int.int_val = (arg1.dint_val > 32767) ? 32767 :
+                            (arg1.dint_val < -32768) ? -32768 :
+                            arg1.dint_val;
+      } else if (arg1_type == ST_TYPE_DWORD) {
+        slave_int.int_val = (arg1.dword_val > 32767) ? 32767 : arg1.dword_val;
+      } else {
+        slave_int.int_val = arg1.int_val;  // INT or BOOL → use int_val
+      }
+
+      // Address: DINT/DWORD → INT with clamping
+      if (arg2_type == ST_TYPE_DINT) {
+        addr_int.int_val = (arg2.dint_val > 32767) ? 32767 :
+                           (arg2.dint_val < -32768) ? -32768 :
+                           arg2.dint_val;
+      } else if (arg2_type == ST_TYPE_DWORD) {
+        addr_int.int_val = (arg2.dword_val > 32767) ? 32767 : arg2.dword_val;
+      } else {
+        addr_int.int_val = arg2.int_val;  // INT or BOOL → use int_val
+      }
+
+      // Value: INT/REAL/DINT/DWORD → BOOL (non-zero = TRUE)
+      if (arg3_type == ST_TYPE_BOOL) {
+        value_bool.bool_val = arg3.bool_val;
+      } else if (arg3_type == ST_TYPE_INT) {
+        value_bool.bool_val = (arg3.int_val != 0);
+      } else if (arg3_type == ST_TYPE_DINT) {
+        value_bool.bool_val = (arg3.dint_val != 0);
+      } else if (arg3_type == ST_TYPE_DWORD) {
+        value_bool.bool_val = (arg3.dword_val != 0);
+      } else if (arg3_type == ST_TYPE_REAL) {
+        value_bool.bool_val = (fabs(arg3.real_val) > 0.001f);
+      } else {
+        value_bool.bool_val = false;  // Fallback
+      }
+
+      result = st_builtin_mb_write_coil(slave_int, addr_int, value_bool);
     } else if (func_id == ST_BUILTIN_MB_WRITE_HOLDING) {
-      result = st_builtin_mb_write_holding(arg1, arg2, arg3);
+      // BUG-134/135 FIX: Type promotion for all arguments
+      // arg1 = slave_id (INT), arg2 = address (INT), arg3 = value (INT)
+      st_value_t slave_int, addr_int, value_int;
+
+      // Slave ID: DINT/DWORD → INT with clamping
+      if (arg1_type == ST_TYPE_DINT) {
+        slave_int.int_val = (arg1.dint_val > 32767) ? 32767 :
+                            (arg1.dint_val < -32768) ? -32768 :
+                            arg1.dint_val;
+      } else if (arg1_type == ST_TYPE_DWORD) {
+        slave_int.int_val = (arg1.dword_val > 32767) ? 32767 : arg1.dword_val;
+      } else {
+        slave_int.int_val = arg1.int_val;  // INT or BOOL → use int_val
+      }
+
+      // Address: DINT/DWORD → INT with clamping
+      if (arg2_type == ST_TYPE_DINT) {
+        addr_int.int_val = (arg2.dint_val > 32767) ? 32767 :
+                           (arg2.dint_val < -32768) ? -32768 :
+                           arg2.dint_val;
+      } else if (arg2_type == ST_TYPE_DWORD) {
+        addr_int.int_val = (arg2.dword_val > 32767) ? 32767 : arg2.dword_val;
+      } else {
+        addr_int.int_val = arg2.int_val;  // INT or BOOL → use int_val
+      }
+
+      // Value: REAL/DINT/DWORD/BOOL → INT with conversion
+      if (arg3_type == ST_TYPE_REAL) {
+        value_int.int_val = (int16_t)arg3.real_val;  // Truncate REAL → INT
+      } else if (arg3_type == ST_TYPE_DINT) {
+        value_int.int_val = (arg3.dint_val > 32767) ? 32767 :
+                            (arg3.dint_val < -32768) ? -32768 :
+                            arg3.dint_val;
+      } else if (arg3_type == ST_TYPE_DWORD) {
+        value_int.int_val = (int16_t)(arg3.dword_val & 0xFFFF);  // Lower 16 bits
+      } else if (arg3_type == ST_TYPE_BOOL) {
+        value_int.int_val = arg3.bool_val ? 1 : 0;
+      } else {
+        value_int.int_val = arg3.int_val;  // INT → use directly
+      }
+
+      result = st_builtin_mb_write_holding(slave_int, addr_int, value_int);
     } else {
       result = st_builtin_call(func_id, arg1, arg2);
     }
