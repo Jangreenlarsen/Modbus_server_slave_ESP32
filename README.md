@@ -243,11 +243,12 @@ MB_READ_HOLDING(slave_id, address) → INT       (* Read remote holding register
 MB_READ_INPUT_REG(slave_id, address) → INT     (* Read remote input register *)
 ```
 
-**Write Functions (3 argumenter):**
+**Write Functions (v4.6.0+ ny syntax - assignment-baseret):**
 ```structured-text
-MB_WRITE_COIL(slave_id, address, value) → BOOL      (* Write remote coil *)
-MB_WRITE_HOLDING(slave_id, address, value) → BOOL   (* Write remote holding register *)
+MB_WRITE_COIL(slave_id, address) := boolean_value      (* Write remote coil *)
+MB_WRITE_HOLDING(slave_id, address) := int_value       (* Write remote holding register *)
 ```
+**Note:** Gammel 3-argument syntax (`MB_WRITE_COIL(id, addr, value)`) er deprecated. Brug ny assignment syntax i stedet.
 
 **Global Status Variables:**
 ```structured-text
@@ -255,11 +256,10 @@ mb_last_error (INT)   (* 0=OK, 1=TIMEOUT, 2=CRC, 3=EXCEPTION, 4=MAX_REQ, 5=DISAB
 mb_success (BOOL)     (* TRUE if last operation succeeded *)
 ```
 
-#### Eksempel: Remote Temperature Control
+#### Eksempel: Remote Temperature Control (v4.6.0+ ny syntax)
 ```structured-text
 VAR
   remote_temp: INT;
-  heating_on: BOOL;
   error: BOOL;
 END_VAR
 
@@ -270,15 +270,32 @@ remote_temp := MB_READ_HOLDING(5, 100);
 IF mb_success THEN
   (* Control heating based on temperature *)
   IF remote_temp < 18 THEN
-    heating_on := MB_WRITE_COIL(3, 20, TRUE);   (* Slave 3, Coil 20 ON *)
+    MB_WRITE_COIL(3, 20) := TRUE;   (* Slave 3, Coil 20 ON *)
   ELSE
-    heating_on := MB_WRITE_COIL(3, 20, FALSE);  (* Slave 3, Coil 20 OFF *)
+    MB_WRITE_COIL(3, 20) := FALSE;  (* Slave 3, Coil 20 OFF *)
   END_IF;
   error := FALSE;
 ELSE
   (* Communication failed *)
   error := TRUE;
 END_IF;
+```
+
+**Variable Argument Support (v4.6.0+):**
+```structured-text
+VAR
+  REMOTE_IO: INT := 3;
+  COIL_ADDR: INT := 20;
+  heating_on: BOOL := TRUE;
+END_VAR
+
+(* All arguments can be variables or expressions *)
+MB_WRITE_COIL(REMOTE_IO, COIL_ADDR) := heating_on;
+
+(* Dynamic addressing with expressions *)
+FOR i := 0 TO 9 DO
+  MB_WRITE_HOLDING(2, 200 + i) := i * 10;
+END_FOR;
 ```
 
 #### CLI Configuration
@@ -737,8 +754,10 @@ MB_READ_COIL(slave_id, address) → BOOL
 MB_READ_INPUT(slave_id, address) → BOOL
 MB_READ_HOLDING(slave_id, address) → INT
 MB_READ_INPUT_REG(slave_id, address) → INT
-MB_WRITE_COIL(slave_id, address, value) → BOOL
-MB_WRITE_HOLDING(slave_id, address, value) → BOOL
+
+(* v4.6.0+ New assignment syntax for writes *)
+MB_WRITE_COIL(slave_id, address) := boolean_value
+MB_WRITE_HOLDING(slave_id, address) := int_value
 
 (* Global status variables *)
 mb_last_error (INT)   (* 0=OK, 1=TIMEOUT, 2=CRC, 3=EXCEPTION, 4=MAX_REQ, 5=DISABLED *)

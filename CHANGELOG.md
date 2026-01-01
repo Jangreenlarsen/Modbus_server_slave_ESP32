@@ -4,6 +4,91 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [4.6.0] - 2026-01-01 🚀 (New MB_WRITE Syntax + Critical Bug Fix)
+
+### 🔴 CRITICAL BUG FIX
+- **BUG-133: Modbus Master Request Counter Reset**
+  - **Issue:** `g_mb_request_count` was never reset after ST execution cycles
+  - **Impact:** System blocked all Modbus requests after 10 requests (max_requests_per_cycle)
+  - **Fix:** Added `g_mb_request_count = 0;` in `st_logic_engine_loop()` before each cycle
+  - **File:** `src/st_logic_engine.cpp:137`
+  - **Severity:** CRITICAL - System could not communicate with remote slaves
+  - **Status:** ✅ FIXED in Build #911
+
+### ⭐ NEW FEATURE: Assignment-Based MB_WRITE Syntax
+- **New IEC 61131-3 Compliant Syntax for Remote Writes:**
+  ```structured-text
+  (* Old syntax (deprecated) *)
+  success := MB_WRITE_COIL(3, 20, TRUE);
+
+  (* New syntax (v4.6.0+) - recommended *)
+  MB_WRITE_COIL(3, 20) := TRUE;
+  IF mb_success THEN
+    (* Check global variable instead of return value *)
+  END_IF;
+  ```
+
+- **Benefits:**
+  - ✅ More intuitive (resembles variable assignments)
+  - ✅ Symmetric with READ operations (`temp := MB_READ_HOLDING(1, 100)`)
+  - ✅ IEC 61131-3 style for remote I/O
+  - ✅ Clearer separation of address specification from value
+
+- **Variable & Expression Support:**
+  ```structured-text
+  (* All arguments support variables *)
+  VAR
+    REMOTE_IO: INT := 3;
+    COIL_ADDR: INT := 20;
+    heating_on: BOOL := TRUE;
+  END_VAR
+
+  MB_WRITE_COIL(REMOTE_IO, COIL_ADDR) := heating_on;
+
+  (* Dynamic addressing with expressions *)
+  FOR i := 0 TO 9 DO
+    MB_WRITE_HOLDING(2, 200 + i) := i * 10;
+  END_FOR;
+  ```
+
+- **Syntax:**
+  - `MB_WRITE_COIL(slave_id, address) := boolean_value`
+  - `MB_WRITE_HOLDING(slave_id, address) := int_value`
+  - Success check: Use global `mb_success` and `mb_last_error` variables
+
+### TECHNICAL
+- **New AST Node Type:**
+  - `ST_AST_REMOTE_WRITE` - Dedicated node for remote write statements
+  - `st_remote_write_t` struct with slave_id, address, value expression nodes
+
+- **Modified Files:**
+  - `src/st_logic_engine.cpp` - BUG-133 fix (g_mb_request_count reset)
+  - `include/st_types.h` - Added ST_AST_REMOTE_WRITE and st_remote_write_t
+  - `src/st_parser.cpp` - Parser support for new syntax
+  - `src/st_compiler.cpp` - Compiler support (generates same bytecode as old syntax)
+  - `README.md` - Updated examples and documentation
+  - `BUGS_INDEX.md` - Marked BUG-133 as FIXED
+
+- **Backward Compatibility:**
+  - ❌ BREAKING: Old 3-argument syntax no longer supported in statement context
+  - Migration required: Update existing code to use new assignment syntax
+  - Global `mb_success` and `mb_last_error` still work as before
+
+- **Build:**
+  - Version: v4.6.0
+  - Build: #911
+  - Flash: ~68.5% (estimated +2 KB from v4.4.2)
+  - RAM: ~37.1% (unchanged)
+
+### UPGRADE NOTES
+1. **BUG-133 Fix:** Existing systems should upgrade immediately to avoid request blocking
+2. **Syntax Migration:** Update ST Logic programs to use new MB_WRITE syntax:
+   - Old: `success := MB_WRITE_COIL(id, addr, val);`
+   - New: `MB_WRITE_COIL(id, addr) := val;`
+3. **Testing:** Verify all Modbus Master communications after upgrade
+
+---
+
 ## [4.4.2] - 2025-12-25 📋 (Config Mode Enhancement)
 
 ### ADDED

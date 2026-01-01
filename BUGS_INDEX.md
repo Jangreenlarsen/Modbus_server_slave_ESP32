@@ -106,6 +106,15 @@
 | BUG-128 | normalize_alias() mangler BYTECODE/TIMING keywords | ✅ FIXED | 🟠 MEDIUM | v4.4.0 | `show logic <id> bytecode/timing` kommandoer virker ikke |
 | BUG-129 | normalize_alias() returnerer ST-STATS i stedet for STATS | ✅ FIXED | 🟡 HIGH | v4.4.0 | `show logic stats` og `reset logic stats` virker ikke |
 | BUG-130 | NVS partition for lille til PersistConfig med ST bindings | ✅ FIXED | 🔴 CRITICAL | v4.5.0 | ESP_ERR_NVS_NOT_ENOUGH_SPACE (4357) ved bind kommandoer |
+| BUG-131 | CLI `set id` kommando virker ikke (SLAVE-ID vs ID mismatch) | ✅ FIXED | 🟡 HIGH | v4.5.0 | normalize_alias() returnerer "SLAVE-ID" men parser tjekker "ID" |
+| BUG-132 | CLI `set baud` kommando virker ikke (BAUDRATE vs BAUD mismatch) | ✅ FIXED | 🟡 HIGH | v4.5.0 | normalize_alias() returnerer "BAUDRATE" men parser tjekker "BAUD" |
+| BUG-133 | Modbus Master request counter reset mangler | ✅ FIXED | 🔴 CRITICAL | v4.5.2 | g_mb_request_count aldrig resettet → system blokerer efter 10 requests |
+
+## Feature Requests / Enhancements
+
+| Feature ID | Title | Status | Priority | Target Version | Description |
+|-----------|-------|--------|----------|----------------|-------------|
+| FEAT-001 | `set reg STATIC` multi-register type support | ⏳ PENDING | 🟠 MEDIUM | v4.6.0 | Add DINT/DWORD/REAL support til persistent register configuration |
 
 ## Quick Lookup by Category
 
@@ -161,6 +170,9 @@
 - **BUG-068:** String parsing null terminator (FIXED v4.4.4)
 - **BUG-129:** normalize_alias() returnerer ST-STATS (FIXED v4.4.0 Build #880)
 - **BUG-130:** NVS partition for lille til PersistConfig (FIXED v4.5.0 Build #904)
+- **BUG-131:** CLI `set id` kommando virker ikke (FIXED v4.5.0 Build #910)
+- **BUG-132:** CLI `set baud` kommando virker ikke (FIXED v4.5.0 Build #910)
+- **BUG-133:** Modbus Master request counter reset mangler (FIXED v4.5.2 Build #911)
 - **BUG-CLI-1:** Parameter keyword clarification
 - **BUG-CLI-2:** GPIO validation
 

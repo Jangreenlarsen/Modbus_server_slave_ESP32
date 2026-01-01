@@ -330,6 +330,33 @@ static bool st_compiler_compile_assignment(st_compiler_t *compiler, st_ast_node_
   return st_compiler_emit_var(compiler, ST_OP_STORE_VAR, var_index);
 }
 
+/* v4.6.0: Compile remote write: MB_WRITE_XXX(id, addr) := value */
+static bool st_compiler_compile_remote_write(st_compiler_t *compiler, st_ast_node_t *node) {
+  // Compile slave_id expression onto stack
+  if (!st_compiler_compile_expr(compiler, node->data.remote_write.slave_id)) {
+    return false;
+  }
+
+  // Compile address expression onto stack
+  if (!st_compiler_compile_expr(compiler, node->data.remote_write.address)) {
+    return false;
+  }
+
+  // Compile value expression onto stack
+  if (!st_compiler_compile_expr(compiler, node->data.remote_write.value)) {
+    return false;
+  }
+
+  // Emit OP_CALL_BUILTIN with function ID (VM knows arg count from builtin table)
+  if (!st_compiler_emit_int(compiler, ST_OP_CALL_BUILTIN, (int32_t)node->data.remote_write.func_id)) {
+    return false;
+  }
+
+  // Pop result from stack (we don't use it in statement context)
+  // The result is the success BOOL, but user checks mb_success global instead
+  return st_compiler_emit(compiler, ST_OP_POP);
+}
+
 static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *node) {
   // Compile the expression being tested
   if (!st_compiler_compile_expr(compiler, node->data.case_stmt.expr)) {
@@ -712,6 +739,10 @@ bool st_compiler_compile_node(st_compiler_t *compiler, st_ast_node_t *node) {
   switch (node->type) {
     case ST_AST_ASSIGNMENT:
       if (!st_compiler_compile_assignment(compiler, node)) return false;
+      break;
+
+    case ST_AST_REMOTE_WRITE:  // v4.6.0: MB_WRITE_XXX(id, addr) := value
+      if (!st_compiler_compile_remote_write(compiler, node)) return false;
       break;
 
     case ST_AST_IF:

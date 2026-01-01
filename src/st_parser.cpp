@@ -8,6 +8,7 @@
 
 #include "st_parser.h"
 #include "st_lexer.h"
+#include "st_builtins.h"  // v4.6.0: For ST_BUILTIN_MB_WRITE_* constants
 #include "debug.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -127,6 +128,12 @@ void st_ast_node_free(st_ast_node_t *node) {
 
     case ST_AST_ASSIGNMENT:
       st_ast_node_free(node->data.assignment.expr);
+      break;
+
+    case ST_AST_REMOTE_WRITE:  // v4.6.0
+      st_ast_node_free(node->data.remote_write.slave_id);
+      st_ast_node_free(node->data.remote_write.address);
+      st_ast_node_free(node->data.remote_write.value);
       break;
 
     case ST_AST_FUNCTION_CALL:
@@ -564,6 +571,95 @@ static st_ast_node_t *parser_parse_assignment(st_parser_t *parser) {
   var_name[63] = '\0';
   parser_advance(parser);
 
+  // v4.6.0: Check for new remote write syntax: MB_WRITE_XXX(id, addr) := value
+  if (parser_match(parser, ST_TOK_LPAREN)) {
+    // Check if this is MB_WRITE_COIL or MB_WRITE_HOLDING
+    if (strcasecmp(var_name, "MB_WRITE_COIL") == 0 ||
+        strcasecmp(var_name, "MB_WRITE_HOLDING") == 0) {
+
+      parser_advance(parser); // consume '('
+
+      // Parse slave_id argument
+      st_ast_node_t *slave_id = parser_parse_expression(parser);
+      if (!slave_id) return NULL;
+
+      // Expect comma
+      if (!parser_expect(parser, ST_TOK_COMMA)) {
+        parser_error(parser, "Expected comma after slave_id in MB_WRITE function");
+        st_ast_node_free(slave_id);
+        return NULL;
+      }
+
+      // Parse address argument
+      st_ast_node_t *address = parser_parse_expression(parser);
+      if (!address) {
+        st_ast_node_free(slave_id);
+        return NULL;
+      }
+
+      // Expect closing ')'
+      if (!parser_expect(parser, ST_TOK_RPAREN)) {
+        parser_error(parser, "Expected ')' after MB_WRITE arguments");
+        st_ast_node_free(slave_id);
+        st_ast_node_free(address);
+        return NULL;
+      }
+
+      // Expect ':=' for assignment syntax
+      if (!parser_expect(parser, ST_TOK_ASSIGN)) {
+        parser_error(parser, "Expected := after MB_WRITE function (use new syntax: MB_WRITE_XXX(id, addr) := value)");
+        st_ast_node_free(slave_id);
+        st_ast_node_free(address);
+        return NULL;
+      }
+
+      // Parse value expression
+      st_ast_node_t *value = parser_parse_expression(parser);
+      if (!value) {
+        st_ast_node_free(slave_id);
+        st_ast_node_free(address);
+        return NULL;
+      }
+
+      // Create remote write node
+      st_ast_node_t *node = ast_node_alloc(ST_AST_REMOTE_WRITE, line);
+      if (!node) {
+        parser_error(parser, "Out of memory");
+        st_ast_node_free(slave_id);
+        st_ast_node_free(address);
+        st_ast_node_free(value);
+        return NULL;
+      }
+
+      strncpy(node->data.remote_write.func_name, var_name, 63);
+      node->data.remote_write.func_name[63] = '\0';
+      node->data.remote_write.slave_id = slave_id;
+      node->data.remote_write.address = address;
+      node->data.remote_write.value = value;
+
+      // Set function ID
+      if (strcasecmp(var_name, "MB_WRITE_COIL") == 0) {
+        node->data.remote_write.func_id = ST_BUILTIN_MB_WRITE_COIL;
+      } else {
+        node->data.remote_write.func_id = ST_BUILTIN_MB_WRITE_HOLDING;
+      }
+
+      // Consume optional semicolon
+      if (parser_match(parser, ST_TOK_SEMICOLON)) {
+        parser_advance(parser);
+      }
+
+      return node;
+    } else {
+      // Not a remote write function, error
+      char error_msg[128];
+      snprintf(error_msg, sizeof(error_msg), "Function call syntax not allowed in assignment (use variable := expression)");
+      parser_error(parser, error_msg);
+      return NULL;
+    }
+  }
+
+  // Normal variable assignment: var := expr
   if (!parser_expect(parser, ST_TOK_ASSIGN)) {
     parser_error(parser, "Expected := in assignment");
     return NULL;
@@ -1304,6 +1400,16 @@ void st_ast_node_print(st_ast_node_t *node, int indent) {
     case ST_AST_ASSIGNMENT:
       debug_printf("%sASSIGN: %s :=\n", padding, node->data.assignment.var_name);
       st_ast_node_print(node->data.assignment.expr, indent + 2);
+      break;
+
+    case ST_AST_REMOTE_WRITE:  // v4.6.0
+      debug_printf("%sREMOTE_WRITE: %s(\n", padding, node->data.remote_write.func_name);
+      debug_printf("%s  slave_id:\n", padding);
+      st_ast_node_print(node->data.remote_write.slave_id, indent + 4);
+      debug_printf("%s  address:\n", padding);
+      st_ast_node_print(node->data.remote_write.address, indent + 4);
+      debug_printf("%s) := \n", padding);
+      st_ast_node_print(node->data.remote_write.value, indent + 2);
       break;
 
     case ST_AST_LITERAL:

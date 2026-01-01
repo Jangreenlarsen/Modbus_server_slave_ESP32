@@ -176,6 +176,7 @@ typedef enum {
   ST_AST_REPEAT,            // REPEAT ... UNTIL expr END_REPEAT
   ST_AST_EXIT,              // EXIT (break loop)
   ST_AST_CALL,              // Function call (future)
+  ST_AST_REMOTE_WRITE,      // MB_WRITE_XXX(id, addr) := value (v4.6.0)
 
   // Expressions
   ST_AST_LITERAL,           // Constant (123, TRUE, 1.5, etc.)
@@ -257,6 +258,14 @@ typedef struct {
   st_ast_node_t *expr;      // Expression
 } st_assignment_t;
 
+typedef struct {
+  char func_name[64];        // "MB_WRITE_COIL" or "MB_WRITE_HOLDING"
+  st_ast_node_t *slave_id;   // Slave ID expression
+  st_ast_node_t *address;    // Address expression
+  st_ast_node_t *value;      // Value expression (right side of :=)
+  uint16_t func_id;          // ST_BUILTIN_MB_WRITE_COIL or ST_BUILTIN_MB_WRITE_HOLDING (enum value)
+} st_remote_write_t;
+
 /* Main AST node */
 typedef struct st_ast_node {
   st_ast_node_type_t type;
@@ -269,6 +278,7 @@ typedef struct st_ast_node {
     st_for_stmt_t for_stmt;
     st_while_stmt_t while_stmt;
     st_repeat_stmt_t repeat_stmt;
+    st_remote_write_t remote_write;  // v4.6.0: MB_WRITE_XXX(id, addr) := value
 
     st_binary_op_t binary_op;
     st_unary_op_t unary_op;

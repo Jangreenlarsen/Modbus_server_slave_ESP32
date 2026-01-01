@@ -10,6 +10,7 @@
 #include "st_compiler.h"
 #include "st_parser.h"
 #include "st_vm.h"
+#include "st_builtin_modbus.h"  // BUG-133 FIX: For g_mb_request_count reset
 #include "config_struct.h"
 #include "constants.h"
 #include "debug.h"
@@ -128,6 +129,12 @@ bool st_logic_engine_loop(st_logic_engine_state_t *state,
 
   // Update timestamp for next cycle
   state->last_run_time = now;
+
+  // BUG-133 FIX: Reset Modbus Master request counter at start of each ST execution cycle
+  // Without this reset, the counter would accumulate indefinitely and block all requests
+  // after max_requests_per_cycle (default 10) is reached. This ensures each cycle gets
+  // a fresh quota of allowed Modbus requests.
+  g_mb_request_count = 0;
 
   bool all_success = true;
 
