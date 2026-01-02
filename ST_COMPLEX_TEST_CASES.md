@@ -142,7 +142,7 @@ read reg 40
 
 # Scenario 3: Too hot - needs cooling
 write reg 30 value real 60.0
-read reg 40
+read reg 40 int
 # Forventet: -100 (max cooling, negative power)
 
 # Scenario 4: Temperature alarm (out of range)
@@ -199,9 +199,7 @@ VAR
   auto_mode: BOOL;
 END_VAR
 BEGIN
-  (* Multi-tank cascade control with overflow protection *)
   IF auto_mode THEN
-    (* Overflow detection *)
     IF (tank1_level > 95.0) OR (tank2_level > 95.0) OR (tank3_level > 95.0) THEN
       overflow_alarm := TRUE;
       pump1_on := FALSE;
@@ -209,47 +207,35 @@ BEGIN
       pump3_on := FALSE;
     ELSE
       overflow_alarm := FALSE;
-
-      (* Pump 1: Fill Tank1 if below 30%, stop if above 80% *)
       IF tank1_level < 30.0 THEN
         pump1_on := TRUE;
       ELSIF tank1_level > 80.0 THEN
         pump1_on := FALSE;
       END_IF;
-
-      (* Pump 2: Transfer Tank1→Tank2 if Tank1 high AND Tank2 low *)
       IF (tank1_level > 70.0) AND (tank2_level < 40.0) THEN
         pump2_on := TRUE;
       ELSIF (tank1_level < 50.0) OR (tank2_level > 85.0) THEN
         pump2_on := FALSE;
       END_IF;
-
-      (* Pump 3: Transfer Tank2→Tank3 if Tank2 high AND Tank3 low *)
       IF (tank2_level > 70.0) AND (tank3_level < 40.0) THEN
         pump3_on := TRUE;
       ELSIF (tank2_level < 50.0) OR (tank3_level > 85.0) THEN
         pump3_on := FALSE;
       END_IF;
     END_IF;
-
-    (* Underflow alarm if any tank critical low *)
     IF (tank1_level < 5.0) OR (tank2_level < 5.0) OR (tank3_level < 5.0) THEN
       underflow_alarm := TRUE;
     ELSE
       underflow_alarm := FALSE;
     END_IF;
-
-    (* Calculate flow rate (simplified: 10 L/min per pump) *)
     flow_rate := 0.0;
     IF pump1_on THEN flow_rate := flow_rate + 10.0; END_IF;
     IF pump2_on THEN flow_rate := flow_rate + 10.0; END_IF;
     IF pump3_on THEN flow_rate := flow_rate + 10.0; END_IF;
 
-    (* Accumulate volume (assume 100ms cycle = 0.1s) *)
     total_volume := total_volume + (flow_rate * 0.1 / 60.0);
 
   ELSE
-    (* Manual mode - all off *)
     pump1_on := FALSE;
     pump2_on := FALSE;
     pump3_on := FALSE;
@@ -346,7 +332,6 @@ VAR
   state: INT;
 END_VAR
 BEGIN
-  (* Production line with quality monitoring *)
   CASE state OF
     0: (* STOPPED *)
       batch_complete := FALSE;
@@ -358,23 +343,16 @@ BEGIN
       END_IF;
 
     1: (* RUNNING *)
-      (* Update totals *)
       total_count := good_count + bad_count;
-
-      (* Calculate quality percentage (avoid division by zero) *)
       IF total_count > 0 THEN
         quality_percent := INT_TO_REAL(good_count * 100) / INT_TO_REAL(total_count);
       ELSE
         quality_percent := 100.0;
       END_IF;
-
-      (* Check quality threshold (must be > 95%) *)
       IF (total_count > 10) AND (quality_percent < 95.0) THEN
         state := 3; (* ALARM *)
         quality_alarm := TRUE;
       END_IF;
-
-      (* Check batch complete (100 parts) *)
       IF total_count >= 100 THEN
         state := 2; (* BATCH_DONE *)
         batch_complete := TRUE;
@@ -396,7 +374,6 @@ BEGIN
     3: (* ALARM *)
       (* Quality failure - stop production *)
       quality_alarm := TRUE;
-
       IF NOT running THEN
         state := 0;
         quality_alarm := FALSE;
@@ -420,7 +397,7 @@ set logic 3 enabled:true
 write coil 0 value 1
 write reg 60 value int 45
 write reg 61 value int 2
-read reg 70 2
+read reg 70 real
 # Forventet: 95.74% as REAL (45/(45+2)*100 = 95.74)
 
 # Scenario 2: Batch complete
@@ -438,7 +415,7 @@ write reg 60 value int 15
 write reg 61 value int 10
 read coil 31
 # Forventet: 1 (quality_alarm=TRUE, 60% < 95%)
-read reg 70 2
+read reg 70 real
 # Forventet: 60.0% as REAL (15/25*100 = 60%)
 
 # Scenario 4: Reset
@@ -492,24 +469,19 @@ VAR
   eco_mode: BOOL;
 END_VAR
 BEGIN
-  (* Multi-zone HVAC with averaging and alarms *)
   IF system_enable THEN
-    (* Calculate average temperature *)
     avg_temp := (zone1_temp + zone2_temp + zone3_temp + zone4_temp) / 4.0;
 
-    (* Individual zone alarms (out of range 15-30°C) *)
     zone1_alarm := (zone1_temp < 15.0) OR (zone1_temp > 30.0);
     zone2_alarm := (zone2_temp < 15.0) OR (zone2_temp > 30.0);
     zone3_alarm := (zone3_temp < 15.0) OR (zone3_temp > 30.0);
     zone4_alarm := (zone4_temp < 15.0) OR (zone4_temp > 30.0);
 
-    (* Heating/cooling control with deadband *)
     IF eco_mode THEN
-      (* Eco mode: wider deadband (±2°C) *)
-      IF avg_temp < (INT_TO_REAL(REAL_TO_INT(setpoint)) - 2.0) THEN
+      IF avg_temp < (setpoint - 2.0) THEN
         heating_on := TRUE;
         cooling_on := FALSE;
-      ELSIF avg_temp > (INT_TO_REAL(REAL_TO_INT(setpoint)) + 2.0) THEN
+      ELSIF avg_temp > (setpoint + 2.0) THEN
         heating_on := FALSE;
         cooling_on := TRUE;
       ELSE
@@ -517,18 +489,16 @@ BEGIN
         cooling_on := FALSE;
       END_IF;
     ELSE
-      (* Normal mode: tight deadband (±0.5°C) *)
-      IF avg_temp < (INT_TO_REAL(REAL_TO_INT(setpoint)) - 0.5) THEN
+      IF avg_temp < (setpoint - 0.5) THEN
         heating_on := TRUE;
         cooling_on := FALSE;
-      ELSIF avg_temp > (INT_TO_REAL(REAL_TO_INT(setpoint)) + 0.5) THEN
+      ELSIF avg_temp > (setpoint + 0.5) THEN
         heating_on := FALSE;
         cooling_on := TRUE;
       END_IF;
     END_IF;
 
   ELSE
-    (* System disabled *)
     heating_on := FALSE;
     cooling_on := FALSE;
     zone1_alarm := FALSE;
@@ -560,12 +530,12 @@ set logic 4 enabled:true
 # Scenario 1: All zones normal, avg < setpoint
 write coil 0 value 1
 write coil 1 value 0
-write reg 88 value int 22
+write reg 88 value real 22.0
 write reg 80 value real 20.0
 write reg 82 value real 21.0
 write reg 84 value real 19.0
 write reg 86 value real 20.0
-read reg 90 2
+read reg 90 real
 # Forventet: 20.0 as REAL (avg = (20+21+19+20)/4)
 read coil 40 2
 # Forventet: 1 0 (heating_on=TRUE, cooling_on=FALSE, 20 < 22-0.5)
@@ -586,7 +556,7 @@ write reg 80 value real 25.0
 write reg 82 value real 26.0
 write reg 84 value real 24.0
 write reg 86 value real 25.0
-read reg 90 2
+read reg 90 real
 # Forventet: 25.0 as REAL (avg = (25+26+24+25)/4)
 read coil 40 2
 # Forventet: 0 1 (heating_on=FALSE, cooling_on=TRUE, 25 > 22+0.5)
@@ -742,8 +712,8 @@ set logic 1 enabled:true
 write coil 0 value 1
 write coil 1 value 1
 write coil 2 value 0
-write reg 104 value int 100
-write reg 105 value int 60
+write reg 104 value real 100.0
+write reg 105 value real 60.0
 write reg 100 value real 0.0
 write reg 102 value real 20.0
 read coil 50
