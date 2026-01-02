@@ -1049,6 +1049,22 @@ int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
 
   debug_printf("\n");
 
+  // Pool memory statistics
+  uint32_t pool_used, pool_free, pool_largest;
+  st_logic_get_pool_stats(logic_state, &pool_used, &pool_free, &pool_largest);
+
+  debug_printf("Memory Pool Stats:\n");
+  debug_printf("  Pool size:       %d bytes (8KB shared)\n", ST_LOGIC_POOL_SIZE);
+  debug_printf("  Used:            %u bytes (%d%%)\n",
+               (unsigned int)pool_used,
+               (int)((pool_used * 100) / ST_LOGIC_POOL_SIZE));
+  debug_printf("  Free:            %u bytes (%d%%)\n",
+               (unsigned int)pool_free,
+               (int)((pool_free * 100) / ST_LOGIC_POOL_SIZE));
+  debug_printf("  Largest free:    %u bytes\n", (unsigned int)pool_largest);
+
+  debug_printf("\n");
+
   // Per-program statistics
   for (uint8_t i = 0; i < 4; i++) {
     st_logic_program_config_t *prog = &logic_state->programs[i];
@@ -1062,6 +1078,12 @@ int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
                  prog->enabled ? "ENABLED" : "disabled",
                  prog->compiled ? ", compiled" : "",
                  prog->error_count > 0 ? ", HAS ERRORS" : "");
+
+    debug_printf("  Source size:   %u bytes", (unsigned int)prog->source_size);
+    if (prog->source_size > 0) {
+      debug_printf(" (%.1f%% of pool)", (float)prog->source_size * 100.0 / ST_LOGIC_POOL_SIZE);
+    }
+    debug_printf("\n");
 
     debug_printf("  Executions:    %u\n", (unsigned int)prog->execution_count);
 
