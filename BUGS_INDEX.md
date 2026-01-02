@@ -120,6 +120,7 @@
 | Feature ID | Title | Status | Priority | Target Version | Description |
 |-----------|-------|--------|----------|----------------|-------------|
 | FEAT-001 | `set reg STATIC` multi-register type support | ⏳ PENDING | 🟠 MEDIUM | v4.6.0 | Add DINT/DWORD/REAL support til persistent register configuration |
+| FEAT-002 | ST Logic dynamisk pool allokering (8KB shared) | ✅ DONE | 🟡 HIGH | v4.7.1 | Erstat fixed 4KB arrays med 8KB shared pool - flexibel allokering (Build #944) |
 
 ## Quick Lookup by Category
 

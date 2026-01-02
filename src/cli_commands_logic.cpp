@@ -68,15 +68,19 @@ int cli_cmd_set_logic_upload(st_logic_engine_state_t *logic_state, uint8_t progr
   uint32_t source_len = strlen(source_code);
   if (!st_logic_upload(logic_state, program_id, source_code, source_len)) {
     st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
-    uint32_t usage_pct = (source_len * 100) / 2000;
 
-    // Show detailed error message
+    // Show detailed error message with pool stats
+    uint32_t pool_used, pool_free, pool_largest;
+    st_logic_get_pool_stats(logic_state, &pool_used, &pool_free, &pool_largest);
+
     debug_println("");
     debug_println("╔════════════════════════════════════════════════════════╗");
     debug_println("║              UPLOAD ERROR - Logic Program             ║");
     debug_println("╚════════════════════════════════════════════════════════╝");
     debug_printf("Program ID: Logic%d\n", program_id + 1);
-    debug_printf("Source size: %d bytes (%d%% of 2000 bytes max)\n", (int)source_len, (int)usage_pct);
+    debug_printf("Source size: %d bytes\n", (int)source_len);
+    debug_printf("Pool: %d/%d bytes used (%d bytes free)\n",
+                 (int)pool_used, ST_LOGIC_POOL_SIZE, (int)pool_free);
     debug_printf("Error: %s\n", prog->last_error);
     debug_println("");
     return -1;
@@ -105,15 +109,19 @@ int cli_cmd_set_logic_upload(st_logic_engine_state_t *logic_state, uint8_t progr
   st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
   uint8_t compiled_after = prog ? prog->compiled : 0;
 
-  // Success output
-  uint32_t usage_pct = (source_len * 100) / 2000;
+  // Success output with pool statistics
+  uint32_t pool_used, pool_free, pool_largest;
+  st_logic_get_pool_stats(logic_state, &pool_used, &pool_free, &pool_largest);
+  uint32_t pool_usage_pct = (pool_used * 100) / ST_LOGIC_POOL_SIZE;
 
   debug_println("");
   debug_println("✓ COMPILATION SUCCESSFUL");
   debug_printf("  Program: Logic%d\n", program_id + 1);
-  debug_printf("  Source: %d bytes (%d%% of 2000 bytes max)\n", (int)source_len, (int)usage_pct);
+  debug_printf("  Source: %d bytes\n", (int)source_len);
   debug_printf("  Bytecode: %d instructions\n", prog->bytecode.instr_count);
   debug_printf("  Variables: %d\n", prog->bytecode.var_count);
+  debug_printf("  Pool: %d/%d bytes used (%d%% full, %d bytes free)\n",
+               (int)pool_used, ST_LOGIC_POOL_SIZE, (int)pool_usage_pct, (int)pool_free);
   debug_printf("  [DEBUG] compiled: %d → %d\n", compiled_before, compiled_after);
   debug_println("");
 
@@ -797,10 +805,12 @@ int cli_cmd_show_logic_code(st_logic_engine_state_t *logic_state, uint8_t progra
 
   // Print source code with proper line breaks
   debug_printf("--- SOURCE CODE ---\n");
-  const char *source = prog->source_code;
+  const char *source = st_logic_get_source_code(logic_state, program_id);
 
   // Print source code - use debug_printf with %.*s to respect Telnet routing
-  debug_printf("%.*s\n", prog->source_size, source);
+  if (source) {
+    debug_printf("%.*s\n", prog->source_size, source);
+  }
 
   debug_printf("--- END SOURCE CODE ---\n\n");
   return 0;
@@ -829,9 +839,11 @@ int cli_cmd_show_logic_code_all(st_logic_engine_state_t *logic_state) {
       debug_printf("(empty - no program uploaded)\n");
     } else {
       debug_printf("\nSource:\n");
-      const char *source = prog->source_code;
+      const char *source = st_logic_get_source_code(logic_state, i);
       // Print source code - use debug_printf with %.*s to respect Telnet routing
-      debug_printf("%.*s\n", prog->source_size, source);
+      if (source) {
+        debug_printf("%.*s\n", prog->source_size, source);
+      }
     }
 
     debug_printf("\n");

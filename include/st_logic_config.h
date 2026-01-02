@@ -18,16 +18,23 @@
  *
  * NOTE: Variable bindings are now handled by unified VariableMapping system
  * in gpio_mapping.cpp. No longer duplicated here.
+ *
+ * DYNAMIC POOL ALLOCATION (v4.7.1):
+ * Source code is stored in a global 8KB pool shared between all 4 programs.
+ * Each program stores offset + size instead of fixed array.
+ * This allows flexible allocation (1×8KB, 2×4KB, 4×2KB, or any mix).
  * ============================================================================ */
+
+#define ST_LOGIC_POOL_SIZE 8000  // Global pool size (8KB total, shared)
 
 typedef struct {
   // Program identification
   char name[32];              // "Logic1", "Logic2", etc.
   uint8_t enabled;            // Is this program enabled?
 
-  // Source code storage
-  char source_code[2000];     // ST source code (max 2KB per program)
-  uint32_t source_size;
+  // Source code storage (dynamic pool allocation)
+  uint32_t source_offset;     // Offset in global pool (0xFFFFFFFF if not allocated)
+  uint32_t source_size;       // Actual source code size
 
   // Compiled bytecode
   st_bytecode_program_t bytecode; // Compiled and ready to execute
@@ -59,6 +66,9 @@ typedef struct {
   // 4 independent logic programs
   st_logic_program_config_t programs[4];
 
+  // Global source code pool (dynamic allocation, v4.7.1)
+  char source_pool[ST_LOGIC_POOL_SIZE];  // 8KB shared pool for all programs
+
   // Global settings
   uint8_t enabled;            // Logic mode enabled/disabled globally
   uint8_t debug;              // Debug output enabled (bytecode, execution trace, etc.)
@@ -84,15 +94,33 @@ typedef struct {
 void st_logic_init(st_logic_engine_state_t *state);
 
 /**
- * @brief Upload ST source code for a program
+ * @brief Upload ST source code for a program (dynamic pool allocation)
  * @param state Logic engine state
  * @param program_id Program ID (0-3)
  * @param source ST source code
  * @param source_size Size of source code
- * @return true if successful
+ * @return true if successful (false if pool full)
  */
 bool st_logic_upload(st_logic_engine_state_t *state, uint8_t program_id,
                       const char *source, uint32_t source_size);
+
+/**
+ * @brief Get pointer to source code from pool
+ * @param state Logic engine state
+ * @param program_id Program ID (0-3)
+ * @return Pointer to source code (NULL if not allocated)
+ */
+const char* st_logic_get_source_code(st_logic_engine_state_t *state, uint8_t program_id);
+
+/**
+ * @brief Get pool usage statistics
+ * @param state Logic engine state
+ * @param used_bytes Output: bytes used in pool
+ * @param free_bytes Output: bytes free in pool
+ * @param largest_free Output: largest contiguous free block
+ */
+void st_logic_get_pool_stats(st_logic_engine_state_t *state,
+                              uint32_t *used_bytes, uint32_t *free_bytes, uint32_t *largest_free);
 
 /**
  * @brief Compile and prepare logic program for execution

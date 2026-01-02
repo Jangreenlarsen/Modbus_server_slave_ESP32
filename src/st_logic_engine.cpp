@@ -227,10 +227,13 @@ void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) 
   if (prog->source_size > 0) {
     debug_printf("\nSource:\n");
     // Print first 500 chars of source
-    int chars = (prog->source_size > 500) ? 500 : prog->source_size;
-    debug_printf("%.*s\n", chars, prog->source_code);
-    if (prog->source_size > 500) {
-      debug_printf("... (%d more bytes)\n", prog->source_size - 500);
+    const char *source = st_logic_get_source_code(state, program_id);
+    if (source) {
+      int chars = (prog->source_size > 500) ? 500 : prog->source_size;
+      debug_printf("%.*s\n", chars, source);
+      if (prog->source_size > 500) {
+        debug_printf("... (%d more bytes)\n", prog->source_size - 500);
+      }
     }
   }
 

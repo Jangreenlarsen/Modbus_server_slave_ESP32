@@ -52,7 +52,112 @@ void st_logic_init(st_logic_engine_state_t *state) {
     snprintf(prog->name, sizeof(prog->name), "Logic%d", i + 1);
     prog->enabled = 0;  // Disabled by default
     prog->compiled = 0;
+    prog->source_offset = 0xFFFFFFFF;  // Not allocated in pool
+    prog->source_size = 0;
   }
+}
+
+/* ============================================================================
+ * POOL MANAGEMENT (Dynamic Allocation, v4.7.1)
+ * ============================================================================ */
+
+/**
+ * @brief Get pointer to source code from pool
+ */
+const char* st_logic_get_source_code(st_logic_engine_state_t *state, uint8_t program_id) {
+  if (program_id >= 4) return NULL;
+
+  st_logic_program_config_t *prog = &state->programs[program_id];
+  if (prog->source_offset == 0xFFFFFFFF || prog->source_size == 0) {
+    return NULL;  // Not allocated
+  }
+
+  return &state->source_pool[prog->source_offset];
+}
+
+/**
+ * @brief Calculate pool usage statistics
+ */
+void st_logic_get_pool_stats(st_logic_engine_state_t *state,
+                              uint32_t *used_bytes, uint32_t *free_bytes, uint32_t *largest_free) {
+  uint32_t total_used = 0;
+
+  // Calculate used bytes
+  for (uint8_t i = 0; i < 4; i++) {
+    st_logic_program_config_t *prog = &state->programs[i];
+    if (prog->source_offset != 0xFFFFFFFF) {
+      total_used += prog->source_size;
+    }
+  }
+
+  if (used_bytes) *used_bytes = total_used;
+  if (free_bytes) *free_bytes = ST_LOGIC_POOL_SIZE - total_used;
+  if (largest_free) *largest_free = ST_LOGIC_POOL_SIZE - total_used; // Simplified: assumes contiguous free space
+}
+
+/**
+ * @brief Free program's pool allocation
+ */
+static void st_logic_pool_free(st_logic_engine_state_t *state, uint8_t program_id) {
+  if (program_id >= 4) return;
+
+  st_logic_program_config_t *prog = &state->programs[program_id];
+  if (prog->source_offset == 0xFFFFFFFF) return;  // Not allocated
+
+  // Compact pool: move all programs after this one down
+  uint32_t free_offset = prog->source_offset;
+  uint32_t free_size = prog->source_size;
+
+  // Move data down
+  for (uint8_t i = 0; i < 4; i++) {
+    st_logic_program_config_t *other = &state->programs[i];
+    if (other->source_offset > free_offset && other->source_offset != 0xFFFFFFFF) {
+      // Move this program's source code down
+      memmove(&state->source_pool[other->source_offset - free_size],
+              &state->source_pool[other->source_offset],
+              other->source_size);
+      other->source_offset -= free_size;
+    }
+  }
+
+  // Mark as freed
+  prog->source_offset = 0xFFFFFFFF;
+  prog->source_size = 0;
+}
+
+/**
+ * @brief Allocate space in pool for program
+ * @return true if successful, false if pool full
+ */
+static bool st_logic_pool_allocate(st_logic_engine_state_t *state, uint8_t program_id, uint32_t size) {
+  if (program_id >= 4) return false;
+
+  // Free existing allocation if any
+  st_logic_pool_free(state, program_id);
+
+  // Calculate used space
+  uint32_t pool_used = 0;
+  for (uint8_t i = 0; i < 4; i++) {
+    st_logic_program_config_t *prog = &state->programs[i];
+    if (prog->source_offset != 0xFFFFFFFF) {
+      uint32_t end = prog->source_offset + prog->source_size;
+      if (end > pool_used) {
+        pool_used = end;
+      }
+    }
+  }
+
+  // Check if we have space
+  if (pool_used + size > ST_LOGIC_POOL_SIZE) {
+    return false;  // Pool full
+  }
+
+  // Allocate at end of used space
+  st_logic_program_config_t *prog = &state->programs[program_id];
+  prog->source_offset = pool_used;
+  prog->source_size = size;
+
+  return true;
 }
 
 /* ============================================================================
@@ -76,16 +181,27 @@ bool st_logic_upload(st_logic_engine_state_t *state, uint8_t program_id,
     return false;
   }
 
-  if (source_size > 2000) {
+  if (source_size > ST_LOGIC_POOL_SIZE) {
     snprintf(prog->last_error, sizeof(prog->last_error),
-             "Source code too large: %u bytes (max 2000 bytes). Remove comments to reduce size.",
-             (unsigned int)source_size);
+             "Source code too large: %u bytes (max %u bytes pool). Remove comments to reduce size.",
+             (unsigned int)source_size, ST_LOGIC_POOL_SIZE);
     return false;
   }
 
-  // Upload successful
-  memcpy(prog->source_code, source, source_size);
-  prog->source_size = source_size;
+  // Try to allocate space in pool
+  if (!st_logic_pool_allocate(state, program_id, source_size)) {
+    // Calculate available space
+    uint32_t used, free, largest;
+    st_logic_get_pool_stats(state, &used, &free, &largest);
+
+    snprintf(prog->last_error, sizeof(prog->last_error),
+             "Pool full: need %u bytes, only %u free (used: %u/%u)",
+             (unsigned int)source_size, (unsigned int)free, (unsigned int)used, ST_LOGIC_POOL_SIZE);
+    return false;
+  }
+
+  // Copy source code to pool
+  memcpy(&state->source_pool[prog->source_offset], source, source_size);
   prog->compiled = 0;  // Mark as needing compilation
 
   return true;
@@ -96,13 +212,15 @@ bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
 
   st_logic_program_config_t *prog = &state->programs[program_id];
 
-  if (!prog->source_code || prog->source_size == 0) {
+  // Get source code from pool
+  const char *source_code = st_logic_get_source_code(state, program_id);
+  if (!source_code || prog->source_size == 0) {
     snprintf(prog->last_error, sizeof(prog->last_error), "No source code uploaded");
     return false;
   }
 
   // Parse the source code (use global parser to avoid stack overflow)
-  st_parser_init(&g_parser, prog->source_code);
+  st_parser_init(&g_parser, source_code);
   st_program_t *program = st_parser_parse_program(&g_parser);
 
   if (!program) {
@@ -169,12 +287,17 @@ bool st_logic_set_enabled(st_logic_engine_state_t *state, uint8_t program_id, ui
 bool st_logic_delete(st_logic_engine_state_t *state, uint8_t program_id) {
   if (program_id >= 4) return false;
 
+  // Free pool allocation
+  st_logic_pool_free(state, program_id);
+
   // Clear the program itself
   st_logic_program_config_t *prog = &state->programs[program_id];
   memset(prog, 0, sizeof(*prog));
   snprintf(prog->name, sizeof(prog->name), "Logic%d", program_id + 1);
   prog->enabled = 0;
   prog->compiled = 0;
+  prog->source_offset = 0xFFFFFFFF;  // Not allocated
+  prog->source_size = 0;
 
   // Clear all variable bindings for this program
   extern PersistConfig g_persist_config;
@@ -351,8 +474,11 @@ bool st_logic_save_to_nvs(void) {
     // Write: enabled flag (1 byte) + source size (4 bytes) + source code
     file.write(prog->enabled);
     file.write((uint8_t*)&prog->source_size, sizeof(uint32_t));
-    if (prog->source_size > 0 && prog->source_size <= 2000) {
-      file.write((uint8_t*)prog->source_code, prog->source_size);
+
+    // Get source code from pool and write
+    const char *source_code = st_logic_get_source_code(state, i);
+    if (source_code && prog->source_size > 0 && prog->source_size <= ST_LOGIC_POOL_SIZE) {
+      file.write((uint8_t*)source_code, prog->source_size);
     }
     file.close();
 
@@ -436,8 +562,20 @@ bool st_logic_load_from_nvs(void) {
     prog->enabled = file.read();
     file.read((uint8_t*)&prog->source_size, sizeof(uint32_t));
 
-    if (prog->source_size > 0 && prog->source_size <= 2000) {
-      file.read((uint8_t*)prog->source_code, prog->source_size);
+    if (prog->source_size > 0 && prog->source_size <= ST_LOGIC_POOL_SIZE) {
+      // Allocate space in pool
+      if (!st_logic_pool_allocate(state, i, prog->source_size)) {
+        if (dbg->config_load) {
+          debug_print("  Program ");
+          debug_print_uint(i);
+          debug_println(": FAILED to allocate pool space");
+        }
+        file.close();
+        continue;
+      }
+
+      // Read source code from file into pool
+      file.read((uint8_t*)&state->source_pool[prog->source_offset], prog->source_size);
       prog->compiled = 0;  // Mark as needing recompilation
       file.close();
 
