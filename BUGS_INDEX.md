@@ -112,6 +112,7 @@
 | BUG-134 | MB_WRITE DINT arguments sender garbage data | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | DINT slave_id/address bruger int_val i stedet for dint_val → garbage validering (Build #919) |
 | BUG-135 | MB_WRITE_HOLDING mangler value type validering | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | REAL/DWORD værdier bruger int_val → garbage sendt til remote register (Build #919) |
 | BUG-136 | MB_WRITE_COIL mangler value type validering | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | INT værdier bruger bool_val i stedet for konvertering → random coil state (Build #919) |
+| BUG-137 | CLI `read reg <count> real/dint/dword` ignorerer count parameter | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Kan ikke læse arrays af multi-register værdier (Build #937) |
 
 ## Feature Requests / Enhancements
 
@@ -200,6 +201,7 @@
 - **BUG-073:** SHL/SHR shift overflow (FIXED v4.4.4)
 - **BUG-074:** Jump patch silent fail (FIXED v4.4.4)
 - **BUG-128:** normalize_alias() mangler BYTECODE/TIMING (FIXED v4.4.0 Build #875)
+- **BUG-137:** CLI `read reg` count parameter ignoreres for REAL/DINT/DWORD (FIXED v4.7.1 Build #937)
 
 ### 🔵 LOW Priority (COSMETIC)
 - **BUG-006:** Counter wrapping at 65535

@@ -2373,137 +2373,158 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
   }
 
   // BUG-108 FIX: REAL type requires 2 consecutive registers
+  // BUG-137 FIX: Support count parameter for REAL array reading
   if (display_as_real) {
-    // Validate that we have 2 registers available
-    if (start_addr + 1 >= HOLDING_REGS_SIZE) {
-      debug_println("READ REG: REAL kr\u00e6ver 2 registre, adresse udenfor omr\u00e5de");
+    // Validate that we have enough registers available (count REAL values = count * 2 registers)
+    if (start_addr + (count * 2) > HOLDING_REGS_SIZE) {
+      debug_print("READ REG: REAL kr\u00e6ver ");
+      debug_print_uint(count * 2);
+      debug_println(" registre, adresse udenfor omr\u00e5de");
       return;
     }
-
-    // Read 2 consecutive registers and convert to float
-    // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
-    uint16_t low_word = registers_get_holding_register(start_addr);      // LSW at base address
-    uint16_t high_word = registers_get_holding_register(start_addr + 1); // MSW at base+1
-    uint32_t bits = ((uint32_t)high_word << 16) | low_word;
-    float real_value;
-    memcpy(&real_value, &bits, sizeof(float));
 
     debug_println("\n=== L\u00c6SNING AF HOLDING REGISTERS ===");
     debug_print("Adresse ");
     debug_print_uint(start_addr);
     debug_print("-");
-    debug_print_uint(start_addr + 1);
+    debug_print_uint(start_addr + (count * 2) - 1);
     debug_println(" (REAL/float):\n");
 
-    debug_print("Reg[");
-    debug_print_uint(start_addr);
-    debug_print("-");
-    debug_print_uint(start_addr + 1);
-    debug_print("]: ");
+    // Read count REAL values (each REAL = 2 registers)
+    for (uint16_t i = 0; i < count; i++) {
+      uint16_t addr = start_addr + (i * 2);
 
-    // Display float with 6 decimal precision
-    char float_str[32];
-    snprintf(float_str, sizeof(float_str), "%.6f", real_value);
-    debug_print(float_str);
-    debug_print(" (0x");
-    char hex_str[16];
-    snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
-    debug_print(hex_str);
-    debug_println(")");
+      // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
+      uint16_t low_word = registers_get_holding_register(addr);          // LSW at base address
+      uint16_t high_word = registers_get_holding_register(addr + 1);     // MSW at base+1
+      uint32_t bits = ((uint32_t)high_word << 16) | low_word;
+      float real_value;
+      memcpy(&real_value, &bits, sizeof(float));
+
+      debug_print("Reg[");
+      debug_print_uint(addr);
+      debug_print("-");
+      debug_print_uint(addr + 1);
+      debug_print("]: ");
+
+      // Display float with 6 decimal precision
+      char float_str[32];
+      snprintf(float_str, sizeof(float_str), "%.6f", real_value);
+      debug_print(float_str);
+      debug_print(" (0x");
+      char hex_str[16];
+      snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
+      debug_print(hex_str);
+      debug_println(")");
+    }
     debug_println("");
 
-    // Call reset-on-read handler for both registers
+    // Call reset-on-read handler for all registers
     extern void modbus_handle_reset_on_read(uint16_t starting_address, uint16_t quantity);
-    modbus_handle_reset_on_read(start_addr, 2);
+    modbus_handle_reset_on_read(start_addr, count * 2);
     return;
   }
 
   // DINT type (32-bit signed integer, 2 consecutive registers)
+  // BUG-137 FIX: Support count parameter for DINT array reading
   if (display_as_dint) {
-    // Validate that we have 2 registers available
-    if (start_addr + 1 >= HOLDING_REGS_SIZE) {
-      debug_println("READ REG: DINT kr\u00e6ver 2 registre, adresse udenfor omr\u00e5de");
+    // Validate that we have enough registers available (count DINT values = count * 2 registers)
+    if (start_addr + (count * 2) > HOLDING_REGS_SIZE) {
+      debug_print("READ REG: DINT kr\u00e6ver ");
+      debug_print_uint(count * 2);
+      debug_println(" registre, adresse udenfor omr\u00e5de");
       return;
     }
-
-    // Read 2 consecutive registers and convert to DINT
-    // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
-    uint16_t low_word = registers_get_holding_register(start_addr);      // LSW at base address
-    uint16_t high_word = registers_get_holding_register(start_addr + 1); // MSW at base+1
-    uint32_t bits = ((uint32_t)high_word << 16) | low_word;
-    int32_t dint_value = (int32_t)bits;
 
     debug_println("\n=== L\u00c6SNING AF HOLDING REGISTERS ===");
     debug_print("Adresse ");
     debug_print_uint(start_addr);
     debug_print("-");
-    debug_print_uint(start_addr + 1);
+    debug_print_uint(start_addr + (count * 2) - 1);
     debug_println(" (DINT/32-bit signed):\n");
 
-    debug_print("Reg[");
-    debug_print_uint(start_addr);
-    debug_print("-");
-    debug_print_uint(start_addr + 1);
-    debug_print("]: ");
+    // Read count DINT values (each DINT = 2 registers)
+    for (uint16_t i = 0; i < count; i++) {
+      uint16_t addr = start_addr + (i * 2);
 
-    // Display DINT value
-    char dint_str[16];
-    snprintf(dint_str, sizeof(dint_str), "%ld", (long)dint_value);
-    debug_print(dint_str);
-    debug_print(" (0x");
-    char hex_str[16];
-    snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
-    debug_print(hex_str);
-    debug_println(")");
+      // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
+      uint16_t low_word = registers_get_holding_register(addr);          // LSW at base address
+      uint16_t high_word = registers_get_holding_register(addr + 1);     // MSW at base+1
+      uint32_t bits = ((uint32_t)high_word << 16) | low_word;
+      int32_t dint_value = (int32_t)bits;
+
+      debug_print("Reg[");
+      debug_print_uint(addr);
+      debug_print("-");
+      debug_print_uint(addr + 1);
+      debug_print("]: ");
+
+      // Display DINT value
+      char dint_str[16];
+      snprintf(dint_str, sizeof(dint_str), "%ld", (long)dint_value);
+      debug_print(dint_str);
+      debug_print(" (0x");
+      char hex_str[16];
+      snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
+      debug_print(hex_str);
+      debug_println(")");
+    }
     debug_println("");
 
-    // Call reset-on-read handler for both registers
+    // Call reset-on-read handler for all registers
     extern void modbus_handle_reset_on_read(uint16_t starting_address, uint16_t quantity);
-    modbus_handle_reset_on_read(start_addr, 2);
+    modbus_handle_reset_on_read(start_addr, count * 2);
     return;
   }
 
   // DWORD type (32-bit unsigned integer, 2 consecutive registers)
+  // BUG-137 FIX: Support count parameter for DWORD array reading
   if (display_as_dword) {
-    // Validate that we have 2 registers available
-    if (start_addr + 1 >= HOLDING_REGS_SIZE) {
-      debug_println("READ REG: DWORD kr\u00e6ver 2 registre, adresse udenfor omr\u00e5de");
+    // Validate that we have enough registers available (count DWORD values = count * 2 registers)
+    if (start_addr + (count * 2) > HOLDING_REGS_SIZE) {
+      debug_print("READ REG: DWORD kr\u00e6ver ");
+      debug_print_uint(count * 2);
+      debug_println(" registre, adresse udenfor omr\u00e5de");
       return;
     }
-
-    // Read 2 consecutive registers and convert to DWORD
-    // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
-    uint16_t low_word = registers_get_holding_register(start_addr);      // LSW at base address
-    uint16_t high_word = registers_get_holding_register(start_addr + 1); // MSW at base+1
-    uint32_t dword_value = ((uint32_t)high_word << 16) | low_word;
 
     debug_println("\n=== L\u00c6SNING AF HOLDING REGISTERS ===");
     debug_print("Adresse ");
     debug_print_uint(start_addr);
     debug_print("-");
-    debug_print_uint(start_addr + 1);
+    debug_print_uint(start_addr + (count * 2) - 1);
     debug_println(" (DWORD/32-bit unsigned):\n");
 
-    debug_print("Reg[");
-    debug_print_uint(start_addr);
-    debug_print("-");
-    debug_print_uint(start_addr + 1);
-    debug_print("]: ");
+    // Read count DWORD values (each DWORD = 2 registers)
+    for (uint16_t i = 0; i < count; i++) {
+      uint16_t addr = start_addr + (i * 2);
 
-    // Display DWORD value
-    char dword_str[16];
-    snprintf(dword_str, sizeof(dword_str), "%lu", (unsigned long)dword_value);
-    debug_print(dword_str);
-    debug_print(" (0x");
-    char hex_str[16];
-    snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
-    debug_print(hex_str);
-    debug_println(")");
+      // BUG-124 FIX: Counter writes LSW first, MSW second (little-endian register order)
+      uint16_t low_word = registers_get_holding_register(addr);          // LSW at base address
+      uint16_t high_word = registers_get_holding_register(addr + 1);     // MSW at base+1
+      uint32_t dword_value = ((uint32_t)high_word << 16) | low_word;
+
+      debug_print("Reg[");
+      debug_print_uint(addr);
+      debug_print("-");
+      debug_print_uint(addr + 1);
+      debug_print("]: ");
+
+      // Display DWORD value
+      char dword_str[16];
+      snprintf(dword_str, sizeof(dword_str), "%lu", (unsigned long)dword_value);
+      debug_print(dword_str);
+      debug_print(" (0x");
+      char hex_str[16];
+      snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
+      debug_print(hex_str);
+      debug_println(")");
+    }
     debug_println("");
 
-    // Call reset-on-read handler for both registers
+    // Call reset-on-read handler for all registers
     extern void modbus_handle_reset_on_read(uint16_t starting_address, uint16_t quantity);
-    modbus_handle_reset_on_read(start_addr, 2);
+    modbus_handle_reset_on_read(start_addr, count * 2);
     return;
   }
 
