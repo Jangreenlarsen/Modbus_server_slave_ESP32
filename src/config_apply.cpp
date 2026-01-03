@@ -85,6 +85,15 @@ bool config_apply(const PersistConfig* cfg) {
     }
     // Handle ST variable mappings (no initialization needed, just logging)
     else if (map->source_type == MAPPING_SOURCE_ST_VAR) {
+      // BUG-142 FIX: Validate ST program exists before logging binding
+      extern st_logic_engine_state_t* st_logic_get_state(void);
+      st_logic_engine_state_t* logic_state = st_logic_get_state();
+      bool program_exists = false;
+      if (logic_state && map->st_program_id < 4) {
+        st_logic_program_config_t* prog = &logic_state->programs[map->st_program_id];
+        program_exists = (prog->source_size > 0);  // Program has code uploaded
+      }
+
       debug_print("    Logic");
       debug_print_uint(map->st_program_id + 1);
       debug_print(": var[");
@@ -92,6 +101,10 @@ bool config_apply(const PersistConfig* cfg) {
       debug_print("] ");
       debug_print(map->is_input ? "<- HR#" : "-> HR#");
       debug_print_uint(map->is_input ? map->input_reg : map->coil_reg);
+
+      if (!program_exists) {
+        debug_print(" [WARNING: program not loaded/deleted]");
+      }
       debug_println("");
     }
   }
