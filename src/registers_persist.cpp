@@ -16,6 +16,22 @@
 extern PersistConfig g_persist_config;
 
 /* ============================================================================
+ * SANITIZATION HELPER (BUG-140)
+ * ============================================================================ */
+
+/**
+ * @brief Sanitize group_count to prevent out-of-bounds access
+ * @param pr Persistence data structure
+ * @return Clamped group_count (0-8)
+ */
+static inline uint8_t get_safe_group_count(PersistentRegisterData* pr) {
+  if (pr->group_count > PERSIST_MAX_GROUPS) {
+    return PERSIST_MAX_GROUPS;
+  }
+  return pr->group_count;
+}
+
+/* ============================================================================
  * INITIALIZATION
  * ============================================================================ */
 
@@ -89,9 +105,10 @@ bool registers_persist_group_delete(const char* group_name) {
 
   PersistentRegisterData* pr = &g_persist_config.persist_regs;
 
-  // Find group index
+  // Find group index (BUG-140: use safe count)
+  uint8_t safe_count = get_safe_group_count(pr);
   int8_t idx = -1;
-  for (uint8_t i = 0; i < pr->group_count; i++) {
+  for (uint8_t i = 0; i < safe_count; i++) {
     if (strcmp(pr->groups[i].name, group_name) == 0) {
       idx = i;
       break;
@@ -106,14 +123,22 @@ bool registers_persist_group_delete(const char* group_name) {
   }
 
   // Shift all subsequent groups down
-  for (uint8_t i = idx; i < pr->group_count - 1; i++) {
+  for (uint8_t i = idx; i < safe_count - 1; i++) {
     pr->groups[i] = pr->groups[i + 1];
   }
 
   // Clear last group slot
-  memset(&pr->groups[pr->group_count - 1], 0, sizeof(PersistGroup));
+  if (safe_count > 0) {
+    memset(&pr->groups[safe_count - 1], 0, sizeof(PersistGroup));
+  }
 
-  pr->group_count--;
+  // Decrement count (clamp to max if it was over)
+  if (pr->group_count > 0) {
+    pr->group_count--;
+  }
+  if (pr->group_count > PERSIST_MAX_GROUPS) {
+    pr->group_count = PERSIST_MAX_GROUPS;
+  }
 
   debug_print("✓ Deleted group '");
   debug_print(group_name);
@@ -128,8 +153,9 @@ PersistGroup* registers_persist_group_find(const char* group_name) {
   }
 
   PersistentRegisterData* pr = &g_persist_config.persist_regs;
+  uint8_t safe_count = get_safe_group_count(pr);  // BUG-140
 
-  for (uint8_t i = 0; i < pr->group_count; i++) {
+  for (uint8_t i = 0; i < safe_count; i++) {
     if (strcmp(pr->groups[i].name, group_name) == 0) {
       return &pr->groups[i];
     }
@@ -139,7 +165,8 @@ PersistGroup* registers_persist_group_find(const char* group_name) {
 }
 
 uint8_t registers_persist_get_group_count(void) {
-  return g_persist_config.persist_regs.group_count;
+  // BUG-140: Return safe count (clamped to max)
+  return get_safe_group_count(&g_persist_config.persist_regs);
 }
 
 /* ============================================================================
@@ -313,14 +340,15 @@ bool registers_persist_group_save_by_id(uint8_t group_id) {
 
 bool registers_persist_save_all_groups(void) {
   PersistentRegisterData* pr = &g_persist_config.persist_regs;
+  uint8_t safe_count = get_safe_group_count(pr);  // BUG-140
 
-  if (pr->group_count == 0) {
+  if (safe_count == 0) {
     debug_println("No groups to save");
     return true;
   }
 
   uint8_t saved_count = 0;
-  for (uint8_t i = 0; i < pr->group_count; i++) {
+  for (uint8_t i = 0; i < safe_count; i++) {
     if (registers_persist_group_save(pr->groups[i].name)) {
       saved_count++;
     }
@@ -391,14 +419,15 @@ bool registers_persist_group_restore_by_id(uint8_t group_id) {
 
 bool registers_persist_restore_all_groups(void) {
   PersistentRegisterData* pr = &g_persist_config.persist_regs;
+  uint8_t safe_count = get_safe_group_count(pr);  // BUG-140
 
-  if (pr->group_count == 0) {
+  if (safe_count == 0) {
     debug_println("No groups to restore");
     return true;
   }
 
   uint8_t restored_count = 0;
-  for (uint8_t i = 0; i < pr->group_count; i++) {
+  for (uint8_t i = 0; i < safe_count; i++) {
     if (registers_persist_group_restore(pr->groups[i].name)) {
       restored_count++;
     }
@@ -540,13 +569,14 @@ uint8_t registers_persist_auto_load_execute(void) {
 
 void registers_persist_list_groups(void) {
   PersistentRegisterData* pr = &g_persist_config.persist_regs;
+  uint8_t safe_count = get_safe_group_count(pr);  // BUG-140
 
   debug_println("\n=== Persistence Groups ===");
   debug_print("Total groups: ");
-  debug_print_uint(pr->group_count);
+  debug_print_uint(safe_count);
   debug_println("\n");
 
-  for (uint8_t i = 0; i < pr->group_count; i++) {
+  for (uint8_t i = 0; i < safe_count; i++) {
     PersistGroup* grp = &pr->groups[i];
 
     debug_print("Group #");

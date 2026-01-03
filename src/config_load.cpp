@@ -204,6 +204,41 @@ bool config_load_from_nvs(PersistConfig* out) {
     return false;  // CRITICAL FIX: Return false to indicate load failure
   }
 
+  // BUG-140: Sanitize count fields to prevent out-of-bounds access
+  bool sanitized = false;
+
+  if (out->var_map_count > 32) {
+    debug_print("WARN: var_map_count=");
+    debug_print_uint(out->var_map_count);
+    debug_println(" exceeds max, clamping to 32");
+    out->var_map_count = 32;
+    sanitized = true;
+  }
+
+  if (out->persist_regs.group_count > PERSIST_MAX_GROUPS) {
+    debug_print("WARN: persist group_count=");
+    debug_print_uint(out->persist_regs.group_count);
+    debug_println(" exceeds max, clamping to 8");
+    out->persist_regs.group_count = PERSIST_MAX_GROUPS;
+    sanitized = true;
+  }
+
+  if (out->static_reg_count > MAX_DYNAMIC_REGS) {
+    debug_print("WARN: static_reg_count=");
+    debug_print_uint(out->static_reg_count);
+    debug_println(" exceeds max, clamping");
+    out->static_reg_count = MAX_DYNAMIC_REGS;
+    sanitized = true;
+  }
+
+  if (out->static_coil_count > MAX_DYNAMIC_COILS) {
+    debug_print("WARN: static_coil_count=");
+    debug_print_uint(out->static_coil_count);
+    debug_println(" exceeds max, clamping");
+    out->static_coil_count = MAX_DYNAMIC_COILS;
+    sanitized = true;
+  }
+
   // Print summary
   debug_print("CONFIG LOADED: schema=");
   debug_print_uint(out->schema_version);
@@ -220,6 +255,10 @@ bool config_load_from_nvs(PersistConfig* out) {
   debug_print(", CRC=");
   debug_print_uint(calculated_crc);
   debug_println(" OK");
+
+  if (sanitized) {
+    debug_println("WARN: Config had out-of-bounds values (sanitized)");
+  }
 
   // Debug: Print loaded GPIO mappings
   if (out->var_map_count > 0) {

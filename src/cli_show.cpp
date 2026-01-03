@@ -614,14 +614,25 @@ void cli_cmd_show_config(void) {
   debug_print("  status: ");
   debug_println(g_persist_config.persist_regs.enabled ? "enabled" : "disabled");
 
+  // BUG-140: Clamp group_count to max (prevent garbage display)
+  uint8_t actual_group_count = g_persist_config.persist_regs.group_count;
+  if (actual_group_count > PERSIST_MAX_GROUPS) {
+    actual_group_count = PERSIST_MAX_GROUPS;
+  }
+
   debug_print("  groups: ");
-  debug_print_uint(g_persist_config.persist_regs.group_count);
+  debug_print_uint(actual_group_count);
   debug_print(" / ");
   debug_print_uint(PERSIST_MAX_GROUPS);
+  if (g_persist_config.persist_regs.group_count > PERSIST_MAX_GROUPS) {
+    debug_print(" [WARNING: stored count=");
+    debug_print_uint(g_persist_config.persist_regs.group_count);
+    debug_print(" exceeds max, clamped]");
+  }
   debug_println("");
 
-  if (g_persist_config.persist_regs.group_count > 0) {
-    for (uint8_t i = 0; i < g_persist_config.persist_regs.group_count; i++) {
+  if (actual_group_count > 0) {
+    for (uint8_t i = 0; i < actual_group_count; i++) {
       PersistGroup* grp = &g_persist_config.persist_regs.groups[i];
       debug_print("  grp");
       debug_print_uint(i + 1);  // Group number (1-indexed for ST Logic)
@@ -761,10 +772,16 @@ void cli_cmd_show_config(void) {
   debug_println("");
 
   // Persistence
-  if (g_persist_config.persist_regs.enabled && g_persist_config.persist_regs.group_count > 0) {
+  // BUG-140: Clamp group_count to prevent out-of-bounds access
+  uint8_t persist_group_count = g_persist_config.persist_regs.group_count;
+  if (persist_group_count > PERSIST_MAX_GROUPS) {
+    persist_group_count = PERSIST_MAX_GROUPS;
+  }
+
+  if (g_persist_config.persist_regs.enabled && persist_group_count > 0) {
     debug_println("\n# Persistence");
     debug_println("set persist enable");
-    for (uint8_t i = 0; i < g_persist_config.persist_regs.group_count; i++) {
+    for (uint8_t i = 0; i < persist_group_count; i++) {
       PersistGroup* grp = &g_persist_config.persist_regs.groups[i];
       debug_print("set persist group ");
       debug_print_uint(i + 1);
