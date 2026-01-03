@@ -115,6 +115,7 @@
 | BUG-137 | CLI `read reg <count> real/dint/dword` ignorerer count parameter | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Kan ikke læse arrays af multi-register værdier (Build #937) |
 | BUG-138 | ST Logic upload error message generisk og ikke informativ | ✅ FIXED | 🔵 LOW | v4.7.1 | Viser kun "Failed to upload" uden detaljer (Build #940) |
 | BUG-139 | `show logic stats` skjuler disabled programs med source code | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Pool total matcher ikke per-program sum (Build #948) |
+| BUG-140 | Persistence group_count=255 buffer overflow i show config | ✅ FIXED | 🔴 CRITICAL | v4.7.1 | Out-of-bounds array access → garbage display + crash risk (Build #951) |
 
 ## Feature Requests / Enhancements
 
