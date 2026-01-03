@@ -959,6 +959,16 @@ void cli_cmd_save(void) {
       if (g_persist_config.timers[i].enabled) enabled_timers++;
     }
 
+    // Count active GPIO/ST variable mappings (source_type != 0xff means active)
+    uint8_t active_mappings = 0;
+    uint8_t safe_var_map_count = g_persist_config.var_map_count;
+    if (safe_var_map_count > 32) safe_var_map_count = 32;  // BUG-140 style clamp
+    for (uint8_t i = 0; i < safe_var_map_count; i++) {
+      if (g_persist_config.var_maps[i].source_type != 0xff) {
+        active_mappings++;
+      }
+    }
+
     debug_print("  - ");
     debug_print_uint(enabled_counters);
     debug_println(" counters");
@@ -978,8 +988,8 @@ void cli_cmd_save(void) {
     debug_print_uint(g_persist_config.dynamic_coil_count);
     debug_println(" dynamic coils");
     debug_print("  - ");
-    debug_print_uint(g_persist_config.var_map_count);
-    debug_println(" GPIO mappings");
+    debug_print_uint(active_mappings);
+    debug_println(" variable mappings");
   } else {
     debug_println("SAVE: Failed to save configuration");
   }
@@ -992,6 +1002,32 @@ void cli_cmd_load(void) {
 
   if (success) {
     debug_println("LOAD: Configuration loaded successfully");
+
+    // Count enabled counters and timers
+    uint8_t enabled_counters = 0, enabled_timers = 0;
+    for (uint8_t i = 0; i < COUNTER_COUNT; i++) {
+      if (g_persist_config.counters[i].enabled) enabled_counters++;
+    }
+    for (uint8_t i = 0; i < TIMER_COUNT; i++) {
+      if (g_persist_config.timers[i].enabled) enabled_timers++;
+    }
+
+    // Count active GPIO/ST variable mappings (source_type != 0xff means active)
+    uint8_t active_mappings = 0;
+    uint8_t safe_var_map_count = g_persist_config.var_map_count;
+    if (safe_var_map_count > 32) safe_var_map_count = 32;  // BUG-140 style clamp
+    for (uint8_t i = 0; i < safe_var_map_count; i++) {
+      if (g_persist_config.var_maps[i].source_type != 0xff) {
+        active_mappings++;
+      }
+    }
+
+    debug_print("  - ");
+    debug_print_uint(enabled_counters);
+    debug_println(" counters");
+    debug_print("  - ");
+    debug_print_uint(enabled_timers);
+    debug_println(" timers");
     debug_print("  - ");
     debug_print_uint(g_persist_config.static_reg_count);
     debug_println(" static registers");
@@ -1005,8 +1041,8 @@ void cli_cmd_load(void) {
     debug_print_uint(g_persist_config.dynamic_coil_count);
     debug_println(" dynamic coils");
     debug_print("  - ");
-    debug_print_uint(g_persist_config.var_map_count);
-    debug_println(" GPIO mappings");
+    debug_print_uint(active_mappings);
+    debug_println(" variable mappings");
 
     // Apply configuration to running system
     config_apply(&g_persist_config);
