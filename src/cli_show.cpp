@@ -781,8 +781,7 @@ void cli_cmd_show_config(void) {
       if (prog->source_size > 0 || prog->enabled) {
         debug_print("set logic ");
         debug_print_uint(i + 1);
-        debug_print(" enable ");
-        debug_println(prog->enabled ? "on" : "off");
+        debug_println(prog->enabled ? " enabled" : " disabled");
       }
     }
   }
