@@ -1069,8 +1069,9 @@ int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
   for (uint8_t i = 0; i < 4; i++) {
     st_logic_program_config_t *prog = &logic_state->programs[i];
 
-    if (!prog->enabled && prog->execution_count == 0) {
-      continue;  // Skip disabled programs with no history
+    // Skip only if program is empty AND has never run
+    if (prog->source_size == 0 && prog->execution_count == 0) {
+      continue;  // Skip empty programs with no history
     }
 
     debug_printf("Logic%d (%s):\n", i + 1, prog->name);
