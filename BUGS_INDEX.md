@@ -117,12 +117,13 @@
 | BUG-139 | `show logic stats` skjuler disabled programs med source code | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Pool total matcher ikke per-program sum (Build #948) |
 | BUG-140 | Persistence group_count=255 buffer overflow i show config | ✅ FIXED | 🔴 CRITICAL | v4.7.1 | Out-of-bounds array access → garbage display + crash risk (Build #951 + recovery cmd #953) |
 | BUG-141 | Save/load viser var_map_count i stedet for aktive mappings | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Viser "32 mappings" selvom alle er unused (Build #960) |
+| BUG-142 | `set reg STATIC` blokerer HR238-255 fejlagtigt | ❌ OPEN | 🟠 MEDIUM | v4.7.2 | Validation blokerer HR200-299, men kun HR200-237 er faktisk brugt af ST Logic (Build #969) |
 
 ## Feature Requests / Enhancements
 
 | Feature ID | Title | Status | Priority | Target Version | Description |
 |-----------|-------|--------|----------|----------------|-------------|
-| FEAT-001 | `set reg STATIC` multi-register type support | ⏳ PENDING | 🟠 MEDIUM | v4.6.0 | Add DINT/DWORD/REAL support til persistent register configuration |
+| FEAT-001 | `set reg STATIC` multi-register type support | ✅ DONE | 🟠 MEDIUM | v4.7.1 | Add DINT/DWORD/REAL support til persistent register configuration (Build #966) |
 | FEAT-002 | ST Logic dynamisk pool allokering (8KB shared) | ✅ DONE | 🟡 HIGH | v4.7.1 | Erstat fixed 4KB arrays med 8KB shared pool - flexibel allokering (Build #944) |
 
 ## Quick Lookup by Category

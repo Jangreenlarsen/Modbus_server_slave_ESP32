@@ -158,7 +158,7 @@ bool config_load_from_nvs(PersistConfig* out) {
 
   // Validate schema version (MUST be checked before CRC to prevent struct misalignment)
   if (out->schema_version != CONFIG_SCHEMA_VERSION) {
-    // Schema migration support (v7 → v8)
+    // Schema migration support (v7 → v8 → v9)
     if (out->schema_version == 7) {
       debug_println("CONFIG LOAD: Migrating schema 7 → 8 (adding persist_regs)");
 
@@ -170,9 +170,52 @@ bool config_load_from_nvs(PersistConfig* out) {
       // Update schema version
       out->schema_version = 8;
 
-      debug_println("CONFIG LOAD: Migration complete");
+      debug_println("CONFIG LOAD: Migration 7→8 complete");
       // Note: CRC will be invalid, but we'll recalculate on next save
-    } else {
+
+      // Fall through to v8→v9 migration
+    }
+
+    if (out->schema_version == 8) {
+      debug_println("CONFIG LOAD: Migrating schema 8 → 9 (STATIC register multi-type support)");
+
+      // Migrate STATIC register mappings (old format → new format)
+      // OLD v8: struct { uint16_t register_address; uint16_t static_value; }
+      // NEW v9: struct { uint16_t register_address; uint8_t value_type; uint8_t reserved; union { uint16_t value_16; uint32_t value_32; float value_real; }; }
+
+      // The old struct was 4 bytes, new struct is 8 bytes (with union)
+      // We need to convert in-place from the END of the array backwards to avoid overwriting
+
+      typedef struct __attribute__((packed)) {
+        uint16_t register_address;
+        uint16_t static_value;
+      } OldStaticRegisterMapping;
+
+      OldStaticRegisterMapping* old_regs = (OldStaticRegisterMapping*)out->static_regs;
+      uint8_t count = out->static_reg_count;
+
+      if (count > MAX_DYNAMIC_REGS) {
+        count = MAX_DYNAMIC_REGS;  // Safety clamp
+      }
+
+      // Convert from END to START (to avoid overwriting data)
+      for (int i = count - 1; i >= 0; i--) {
+        uint16_t addr = old_regs[i].register_address;
+        uint16_t value = old_regs[i].static_value;
+
+        // Write new format
+        out->static_regs[i].register_address = addr;
+        out->static_regs[i].value_type = MODBUS_TYPE_UINT;  // Default to UINT
+        out->static_regs[i].reserved = 0;
+        out->static_regs[i].value_16 = value;
+      }
+
+      // Update schema version
+      out->schema_version = 9;
+
+      debug_println("CONFIG LOAD: Migration 8→9 complete");
+      // Note: CRC will be invalid, but we'll recalculate on next save
+    } else if (out->schema_version != CONFIG_SCHEMA_VERSION) {
       debug_print("ERROR: Unsupported schema version (stored=");
       debug_print_uint(out->schema_version);
       debug_print(", current=");

@@ -18,6 +18,8 @@
 #include "st_logic_config.h"
 #include "debug.h"
 #include <cstddef>
+#include <cstring>
+#include <cstdio>
 
 bool config_apply(const PersistConfig* cfg) {
   if (cfg == NULL) return false;
@@ -114,15 +116,70 @@ bool config_apply(const PersistConfig* cfg) {
   debug_print_uint(cfg->static_reg_count);
   debug_println("");
   for (uint8_t i = 0; i < cfg->static_reg_count; i++) {
-    registers_set_holding_register(
-      cfg->static_regs[i].register_address,
-      cfg->static_regs[i].static_value
-    );
-    debug_print("    Reg[");
-    debug_print_uint(cfg->static_regs[i].register_address);
-    debug_print("] = ");
-    debug_print_uint(cfg->static_regs[i].static_value);
-    debug_println("");
+    const StaticRegisterMapping* map = &cfg->static_regs[i];
+    uint16_t addr = map->register_address;
+
+    switch (map->value_type) {
+      case MODBUS_TYPE_UINT:
+      case MODBUS_TYPE_INT:
+        // 16-bit value (1 register)
+        registers_set_holding_register(addr, map->value_16);
+        debug_print("    Reg[");
+        debug_print_uint(addr);
+        debug_print("] = ");
+        debug_print_uint(map->value_16);
+        debug_print(" (");
+        debug_print(map->value_type == MODBUS_TYPE_UINT ? "uint" : "int");
+        debug_println(")");
+        break;
+
+      case MODBUS_TYPE_DINT:
+      case MODBUS_TYPE_DWORD: {
+        // 32-bit value (2 registers)
+        uint16_t low_word = (uint16_t)(map->value_32 & 0xFFFF);
+        uint16_t high_word = (uint16_t)((map->value_32 >> 16) & 0xFFFF);
+        registers_set_holding_register(addr, low_word);
+        registers_set_holding_register(addr + 1, high_word);
+        debug_print("    Reg[");
+        debug_print_uint(addr);
+        debug_print("-");
+        debug_print_uint(addr + 1);
+        debug_print("] = ");
+        debug_print_uint(map->value_32);
+        debug_print(" (");
+        debug_print(map->value_type == MODBUS_TYPE_DINT ? "dint" : "dword");
+        debug_println(")");
+        break;
+      }
+
+      case MODBUS_TYPE_REAL: {
+        // 32-bit float (2 registers)
+        uint32_t bits;
+        memcpy(&bits, &map->value_real, sizeof(float));
+        uint16_t low_word = (uint16_t)(bits & 0xFFFF);
+        uint16_t high_word = (uint16_t)((bits >> 16) & 0xFFFF);
+        registers_set_holding_register(addr, low_word);
+        registers_set_holding_register(addr + 1, high_word);
+        debug_print("    Reg[");
+        debug_print_uint(addr);
+        debug_print("-");
+        debug_print_uint(addr + 1);
+        debug_print("] = ");
+
+        // Print float with 2 decimal places
+        char float_str[16];
+        snprintf(float_str, sizeof(float_str), "%.2f", map->value_real);
+        debug_print(float_str);
+        debug_println(" (real)");
+        break;
+      }
+
+      default:
+        debug_print("    Reg[");
+        debug_print_uint(addr);
+        debug_println("] = UNKNOWN TYPE!");
+        break;
+    }
   }
 
   // Apply STATIC coil mappings (initialize coil values)

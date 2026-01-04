@@ -126,6 +126,18 @@ typedef enum {
 } TimerMode;
 
 /* ============================================================================
+ * MODBUS VALUE TYPES (for multi-register support)
+ * ============================================================================ */
+
+typedef enum {
+  MODBUS_TYPE_UINT = 0,     // 16-bit unsigned (0-65535)
+  MODBUS_TYPE_INT = 1,      // 16-bit signed (-32768 to 32767)
+  MODBUS_TYPE_DINT = 2,     // 32-bit signed (2 registers)
+  MODBUS_TYPE_DWORD = 3,    // 32-bit unsigned (2 registers)
+  MODBUS_TYPE_REAL = 4      // 32-bit IEEE-754 float (2 registers)
+} ModbusValueType;
+
+/* ============================================================================
  * DYNAMIC REGISTER/COIL CONFIGURATION
  * ============================================================================ */
 
@@ -164,7 +176,7 @@ typedef enum {
  * EEPROM / NVS CONFIGURATION
  * ============================================================================ */
 
-#define CONFIG_SCHEMA_VERSION   8       // Current config schema version (v4.0+: persist_regs added to PersistConfig)
+#define CONFIG_SCHEMA_VERSION   9       // Current config schema version (v4.7.1+: STATIC register multi-register type support)
 #define CONFIG_CRC_SEED         0xFFFF  // CRC16 initial value
 
 /* ============================================================================
@@ -286,10 +298,16 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "4.7.0"
+#define PROJECT_VERSION     "4.7.1"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v4.7.1 (2026-01-04): Persistent Register Type Support & Documentation Updates
+ *                      - FEAT-001: set reg STATIC multi-type support (UINT/INT/DINT/DWORD/REAL)
+ *                      - Schema migration v8 → v9 (StaticRegisterMapping struct expansion)
+ *                      - Register range validation (ST Logic HR 200-237 protection)
+ *                      - Documentation corrections (MODBUS_REGISTER_MAP.md HR/IR ranges)
+ *                      - BUG-142: Identified range validation too broad (pending fix)
  * v4.7.0 (2026-01-01): Advanced ST Functions & Memory Optimization
  *                      - 13 new ST functions: EXP/LN/LOG/POW, R_TRIG/F_TRIG, TON/TOF/TP, CTU/CTD/CTUD
  *                      - Stateful function blocks with automatic instance allocation

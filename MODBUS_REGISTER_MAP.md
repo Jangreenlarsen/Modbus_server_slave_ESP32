@@ -32,6 +32,8 @@ For at undgå konflikter mellem system funktioner og bruger data, skal du bruge 
 
 #### 📊 Holding Registers (HR) - Safe Ranges
 
+**Total size: 256 registers (HR 0-255)**
+
 | Range | Status | Anbefalet Brug | Konflikt Med |
 |-------|--------|----------------|-------------|
 | **HR 0-19** | ✅ **SAFE** | General purpose data, test variables | Ingen |
@@ -39,9 +41,11 @@ For at undgå konflikter mellem system funktioner og bruger data, skal du bruge 
 | **HR 90-99** | ✅ **SAFE** | Reserved for future use | Ingen |
 | **HR 100-179** | ⚠️ **RESERVED** | Counter default allocation (4 counters × 20 registers) | Counter engine |
 | **HR 180-199** | ✅ **SAFE** | Custom data, persistent registers | Ingen |
-| **HR 200-293** | 🔒 **SYSTEM** | ST Logic fixed registers (status, control, stats) | ST Logic engine |
-| **HR 294-499** | ✅ **SAFE** | Custom data, persistent registers, large datasets | Ingen |
-| **HR 500+** | ✅ **SAFE** | User-defined data | Ingen |
+| **HR 200-203** | 🔒 **SYSTEM** | ST Logic control registers (4 programs) | ST Logic engine |
+| **HR 204-235** | 🔒 **SYSTEM** | ST Logic variable inputs (32 registers) | ST Logic engine |
+| **HR 236-237** | 🔒 **SYSTEM** | ST Logic execution interval (2 registers) | ST Logic engine |
+| **HR 238-255** | ✅ **SAFE** | Custom data (18 registers available) | Ingen |
+| **HR 256+** | ❌ **N/A** | Does not exist (HOLDING_REGS_SIZE = 256) | - |
 
 #### 🎚️ Coils (C) - Safe Ranges
 
@@ -59,12 +63,28 @@ For at undgå konflikter mellem system funktioner og bruger data, skal du bruge 
 
 #### 🔢 Input Registers (IR) - Safe Ranges
 
+**Total size: 256 registers (IR 0-255)**
+
 | Range | Status | Anbefalet Brug | Konflikt Med |
 |-------|--------|----------------|-------------|
 | **IR 0-199** | ✅ **SAFE** | Read-only sensor data, calculated values | Ingen |
-| **IR 200-293** | 🔒 **SYSTEM** | ST Logic status & statistics | ST Logic engine |
-| **IR 294-499** | ✅ **SAFE** | Read-only data, monitoring values | Ingen |
-| **IR 500+** | ✅ **SAFE** | User-defined read-only data | Ingen |
+| **IR 200-203** | 🔒 **SYSTEM** | ST Logic status registers (4 programs) | ST Logic engine |
+| **IR 204-207** | 🔒 **SYSTEM** | ST Logic execution count (4 programs) | ST Logic engine |
+| **IR 208-211** | 🔒 **SYSTEM** | ST Logic error count (4 programs) | ST Logic engine |
+| **IR 212-215** | 🔒 **SYSTEM** | ST Logic error codes (4 programs) | ST Logic engine |
+| **IR 216-219** | 🔒 **SYSTEM** | ST Logic variable count (4 programs) | ST Logic engine |
+| **IR 220-251** | 🔒 **SYSTEM** | ST Logic variable values (32 registers) | ST Logic engine |
+| **IR 252-259** | 🔒 **SYSTEM** | ST Logic min exec time (4 programs × 2 regs) | ST Logic engine |
+| **IR 260-267** | 🔒 **SYSTEM** | ST Logic max exec time (4 programs × 2 regs) | ST Logic engine |
+| **IR 268-275** | 🔒 **SYSTEM** | ST Logic avg exec time (4 programs × 2 regs) | ST Logic engine |
+| **IR 276-283** | 🔒 **SYSTEM** | ST Logic overrun count (4 programs × 2 regs) | ST Logic engine |
+| **IR 284-285** | 🔒 **SYSTEM** | ST Logic global cycle min time (2 regs) | ST Logic engine |
+| **IR 286-287** | 🔒 **SYSTEM** | ST Logic global cycle max time (2 regs) | ST Logic engine |
+| **IR 288-289** | 🔒 **SYSTEM** | ST Logic global cycle overrun (2 regs) | ST Logic engine |
+| **IR 290-291** | 🔒 **SYSTEM** | ST Logic total cycles (2 regs) | ST Logic engine |
+| **IR 292-293** | 🔒 **SYSTEM** | ST Logic execution interval (read-only, 2 regs) | ST Logic engine |
+| **IR 294-255** | ❌ **N/A** | Does not exist (IR ends at 293) | - |
+| **IR 256+** | ❌ **N/A** | Does not exist (INPUT_REGS_SIZE = 256) | - |
 
 ---
 
@@ -95,20 +115,23 @@ Counter default allocation bruger **HR 100-179** (4 counters × 20 registers):
 
 #### 3. **ST Logic Variable Bindings**
 ST Logic bruger **IR/HR 200-293** til system registers:
-- IR 200-293: Status, statistics, performance (READ-ONLY)
-- HR 200-237: Control, interval settings (READ-WRITE)
+- IR 200-293: Status, statistics, performance (READ-ONLY) - 94 registers
+- HR 200-237: Control, interval settings (READ-WRITE) - 38 registers
+- **HR 238-255: SAFE for bruger data** - 18 ledige registers! ✅
 
 **⚠️ UNDGÅ:**
 ```bash
 # FORKERT - Kolliderer med ST Logic system registers!
 set logic 1 bind my_var reg:200 input
+set logic 1 bind temp reg:220 output  # IR220-251 er ST Logic variable values!
 ```
 
 **✅ BRUG:**
 ```bash
-# KORREKT - Safe range
-set logic 1 bind my_var reg:20 input
+# KORREKT - Safe ranges
+set logic 1 bind my_var reg:20 input      # HR 20-89 safe zone
 set logic 1 bind result reg:25 output
+set logic 1 bind large_data reg:240 input  # HR 238-255 også safe!
 ```
 
 #### 4. **Multi-Register Typer (DINT/DWORD/REAL)**
@@ -131,17 +154,37 @@ write reg 40 value dint 100000
 
 **⚠️ VIGTIGT:** Sørg for at HR N+1 også er i safe range!
 
-#### 5. **Persistent Registers**
-Persistent registers kan gemmes til NVS og genindlæses ved boot.
+#### 5. **Persistent Registers (NEW: v4.7.1 - `set reg STATIC` Multi-Type)**
+Persistent registers kan gemmes til NVS og genindlæses ved boot med `set reg STATIC`.
 
-**Best practice:**
-- Brug HR 294-499 for persistent data
-- Undgå counter range (HR 100-179) og ST Logic range (HR 200-293)
-- Eksempel:
-  ```bash
-  set persist group "recipe1" add 300-310
-  save registers group "recipe1"
-  ```
+**Understøttede typer (FEAT-001):**
+- `uint` - 16-bit unsigned (0-65535)
+- `int` - 16-bit signed (-32768 to 32767)
+- `dint` - 32-bit signed (2 registers)
+- `dword` - 32-bit unsigned (2 registers)
+- `real` - 32-bit IEEE-754 float (2 registers)
+
+**Safe ranges for STATIC registers:**
+- **HR 0-99:** General purpose (100 registers)
+- **HR 180-199:** Custom data (20 registers)
+- **HR 238-255:** Custom data (18 registers) - NYT! ✅
+- **Undgå:** HR 100-179 (counters), HR 200-237 (ST Logic)
+
+**Eksempler:**
+```bash
+# 16-bit typer (1 register)
+set reg STATIC 80 Value uint 1234
+set reg STATIC 81 Value int -500
+
+# 32-bit typer (2 registers) - NYT i v4.7.1!
+set reg STATIC 240 Value dint 1000000     # Bruger HR 240-241
+set reg STATIC 242 Value real 3.14159     # Bruger HR 242-243
+
+# Gem til NVS
+config save
+
+# Efter reboot: Værdier genopstår automatisk! ✅
+```
 
 #### 6. **Collision Detection**
 Systemet tjekker automatisk for register konflikter ved configuration.

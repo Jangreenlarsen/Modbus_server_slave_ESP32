@@ -186,7 +186,13 @@ typedef struct {
 
 typedef struct __attribute__((packed)) {
   uint16_t register_address;
-  uint16_t static_value;        // STATIC: hardcoded value
+  uint8_t value_type;           // ModbusValueType (UINT/INT/DINT/DWORD/REAL)
+  uint8_t reserved;             // Alignment (future use)
+  union {
+    uint16_t value_16;          // For UINT/INT (16-bit)
+    uint32_t value_32;          // For DINT/DWORD (32-bit)
+    float value_real;           // For REAL (32-bit float)
+  };
 } StaticRegisterMapping;
 
 typedef struct __attribute__((packed)) {

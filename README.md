@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v4.7.0 | **Build:** #920 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v4.7.1 | **Build:** #969 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, telnet CLI interface, og komplet Modbus register dokumentation.
 
@@ -3144,6 +3144,30 @@ empty := CTD(dispense, reload, 50);              (* Count down from 50 *)
 ---
 
 ## 📝 Version History
+
+- **v4.7.1** (2026-01-04) - 🔧 Persistent Register Type Support & Documentation Updates
+  - **NEW FEATURE: `set reg STATIC` Multi-Type Support (FEAT-001)**
+    - Added support for DINT, DWORD, and REAL persistent static registers
+    - Extends CLI command: `set reg STATIC <addr> Value [type] <value>`
+    - Supported types: `uint`, `int`, `dint`, `dword`, `real`
+    - Multi-register types (DINT/DWORD/REAL) use 2 consecutive registers
+    - Full backward compatibility: Legacy syntax (no type) defaults to `uint`
+  - **Schema Migration:**
+    - Config schema version bumped: v8 → v9
+    - Automatic migration from v8 to v9 on config load
+    - StaticRegisterMapping struct expanded with type field and union
+  - **Register Range Validation:**
+    - Added ST Logic reserved range protection (HR 200-237)
+    - Prevents STATIC register allocation in system ranges
+    - Multi-register boundary checking (prevents crossing into reserved zones)
+  - **Documentation Corrections:**
+    - **CRITICAL:** Fixed MODBUS_REGISTER_MAP.md incorrect ranges
+    - Removed non-existent HR/IR 294-499 range (HOLDING_REGS_SIZE = 256)
+    - Documented HR 238-255 as available (18 safe registers)
+    - Detailed ST Logic register breakdown (HR 200-237, IR 200-293)
+  - **Bug Tracking:**
+    - Documented BUG-142: STATIC range validation too broad (HR200-299 vs HR200-237)
+  - **Build:** #966-969
 
 - **v4.7.0** (2026-01-01) - ⭐ Advanced ST Functions & Memory Optimization
   - **NEW FEATURE: 13 ST Functions**

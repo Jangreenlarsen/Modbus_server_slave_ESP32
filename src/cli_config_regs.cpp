@@ -17,18 +17,29 @@
 #include <stdio.h>
 
 /**
- * set reg STATIC <address> Value <value>
+ * set reg STATIC <address> Value [type] <value>
  *
- * Example:
- *   set reg STATIC 0 Value 42
- *   set reg STATIC 100 Value 0
+ * Examples:
+ *   set reg STATIC 100 Value 42              # Legacy: uint16
+ *   set reg STATIC 100 Value uint 42         # Explicit uint16
+ *   set reg STATIC 100 Value int -500        # Signed int16
+ *   set reg STATIC 100 Value dint 100000     # Signed int32 (2 regs)
+ *   set reg STATIC 100 Value dword 500000    # Unsigned int32 (2 regs)
+ *   set reg STATIC 100 Value real 3.14159    # IEEE-754 float (2 regs)
  */
 void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
-  // set reg STATIC <address> Value <value>
+  // Syntax: set reg STATIC <address> Value [type] <value>
+  // type is optional (defaults to uint for backward compatibility)
 
   if (argc < 3) {
     debug_println("SET REG STATIC: missing arguments");
-    debug_println("  Usage: set reg STATIC <address> Value <value>");
+    debug_println("  Usage: set reg STATIC <address> Value [type] <value>");
+    debug_println("  Types: uint (default), int, dint, dword, real");
+    debug_println("  Examples:");
+    debug_println("    set reg STATIC 100 Value 42");
+    debug_println("    set reg STATIC 100 Value int -500");
+    debug_println("    set reg STATIC 100 Value dint 100000");
+    debug_println("    set reg STATIC 100 Value real 3.14");
     return;
   }
 
@@ -41,24 +52,147 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
     return;
   }
 
-  // argv[1] should be "Value"
-  if (strcmp(argv[1], "Value") != 0) {
-    debug_println("SET REG STATIC: expected 'Value' keyword");
-    debug_println("  Usage: set reg STATIC <address> Value <value>");
+  // Validate address against ST Logic reserved range (HR200-299)
+  if (address >= 200 && address < 300) {
+    debug_println("SET REG STATIC: ERROR - Address 200-299 reserved for ST Logic system");
+    debug_println("  HR200-203: Logic control registers");
+    debug_println("  HR204-235: Logic variable inputs");
+    debug_println("  HR236-237: Execution interval");
+    debug_println("  Use addresses 0-199 for STATIC registers");
     return;
   }
 
-  // Parse value
-  uint16_t value = atoi(argv[2]);
+  // argv[1] should be "Value"
+  if (strcmp(argv[1], "Value") != 0) {
+    debug_println("SET REG STATIC: expected 'Value' keyword");
+    return;
+  }
 
-  // IMPORTANT: Write directly to holding register (immediate effect)
-  registers_set_holding_register(address, value);
+  // Determine if type is specified (argc == 4) or not (argc == 3)
+  ModbusValueType value_type = MODBUS_TYPE_UINT;  // Default
+  const char* value_str = NULL;
 
-  // Also store in config for persistence
+  if (argc == 3) {
+    // Legacy syntax: set reg STATIC <addr> Value <value>
+    value_type = MODBUS_TYPE_UINT;
+    value_str = argv[2];
+  } else if (argc >= 4) {
+    // New syntax: set reg STATIC <addr> Value <type> <value>
+    const char* type_str = argv[2];
+    value_str = argv[3];
+
+    if (!strcmp(type_str, "uint")) {
+      value_type = MODBUS_TYPE_UINT;
+    } else if (!strcmp(type_str, "int")) {
+      value_type = MODBUS_TYPE_INT;
+    } else if (!strcmp(type_str, "dint")) {
+      value_type = MODBUS_TYPE_DINT;
+    } else if (!strcmp(type_str, "dword")) {
+      value_type = MODBUS_TYPE_DWORD;
+    } else if (!strcmp(type_str, "real")) {
+      value_type = MODBUS_TYPE_REAL;
+    } else {
+      debug_println("SET REG STATIC: invalid type");
+      debug_println("  Valid types: uint, int, dint, dword, real");
+      return;
+    }
+  }
+
+  // Validate address range for multi-register types
+  if ((value_type == MODBUS_TYPE_DINT || value_type == MODBUS_TYPE_DWORD || value_type == MODBUS_TYPE_REAL)) {
+    if (address + 1 >= HOLDING_REGS_SIZE) {
+      debug_print("SET REG STATIC: type ");
+      if (value_type == MODBUS_TYPE_DINT) debug_print("dint");
+      else if (value_type == MODBUS_TYPE_DWORD) debug_print("dword");
+      else debug_print("real");
+      debug_print(" requires 2 registers, address ");
+      debug_print_uint(address);
+      debug_print(" out of range (max ");
+      debug_print_uint(HOLDING_REGS_SIZE - 2);
+      debug_println(")");
+      return;
+    }
+
+    // Also check if second register crosses into ST Logic reserved range
+    if ((address < 200 && address + 1 >= 200) || (address >= 200 && address < 300)) {
+      debug_println("SET REG STATIC: ERROR - Multi-register type crosses into ST Logic reserved range (200-299)");
+      debug_println("  Use addresses 0-198 for 2-register types (DINT/DWORD/REAL)");
+      return;
+    }
+  }
+
+  // Parse and write value based on type
+  StaticRegisterMapping mapping;
+  mapping.register_address = address;
+  mapping.value_type = value_type;
+  mapping.reserved = 0;
+
+  switch (value_type) {
+    case MODBUS_TYPE_UINT: {
+      int32_t temp = atoi(value_str);
+      if (temp < 0 || temp > 65535) {
+        debug_println("SET REG STATIC: uint value must be 0-65535");
+        return;
+      }
+      mapping.value_16 = (uint16_t)temp;
+      registers_set_holding_register(address, mapping.value_16);
+      break;
+    }
+
+    case MODBUS_TYPE_INT: {
+      int32_t temp = atoi(value_str);
+      if (temp < -32768 || temp > 32767) {
+        debug_println("SET REG STATIC: int value must be -32768 to 32767");
+        return;
+      }
+      int16_t signed_val = (int16_t)temp;
+      mapping.value_16 = (uint16_t)signed_val;  // Two's complement
+      registers_set_holding_register(address, mapping.value_16);
+      break;
+    }
+
+    case MODBUS_TYPE_DINT: {
+      int32_t dint_val = atol(value_str);
+      mapping.value_32 = (uint32_t)dint_val;
+      uint16_t low_word = (uint16_t)(mapping.value_32 & 0xFFFF);
+      uint16_t high_word = (uint16_t)((mapping.value_32 >> 16) & 0xFFFF);
+      registers_set_holding_register(address, low_word);
+      registers_set_holding_register(address + 1, high_word);
+      break;
+    }
+
+    case MODBUS_TYPE_DWORD: {
+      uint32_t dword_val = strtoul(value_str, NULL, 10);
+      mapping.value_32 = dword_val;
+      uint16_t low_word = (uint16_t)(mapping.value_32 & 0xFFFF);
+      uint16_t high_word = (uint16_t)((mapping.value_32 >> 16) & 0xFFFF);
+      registers_set_holding_register(address, low_word);
+      registers_set_holding_register(address + 1, high_word);
+      break;
+    }
+
+    case MODBUS_TYPE_REAL: {
+      float real_val = atof(value_str);
+      mapping.value_real = real_val;
+      uint32_t bits;
+      memcpy(&bits, &real_val, sizeof(float));
+      uint16_t low_word = (uint16_t)(bits & 0xFFFF);
+      uint16_t high_word = (uint16_t)((bits >> 16) & 0xFFFF);
+      registers_set_holding_register(address, low_word);
+      registers_set_holding_register(address + 1, high_word);
+      break;
+    }
+
+    default:
+      debug_println("SET REG STATIC: unknown type");
+      return;
+  }
+
+  // Store in config for persistence
   uint8_t found = 0;
   for (uint8_t i = 0; i < g_persist_config.static_reg_count; i++) {
     if (g_persist_config.static_regs[i].register_address == address) {
-      g_persist_config.static_regs[i].static_value = value;
+      g_persist_config.static_regs[i] = mapping;
       found = 1;
       break;
     }
@@ -70,17 +204,26 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
       return;
     }
 
-    uint8_t idx = g_persist_config.static_reg_count;
-    g_persist_config.static_regs[idx].register_address = address;
-    g_persist_config.static_regs[idx].static_value = value;
+    g_persist_config.static_regs[g_persist_config.static_reg_count] = mapping;
     g_persist_config.static_reg_count++;
   }
 
+  // Display confirmation
   debug_print("Register ");
   debug_print_uint(address);
+  if (value_type == MODBUS_TYPE_DINT || value_type == MODBUS_TYPE_DWORD || value_type == MODBUS_TYPE_REAL) {
+    debug_print("-");
+    debug_print_uint(address + 1);
+  }
   debug_print(" STATIC = ");
-  debug_print_uint(value);
-  debug_println("");
+  debug_print(value_str);
+  debug_print(" (");
+  if (value_type == MODBUS_TYPE_UINT) debug_print("uint");
+  else if (value_type == MODBUS_TYPE_INT) debug_print("int");
+  else if (value_type == MODBUS_TYPE_DINT) debug_print("dint");
+  else if (value_type == MODBUS_TYPE_DWORD) debug_print("dword");
+  else if (value_type == MODBUS_TYPE_REAL) debug_print("real");
+  debug_println(")");
 }
 
 /**
@@ -233,10 +376,37 @@ void cli_cmd_show_regs(void) {
   if (g_persist_config.static_reg_count > 0) {
     debug_println("# STATIC registers");
     for (uint8_t i = 0; i < g_persist_config.static_reg_count; i++) {
-      debug_print("reg STATIC ");
-      debug_print_uint(g_persist_config.static_regs[i].register_address);
+      const StaticRegisterMapping* map = &g_persist_config.static_regs[i];
+      debug_print("set reg STATIC ");
+      debug_print_uint(map->register_address);
       debug_print(" Value ");
-      debug_print_uint(g_persist_config.static_regs[i].static_value);
+
+      // Print type
+      if (map->value_type == MODBUS_TYPE_UINT) {
+        debug_print("uint ");
+        debug_print_uint(map->value_16);
+      } else if (map->value_type == MODBUS_TYPE_INT) {
+        debug_print("int ");
+        int16_t signed_val = (int16_t)map->value_16;
+        char str[16];
+        snprintf(str, sizeof(str), "%d", signed_val);
+        debug_print(str);
+      } else if (map->value_type == MODBUS_TYPE_DINT) {
+        debug_print("dint ");
+        int32_t dint_val = (int32_t)map->value_32;
+        char str[16];
+        snprintf(str, sizeof(str), "%ld", dint_val);
+        debug_print(str);
+      } else if (map->value_type == MODBUS_TYPE_DWORD) {
+        debug_print("dword ");
+        debug_print_uint(map->value_32);
+      } else if (map->value_type == MODBUS_TYPE_REAL) {
+        debug_print("real ");
+        char str[16];
+        snprintf(str, sizeof(str), "%.2f", map->value_real);
+        debug_print(str);
+      }
+
       debug_println("");
     }
   }
