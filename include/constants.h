@@ -298,16 +298,24 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "4.7.1"
+#define PROJECT_VERSION     "4.7.2"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v4.7.2 (2026-01-04): CLI Consistency & Documentation - Holding-Reg vs Input-Reg Naming
+ *                      - BUG-144: CLI naming standardiseret (holding-reg vs input-reg)
+ *                      - BUG-145: Fixed missing "read input-reg" i help message
+ *                      - BUG-143: Dokumenteret IR 220-251 begrænsning (8 vars/program)
+ *                      - MODBUS_REGISTER_MAP.md opdateret med CLI kommando guide
+ *                      - Alle help messages konsekvent: "holding-reg" vs "input-reg"
+ *                      - Build #973-974
  * v4.7.1 (2026-01-04): Persistent Register Type Support & Documentation Updates
  *                      - FEAT-001: set reg STATIC multi-type support (UINT/INT/DINT/DWORD/REAL)
  *                      - Schema migration v8 → v9 (StaticRegisterMapping struct expansion)
  *                      - Register range validation (ST Logic HR 200-237 protection)
  *                      - Documentation corrections (MODBUS_REGISTER_MAP.md HR/IR ranges)
  *                      - BUG-142: Identified range validation too broad (pending fix)
+ *                      - Build #966-972
  * v4.7.0 (2026-01-01): Advanced ST Functions & Memory Optimization
  *                      - 13 new ST functions: EXP/LN/LOG/POW, R_TRIG/F_TRIG, TON/TOF/TP, CTU/CTD/CTUD
  *                      - Stateful function blocks with automatic instance allocation

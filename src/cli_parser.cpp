@@ -169,7 +169,9 @@ static const char* normalize_alias(const char* s) {
   if (!strcmp(s, "TIMING") || !strcmp(s, "timing")) return "TIMING";
 
   // System commands (for SET context)
-  if (!strcmp(s, "REG") || !strcmp(s, "reg")) return "REG";
+  if (!strcmp(s, "REG") || !strcmp(s, "reg") ||
+      !strcmp(s, "HOLDING-REG") || !strcmp(s, "holding-reg") ||
+      !strcmp(s, "HOLDING_REG") || !strcmp(s, "holding_reg")) return "REG";
   if (!strcmp(s, "COIL") || !strcmp(s, "coil")) return "COIL";
   if (!strcmp(s, "GPIO") || !strcmp(s, "gpio")) return "GPIO";
   if (!strcmp(s, "ID") || !strcmp(s, "id")) return "ID";
@@ -788,22 +790,23 @@ bool cli_parser_execute(char* line) {
       return true;
     } else if (!strcmp(what, "REG")) {
       if (argc < 3) {
-        debug_println("SET REG: missing parameters");
-        debug_println("  Usage: set reg STATIC <address> Value <value>");
-        debug_println("         set reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>");
+        debug_println("SET HOLDING-REG: missing parameters");
+        debug_println("  Usage: set holding-reg STATIC <address> Value [type] <value>  (eller: set reg)");
+        debug_println("         set holding-reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>");
+        debug_println("  Types: uint (default), int, dint, dword, real");
         return false;
       }
 
       const char* mode = normalize_alias(argv[2]);
 
       if (!strcmp(mode, "STATIC")) {
-        // set reg STATIC <address> Value <value>
+        // set holding-reg STATIC <address> Value <value>
         cli_cmd_set_reg_static(argc - 3, argv + 3);
       } else if (!strcmp(mode, "DYNAMIC")) {
-        // set reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>
+        // set holding-reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>
         cli_cmd_set_reg_dynamic(argc - 3, argv + 3);
       } else {
-        debug_println("SET REG: invalid mode (must be STATIC or DYNAMIC)");
+        debug_println("SET HOLDING-REG: invalid mode (must be STATIC or DYNAMIC)");
         return false;
       }
       return true;
@@ -1342,7 +1345,7 @@ bool cli_parser_execute(char* line) {
     debug_println("  set echo on|off         - Remote echo\n");
 
     debug_println("Modbus Read/Write (r, w):");
-    debug_println("  read reg <addr> [count]      - Read holding registers");
+    debug_println("  read holding-reg <addr> [count]  - Read holding registers (or: read reg)");
     debug_println("  read coil <addr> [count]          - Read coils");
     debug_println("  read input <addr> [count]         - Read discrete inputs");
     debug_println("  read input-reg <addr> [count]     - Read input registers");
@@ -1395,7 +1398,8 @@ bool cli_parser_execute(char* line) {
     // read <what> <params...>
     if (argc < 2) {
       debug_println("READ: manglende argument");
-      debug_println("  Brug: read reg <id> <antal>");
+      debug_println("  Brug: read holding-reg <id> <antal>  (eller: read reg)");
+      debug_println("        read input-reg <id> <antal>");
       debug_println("        read coil <id> <antal>");
       debug_println("        read input <id> <antal>");
       return false;
@@ -1502,7 +1506,7 @@ void cli_parser_print_help(void) {
   debug_println("");
   debug_println("Modbus Read/Write Commands:");
   debug_println("  === HOLDING REGISTERS (FC03 Read / FC06-FC10 Write) ===");
-  debug_println("  read reg <id> [count]                     - Read holding registers (HR)");
+  debug_println("  read holding-reg <id> [count]             - Read holding registers (HR)");
   debug_println("  write reg <addr> value uint <0..65535>    - Write unsigned holding register");
   debug_println("  write reg <addr> value int <-32768..32767> - Write signed holding register (two's complement)");
   debug_println("");
@@ -1521,8 +1525,8 @@ void cli_parser_print_help(void) {
   debug_println("  read input <id> <count>            - Read discrete inputs");
   debug_println("");
   debug_println("Configuration:");
-  debug_println("  set reg STATIC <address> Value <value>");
-  debug_println("  set reg DYNAMIC <address> counter<id>:<func> or timer<id>:<func>");
+  debug_println("  set holding-reg STATIC <address> Value [type] <value>");
+  debug_println("  set holding-reg DYNAMIC <address> counter<id>:<func> or timer<id>:<func>");
   debug_println("    Counter functions: index, raw, freq, overflow, ctrl");
   debug_println("    Timer functions: output");
   debug_println("");

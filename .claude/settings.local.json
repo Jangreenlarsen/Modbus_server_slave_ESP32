@@ -41,7 +41,12 @@
       "Bash(python fix_st_tests_final.py:*)",
       "Bash(git commit -m \"$(cat <<''EOF''\nFEATURE: CLI - Signed/Unsigned Register Write Commands (Build #792)\n\nImplementeret differentierede CLI kommandoer til Modbus register skrivning:\n\n**NYE KOMMANDOER:**\n- `write reg <addr> value uint <0-65535>` - unsigned (validerer >= 0)\n- `write reg <addr> value int <-32768-32767>` - signed (two''s complement)\n\n**EKSISTERENDE (ingen ændring):**\n- `read reg <addr> [count]` - læser holding registers\n- `read coil <addr> [count]` - læser coils\n- `read input <addr> [count]` - læser discrete inputs\n- `write coil <addr> value <0|1>` - skriver coil\n\n**ÆNDRINGER:**\n1. `src/cli_commands.cpp`:\n   - Modificeret `cli_cmd_write_reg()` til at acceptere `uint`/`int` type\n   - Tilføjet signed integer konvertering til two''s complement\n   - Validering: uint >= 0, int mellem -32768 og 32767\n   - Display viser både signed værdi og lagret uint16_t værdi\n\n2. `src/cli_parser.cpp`:\n   - Opdateret help tekst i `commands` liste\n   - Opdateret help tekst i `help` kommando\n   - Opdateret eksempler i timer control sektion\n\n3. `ST_COMPLETE_TEST_PLAN.md`:\n   - Tilføjet komplet test plan for alle ST funktioner (59 tests)\n   - Konverteret alle test cases til nye CLI kommando format\n   - Test cases klar til copy/paste udførelse\n\n**TEKNISK:**\n- INT16 værdier gemmes som uint16_t via two''s complement\n- -10 gemmes som 65526 (0xFFF6) i Modbus register\n- ST Logic interpreter læser det tilbage som int32_t korrekt\n- Backward compatible: Gamle kommandoer uden type virker ikke længere\n\n**BUILD:**\n- Build #792\n- Kompileret og testet ✅\n- Ingen breaking changes i core funktionalitet\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
       "Bash(echo:*)",
-      "Bash(gcc:*)"
+      "Bash(gcc:*)",
+      "Bash(git reset:*)",
+      "Bash(cat:*)",
+      "Bash(git stash:*)",
+      "Bash(off\"\n\n**Fordele:**\n- Copy/paste ready configuration restore\n- Tydeligt overblik over hvilke programmer der er aktive\n- Konsistent med counter/timer display stil\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push)"
     ],
     "deny": [],
     "ask": []

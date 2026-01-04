@@ -2314,17 +2314,17 @@ void cli_cmd_show_wifi(void) {
  * ============================================================================ */
 
 void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
-  // read reg <id> [antal] [int|uint|real]  (antal og type er optional)
+  // read holding-reg <id> [antal] [int|uint|real]  (antal og type er optional)
   if (argc < 1) {
-    debug_println("READ REG: manglende parametre");
-    debug_println("  Brug: read reg <id> [antal] [int|uint|dint|dword|real]");
-    debug_println("  Eksempel: read reg 90           (l\u00e6ser 1 register som uint)");
-    debug_println("  Eksempel: read reg 90 10        (l\u00e6ser 10 registre som uint)");
-    debug_println("  Eksempel: read reg 90 1 int     (l\u00e6ser 1 register som signed int)");
-    debug_println("  Eksempel: read reg 100 5 uint   (l\u00e6ser 5 registre som unsigned int)");
-    debug_println("  Eksempel: read reg 100 dint     (l\u00e6ser 2 registre som DINT/32-bit signed)");
-    debug_println("  Eksempel: read reg 100 dword    (l\u00e6ser 2 registre som DWORD/32-bit unsigned)");
-    debug_println("  Eksempel: read reg 100 real     (l\u00e6ser 2 registre som REAL/float)");
+    debug_println("READ HOLDING-REG: manglende parametre");
+    debug_println("  Brug: read holding-reg <id> [antal] [int|uint|dint|dword|real]");
+    debug_println("  Eksempel: read holding-reg90           (l\u00e6ser 1 register som uint)");
+    debug_println("  Eksempel: read holding-reg90 10        (l\u00e6ser 10 registre som uint)");
+    debug_println("  Eksempel: read holding-reg90 1 int     (l\u00e6ser 1 register som signed int)");
+    debug_println("  Eksempel: read holding-reg100 5 uint   (l\u00e6ser 5 registre som unsigned int)");
+    debug_println("  Eksempel: read holding-reg100 dint     (l\u00e6ser 2 registre som DINT/32-bit signed)");
+    debug_println("  Eksempel: read holding-reg100 dword    (l\u00e6ser 2 registre som DWORD/32-bit unsigned)");
+    debug_println("  Eksempel: read holding-reg100 real     (l\u00e6ser 2 registre som REAL/float)");
     return;
   }
 
@@ -2385,21 +2385,21 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
 
   // Validate parameters
   if (start_addr >= HOLDING_REGS_SIZE) {
-    debug_print("READ REG: startadresse udenfor omr\u00e5de (max ");
+    debug_print("READ HOLDING-REG: startadresse udenfor omr\u00e5de (max ");
     debug_print_uint(HOLDING_REGS_SIZE - 1);
     debug_println(")");
     return;
   }
 
   if (count == 0) {
-    debug_println("READ REG: antal skal v\u00e6re st\u00f8rre end 0");
+    debug_println("READ HOLDING-REG: antal skal v\u00e6re st\u00f8rre end 0");
     return;
   }
 
   // Adjust count if it exceeds available registers
   if (start_addr + count > HOLDING_REGS_SIZE) {
     count = HOLDING_REGS_SIZE - start_addr;
-    debug_print("READ REG: justeret antal til ");
+    debug_print("READ HOLDING-REG: justeret antal til ");
     debug_print_uint(count);
     debug_println(" registre");
   }
@@ -2409,7 +2409,7 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
   if (display_as_real) {
     // Validate that we have enough registers available (count REAL values = count * 2 registers)
     if (start_addr + (count * 2) > HOLDING_REGS_SIZE) {
-      debug_print("READ REG: REAL kr\u00e6ver ");
+      debug_print("READ HOLDING-REG: REAL kr\u00e6ver ");
       debug_print_uint(count * 2);
       debug_println(" registre, adresse udenfor omr\u00e5de");
       return;
@@ -2462,7 +2462,7 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
   if (display_as_dint) {
     // Validate that we have enough registers available (count DINT values = count * 2 registers)
     if (start_addr + (count * 2) > HOLDING_REGS_SIZE) {
-      debug_print("READ REG: DINT kr\u00e6ver ");
+      debug_print("READ HOLDING-REG: DINT kr\u00e6ver ");
       debug_print_uint(count * 2);
       debug_println(" registre, adresse udenfor omr\u00e5de");
       return;
@@ -2514,7 +2514,7 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
   if (display_as_dword) {
     // Validate that we have enough registers available (count DWORD values = count * 2 registers)
     if (start_addr + (count * 2) > HOLDING_REGS_SIZE) {
-      debug_print("READ REG: DWORD kr\u00e6ver ");
+      debug_print("READ HOLDING-REG: DWORD kr\u00e6ver ");
       debug_print_uint(count * 2);
       debug_println(" registre, adresse udenfor omr\u00e5de");
       return;

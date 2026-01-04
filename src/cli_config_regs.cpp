@@ -17,36 +17,36 @@
 #include <stdio.h>
 
 /**
- * set reg STATIC <address> Value [type] <value>
+ * set holding-reg STATIC <address> Value [type] <value>
  *
  * Examples:
- *   set reg STATIC 100 Value 42              # Legacy: uint16
- *   set reg STATIC 100 Value uint 42         # Explicit uint16
- *   set reg STATIC 100 Value int -500        # Signed int16
- *   set reg STATIC 100 Value dint 100000     # Signed int32 (2 regs)
- *   set reg STATIC 100 Value dword 500000    # Unsigned int32 (2 regs)
- *   set reg STATIC 100 Value real 3.14159    # IEEE-754 float (2 regs)
+ *   set holding-reg STATIC 100 Value 42              # Legacy: uint16
+ *   set holding-reg STATIC 100 Value uint 42         # Explicit uint16
+ *   set holding-reg STATIC 100 Value int -500        # Signed int16
+ *   set holding-reg STATIC 100 Value dint 100000     # Signed int32 (2 regs)
+ *   set holding-reg STATIC 100 Value dword 500000    # Unsigned int32 (2 regs)
+ *   set holding-reg STATIC 100 Value real 3.14159    # IEEE-754 float (2 regs)
  */
 void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
-  // Syntax: set reg STATIC <address> Value [type] <value>
+  // Syntax: set holding-reg STATIC <address> Value [type] <value>
   // type is optional (defaults to uint for backward compatibility)
 
   if (argc < 3) {
-    debug_println("SET REG STATIC: missing arguments");
-    debug_println("  Usage: set reg STATIC <address> Value [type] <value>");
+    debug_println("SET HOLDING-REG STATIC: missing arguments");
+    debug_println("  Usage: set holding-reg STATIC <address> Value [type] <value>");
     debug_println("  Types: uint (default), int, dint, dword, real");
     debug_println("  Examples:");
-    debug_println("    set reg STATIC 100 Value 42");
-    debug_println("    set reg STATIC 100 Value int -500");
-    debug_println("    set reg STATIC 100 Value dint 100000");
-    debug_println("    set reg STATIC 100 Value real 3.14");
+    debug_println("    set holding-reg STATIC 100 Value 42");
+    debug_println("    set holding-reg STATIC 100 Value int -500");
+    debug_println("    set holding-reg STATIC 100 Value dint 100000");
+    debug_println("    set holding-reg STATIC 100 Value real 3.14");
     return;
   }
 
   // Parse address
   uint16_t address = atoi(argv[0]);
   if (address >= HOLDING_REGS_SIZE) {
-    debug_print("SET REG STATIC: address out of range (max ");
+    debug_print("SET HOLDING-REG STATIC: address out of range (max ");
     debug_print_uint(HOLDING_REGS_SIZE - 1);
     debug_println(")");
     return;
@@ -54,7 +54,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
 
   // Validate address against ST Logic reserved range (HR200-299)
   if (address >= 200 && address < 300) {
-    debug_println("SET REG STATIC: ERROR - Address 200-299 reserved for ST Logic system");
+    debug_println("SET HOLDING-REG STATIC: ERROR - Address 200-299 reserved for ST Logic system");
     debug_println("  HR200-203: Logic control registers");
     debug_println("  HR204-235: Logic variable inputs");
     debug_println("  HR236-237: Execution interval");
@@ -64,7 +64,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
 
   // argv[1] should be "Value"
   if (strcmp(argv[1], "Value") != 0) {
-    debug_println("SET REG STATIC: expected 'Value' keyword");
+    debug_println("SET HOLDING-REG STATIC: expected 'Value' keyword");
     return;
   }
 
@@ -92,7 +92,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
     } else if (!strcmp(type_str, "real")) {
       value_type = MODBUS_TYPE_REAL;
     } else {
-      debug_println("SET REG STATIC: invalid type");
+      debug_println("SET HOLDING-REG STATIC: invalid type");
       debug_println("  Valid types: uint, int, dint, dword, real");
       return;
     }
@@ -101,7 +101,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
   // Validate address range for multi-register types
   if ((value_type == MODBUS_TYPE_DINT || value_type == MODBUS_TYPE_DWORD || value_type == MODBUS_TYPE_REAL)) {
     if (address + 1 >= HOLDING_REGS_SIZE) {
-      debug_print("SET REG STATIC: type ");
+      debug_print("SET HOLDING-REG STATIC: type ");
       if (value_type == MODBUS_TYPE_DINT) debug_print("dint");
       else if (value_type == MODBUS_TYPE_DWORD) debug_print("dword");
       else debug_print("real");
@@ -115,7 +115,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
 
     // Also check if second register crosses into ST Logic reserved range
     if ((address < 200 && address + 1 >= 200) || (address >= 200 && address < 300)) {
-      debug_println("SET REG STATIC: ERROR - Multi-register type crosses into ST Logic reserved range (200-299)");
+      debug_println("SET HOLDING-REG STATIC: ERROR - Multi-register type crosses into ST Logic reserved range (200-299)");
       debug_println("  Use addresses 0-198 for 2-register types (DINT/DWORD/REAL)");
       return;
     }
@@ -131,7 +131,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
     case MODBUS_TYPE_UINT: {
       int32_t temp = atoi(value_str);
       if (temp < 0 || temp > 65535) {
-        debug_println("SET REG STATIC: uint value must be 0-65535");
+        debug_println("SET HOLDING-REG STATIC: uint value must be 0-65535");
         return;
       }
       mapping.value_16 = (uint16_t)temp;
@@ -142,7 +142,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
     case MODBUS_TYPE_INT: {
       int32_t temp = atoi(value_str);
       if (temp < -32768 || temp > 32767) {
-        debug_println("SET REG STATIC: int value must be -32768 to 32767");
+        debug_println("SET HOLDING-REG STATIC: int value must be -32768 to 32767");
         return;
       }
       int16_t signed_val = (int16_t)temp;
@@ -184,7 +184,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
     }
 
     default:
-      debug_println("SET REG STATIC: unknown type");
+      debug_println("SET HOLDING-REG STATIC: unknown type");
       return;
   }
 
@@ -200,7 +200,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
 
   if (!found) {
     if (g_persist_config.static_reg_count >= MAX_DYNAMIC_REGS) {
-      debug_println("SET REG STATIC: max STATIC registers reached");
+      debug_println("SET HOLDING-REG STATIC: max STATIC registers reached");
       return;
     }
 
@@ -227,25 +227,25 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
 }
 
 /**
- * set reg DYNAMIC <address> counter<id>:<function>
- * set reg DYNAMIC <address> timer<id>:<function>
+ * set holding-reg DYNAMIC <address> counter<id>:<function>
+ * set holding-reg DYNAMIC <address> timer<id>:<function>
  *
  * Counter functions: index, raw, freq, overflow, ctrl
  * Timer functions: output
  *
  * Examples:
- *   set reg DYNAMIC 100 counter1:index
- *   set reg DYNAMIC 101 counter1:raw
- *   set reg DYNAMIC 102 counter1:freq
- *   set reg DYNAMIC 103 counter1:overflow
- *   set reg DYNAMIC 150 timer2:output
+ *   set holding-reg DYNAMIC 100 counter1:index
+ *   set holding-reg DYNAMIC 101 counter1:raw
+ *   set holding-reg DYNAMIC 102 counter1:freq
+ *   set holding-reg DYNAMIC 103 counter1:overflow
+ *   set holding-reg DYNAMIC 150 timer2:output
  */
 void cli_cmd_set_reg_dynamic(uint8_t argc, char* argv[]) {
-  // set reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>
+  // set holding-reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>
 
   if (argc < 2) {
-    debug_println("SET REG DYNAMIC: missing arguments");
-    debug_println("  Usage: set reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>");
+    debug_println("SET HOLDING-REG DYNAMIC: missing arguments");
+    debug_println("  Usage: set holding-reg DYNAMIC <address> counter<id>:<function> or timer<id>:<function>");
     debug_println("  Counter functions: index, raw, freq, overflow, ctrl");
     debug_println("  Timer functions: output");
     return;
@@ -254,7 +254,7 @@ void cli_cmd_set_reg_dynamic(uint8_t argc, char* argv[]) {
   // Parse address
   uint16_t address = atoi(argv[0]);
   if (address >= HOLDING_REGS_SIZE) {
-    debug_print("SET REG DYNAMIC: address out of range (max ");
+    debug_print("SET HOLDING-REG DYNAMIC: address out of range (max ");
     debug_print_uint(HOLDING_REGS_SIZE - 1);
     debug_println(")");
     return;
@@ -265,7 +265,7 @@ void cli_cmd_set_reg_dynamic(uint8_t argc, char* argv[]) {
   char* colon = strchr(source_str, ':');
 
   if (!colon) {
-    debug_println("SET REG DYNAMIC: invalid format (expected counter<id>:<func> or timer<id>:<func>)");
+    debug_println("SET HOLDING-REG DYNAMIC: invalid format (expected counter<id>:<func> or timer<id>:<func>)");
     return;
   }
 
@@ -282,18 +282,18 @@ void cli_cmd_set_reg_dynamic(uint8_t argc, char* argv[]) {
     source_type = DYNAMIC_SOURCE_COUNTER;
     source_id = atoi(source_copy + 7);
     if (source_id < 1 || source_id > 4) {
-      debug_println("SET REG DYNAMIC: invalid counter ID (must be 1-4)");
+      debug_println("SET HOLDING-REG DYNAMIC: invalid counter ID (must be 1-4)");
       return;
     }
   } else if (strncmp(source_copy, "timer", 5) == 0) {
     source_type = DYNAMIC_SOURCE_TIMER;
     source_id = atoi(source_copy + 5);
     if (source_id < 1 || source_id > 4) {
-      debug_println("SET REG DYNAMIC: invalid timer ID (must be 1-4)");
+      debug_println("SET HOLDING-REG DYNAMIC: invalid timer ID (must be 1-4)");
       return;
     }
   } else {
-    debug_println("SET REG DYNAMIC: invalid source (must be counter<id> or timer<id>)");
+    debug_println("SET HOLDING-REG DYNAMIC: invalid source (must be counter<id> or timer<id>)");
     return;
   }
 
@@ -312,7 +312,7 @@ void cli_cmd_set_reg_dynamic(uint8_t argc, char* argv[]) {
     } else if (!strcmp(function_str, "ctrl")) {
       source_function = COUNTER_FUNC_CTRL;
     } else {
-      debug_println("SET REG DYNAMIC: invalid counter function");
+      debug_println("SET HOLDING-REG DYNAMIC: invalid counter function");
       debug_println("  Valid: index, raw, freq, overflow, ctrl");
       return;
     }
@@ -320,7 +320,7 @@ void cli_cmd_set_reg_dynamic(uint8_t argc, char* argv[]) {
     if (!strcmp(function_str, "output")) {
       source_function = TIMER_FUNC_OUTPUT;
     } else {
-      debug_println("SET REG DYNAMIC: invalid timer function");
+      debug_println("SET HOLDING-REG DYNAMIC: invalid timer function");
       debug_println("  Valid: output");
       return;
     }
@@ -340,7 +340,7 @@ void cli_cmd_set_reg_dynamic(uint8_t argc, char* argv[]) {
 
   if (!found) {
     if (g_persist_config.dynamic_reg_count >= MAX_DYNAMIC_REGS) {
-      debug_println("SET REG DYNAMIC: max DYNAMIC registers reached");
+      debug_println("SET HOLDING-REG DYNAMIC: max DYNAMIC registers reached");
       return;
     }
 
@@ -377,7 +377,7 @@ void cli_cmd_show_regs(void) {
     debug_println("# STATIC registers");
     for (uint8_t i = 0; i < g_persist_config.static_reg_count; i++) {
       const StaticRegisterMapping* map = &g_persist_config.static_regs[i];
-      debug_print("set reg STATIC ");
+      debug_print("set holding-reg STATIC ");
       debug_print_uint(map->register_address);
       debug_print(" Value ");
 

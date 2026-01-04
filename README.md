@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v4.7.1 | **Build:** #969 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v4.7.2 | **Build:** #974 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, telnet CLI interface, og komplet Modbus register dokumentation.
 
@@ -3144,6 +3144,22 @@ empty := CTD(dispense, reload, 50);              (* Count down from 50 *)
 ---
 
 ## 📝 Version History
+
+- **v4.7.2** (2026-01-04) - 📋 CLI Consistency & Documentation - Holding-Reg vs Input-Reg Naming
+  - **CLI Naming Standardization:**
+    - All commands now consistently use `holding-reg` vs `input-reg` terminology
+    - Read Holding Registers: `read holding-reg <addr> <count>` (alias: `read reg`)
+    - Read Input Registers: `read input-reg <addr> <count>` ⚠️ **Not "read reg"!**
+    - Set Holding Registers: `set holding-reg STATIC/DYNAMIC ...` (alias: `set reg`)
+  - **Bug Fixes:**
+    - **BUG-144:** Fixed confusing CLI - ST variable VALUES are in IR, not HR
+    - **BUG-145:** Fixed missing "read input-reg" option in help message
+    - **BUG-143:** Documented IR 220-251 limitation (8 variables/program, not 32)
+  - **Documentation Updates:**
+    - MODBUS_REGISTER_MAP.md: Added CLI command guide at top
+    - Clarified: ST Logic variable VALUES are in IR 220-251 (read-only)
+    - Updated all help messages to use consistent "holding-reg" / "input-reg" terminology
+  - **Build:** #973-974
 
 - **v4.7.1** (2026-01-04) - 🔧 Persistent Register Type Support & Documentation Updates
   - **NEW FEATURE: `set reg STATIC` Multi-Type Support (FEAT-001)**

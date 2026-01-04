@@ -1,7 +1,7 @@
 # Modbus Register Map - ESP32 Modbus RTU Server
 
-**Version:** v4.4.3
-**Dato:** 2025-12-29
+**Version:** v4.7.2
+**Dato:** 2026-01-04
 **Hardware:** ESP32-WROOM-32
 
 ---
@@ -15,6 +15,12 @@ Dette dokument beskriver **ALLE** Modbus registre, coils og discrete inputs som 
 - **Input Registers (IR):** Read-Only, 16-bit, FC04
 - **Coils (C):** Read-Write, 1-bit, FC01/FC05/FC0F
 - **Discrete Inputs (DI):** Read-Only, 1-bit, FC02
+
+**⚠️ VIGTIGT - CLI Kommandoer (v4.7.2+):**
+- Læs **Holding Registers (HR):** `read holding-reg <addr> <count>` (eller: `read reg`)
+- Læs **Input Registers (IR):** `read input-reg <addr> <count>` ⚠️ **Ikke "read reg"!**
+- Skriv **Holding Registers:** `set holding-reg STATIC/DYNAMIC ...` (eller: `set reg`)
+- **ST Logic variable VALUES** ligger i **IR 220-251** (ikke HR!) → Brug `read input-reg 220 32`
 
 **Addressing:**
 - Alle adresser er 0-baserede (Modbus standard)
@@ -73,7 +79,12 @@ For at undgå konflikter mellem system funktioner og bruger data, skal du bruge 
 | **IR 208-211** | 🔒 **SYSTEM** | ST Logic error count (4 programs) | ST Logic engine |
 | **IR 212-215** | 🔒 **SYSTEM** | ST Logic error codes (4 programs) | ST Logic engine |
 | **IR 216-219** | 🔒 **SYSTEM** | ST Logic variable count (4 programs) | ST Logic engine |
-| **IR 220-251** | 🔒 **SYSTEM** | ST Logic variable values (32 registers) | ST Logic engine |
+| **IR 220-251** | 🔒 **SYSTEM** | ST Logic variable values (4 programs × 8 vars = 32 regs) | ST Logic engine |
+|                |               | - IR 220-227: Program 1 variables (8 regs) | |
+|                |               | - IR 228-235: Program 2 variables (8 regs) | |
+|                |               | - IR 236-243: Program 3 variables (8 regs) | |
+|                |               | - IR 244-251: Program 4 variables (8 regs) | |
+|                |               | **Note:** Max 8 vars/program visible in IR | |
 | **IR 252-259** | 🔒 **SYSTEM** | ST Logic min exec time (4 programs × 2 regs) | ST Logic engine |
 | **IR 260-267** | 🔒 **SYSTEM** | ST Logic max exec time (4 programs × 2 regs) | ST Logic engine |
 | **IR 268-275** | 🔒 **SYSTEM** | ST Logic avg exec time (4 programs × 2 regs) | ST Logic engine |
@@ -344,6 +355,13 @@ IR 228 = Logic2.Var[0]  (første variable i Logic2)
 - Kun variabler med bindings vises her
 - Variable index matcher binding configuration
 - Type conversion: BOOL → 0/1, INT → int16_t, REAL → (int16_t)float
+
+**⚠️ VIGTIG BEGRÆNSNING:**
+- ST programmer kan deklarere op til **32 variabler** (st_types.h:299)
+- Men kun de **første 8 variabler** per program får automatisk mapping til IR 220-251
+- Variabler 9-32 har INGEN automatisk IR mapping (kun intern brug i ST program)
+- Kode reference: `registers.cpp:337` → `(prog_id * 8)` allokerer kun 8 registre per program
+- Se BUG-143 for diskussion om at øge denne grænse
 
 ---
 

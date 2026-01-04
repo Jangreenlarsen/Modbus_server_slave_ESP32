@@ -118,6 +118,9 @@
 | BUG-140 | Persistence group_count=255 buffer overflow i show config | ✅ FIXED | 🔴 CRITICAL | v4.7.1 | Out-of-bounds array access → garbage display + crash risk (Build #951 + recovery cmd #953) |
 | BUG-141 | Save/load viser var_map_count i stedet for aktive mappings | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Viser "32 mappings" selvom alle er unused (Build #960) |
 | BUG-142 | `set reg STATIC` blokerer HR238-255 fejlagtigt | ❌ OPEN | 🟠 MEDIUM | v4.7.2 | Validation blokerer HR200-299, men kun HR200-237 er faktisk brugt af ST Logic (Build #969) |
+| BUG-143 | ST Logic IR variable mapping begrænset til 8 per program | 💡 DESIGN | 🟠 MEDIUM | v4.8.0? | ST programmer kan have 32 variabler, men kun 8 mappes til IR220-251 (registers.cpp:337) |
+| BUG-144 | Forvirrende CLI: "read reg" læser HR, men ST vars er i IR | ✅ FIXED | 🔵 LOW | v4.7.2 | Brugere forventer "read reg 220" viser ST vars, men skal bruge "read input-reg 220" (Build #973-974) |
+| BUG-145 | CLI help message mangler "read input-reg" option | ✅ FIXED | 🔵 LOW | v4.7.2 | "read" uden argumenter viste ikke "input-reg" option selvom funktionen findes (Build #973) |
 
 ## Feature Requests / Enhancements
 
