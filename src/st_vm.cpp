@@ -1044,10 +1044,17 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
       result = st_builtin_ctu(arg1, arg2, arg3, instance);
     } else if (func_id == ST_BUILTIN_CTD) {
       result = st_builtin_ctd(arg1, arg2, arg3, instance);
+    } else if (func_id == ST_BUILTIN_CTUD) {
+      // BUG-150 FIX: CTUD with 5 arguments (CU, CD, RESET, LOAD, PV)
+      if (arg_count != 5) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg),
+                 "CTUD requires 5 arguments, got %d", arg_count);
+        return false;
+      }
+      result = st_builtin_ctud(arg1, arg2, arg3, arg4, arg5, instance);
     } else {
-      // CTUD requires 5 arguments - need special handling
-      // For now, return error
-      snprintf(vm->error_msg, sizeof(vm->error_msg), "CTUD not yet implemented in VM");
+      snprintf(vm->error_msg, sizeof(vm->error_msg),
+               "Unknown counter function: %d", func_id);
       return false;
     }
   }
