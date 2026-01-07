@@ -67,6 +67,9 @@ typedef struct {
   uint8_t timer_instance_count;       // TON/TOF/TP instances allocated
   uint8_t counter_instance_count;     // CTU/CTD/CTUD instances allocated
   uint8_t latch_instance_count;       // SR/RS latch instances allocated (v4.7.3)
+  uint8_t hysteresis_instance_count;  // HYSTERESIS instances allocated (v4.8)
+  uint8_t blink_instance_count;       // BLINK instances allocated (v4.8)
+  uint8_t filter_instance_count;      // FILTER instances allocated (v4.8)
 } st_compiler_t;
 
 /**

@@ -13,6 +13,7 @@
 #include "st_builtin_timers.h"
 #include "st_builtin_counters.h"
 #include "st_builtin_latch.h"  // v4.7.3: SR/RS latches
+#include "st_builtin_signal.h"  // v4.8: Signal processing
 #include "debug.h"
 #include <stdlib.h>
 #include <string.h>
@@ -768,13 +769,21 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
   st_builtin_func_t func_id = (st_builtin_func_t)instr->arg.builtin_call.func_id_low;
   uint8_t arg_count = st_builtin_arg_count(func_id);
 
-  st_value_t arg1 = {0}, arg2 = {0}, arg3 = {0};
+  st_value_t arg1 = {0}, arg2 = {0}, arg3 = {0}, arg4 = {0}, arg5 = {0};
   st_datatype_t arg1_type = ST_TYPE_INT;
   st_datatype_t arg2_type = ST_TYPE_INT;
   st_datatype_t arg3_type = ST_TYPE_INT;
+  st_datatype_t arg4_type = ST_TYPE_INT;
+  st_datatype_t arg5_type = ST_TYPE_INT;
 
-  // Pop arguments with type information (in reverse order: arg3, arg2, arg1)
-  // Stack layout: [arg1, arg2, arg3] (top)
+  // Pop arguments with type information (in reverse order: arg5, arg4, arg3, arg2, arg1)
+  // Stack layout: [arg1, arg2, arg3, arg4, arg5] (top)
+  if (arg_count >= 5) {
+    if (!st_vm_pop_typed(vm, &arg5, &arg5_type)) return false;
+  }
+  if (arg_count >= 4) {
+    if (!st_vm_pop_typed(vm, &arg4, &arg4_type)) return false;
+  }
   if (arg_count >= 3) {
     if (!st_vm_pop_typed(vm, &arg3, &arg3_type)) return false;
   }
@@ -1045,6 +1054,47 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     } else {
       result = st_builtin_rs(arg1, arg2, instance);
     }
+  }
+  else if (func_id == ST_BUILTIN_SCALE) {
+    // SCALE - stateless, uses 5 arguments
+    // arg1=IN, arg2=IN_MIN, arg3=IN_MAX, arg4=OUT_MIN, arg5=OUT_MAX
+    result = st_builtin_scale(arg1, arg2, arg3, arg4, arg5);
+  }
+  else if (func_id == ST_BUILTIN_HYSTERESIS) {
+    // HYSTERESIS - stateful (arg1=IN, arg2=HIGH, arg3=LOW)
+    uint8_t instance_id = instr->arg.builtin_call.instance_id;
+    st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
+    if (!stateful || instance_id >= stateful->hysteresis_count) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg),
+               "Invalid hysteresis instance ID: %d", instance_id);
+      return false;
+    }
+    st_hysteresis_instance_t *instance = &stateful->hysteresis[instance_id];
+    result = st_builtin_hysteresis(arg1, arg2, arg3, instance);
+  }
+  else if (func_id == ST_BUILTIN_BLINK) {
+    // BLINK - stateful (arg1=ENABLE, arg2=ON_TIME, arg3=OFF_TIME)
+    uint8_t instance_id = instr->arg.builtin_call.instance_id;
+    st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
+    if (!stateful || instance_id >= stateful->blink_count) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg),
+               "Invalid blink instance ID: %d", instance_id);
+      return false;
+    }
+    st_blink_instance_t *instance = &stateful->blinks[instance_id];
+    result = st_builtin_blink(arg1, arg2, arg3, instance);
+  }
+  else if (func_id == ST_BUILTIN_FILTER) {
+    // FILTER - stateful (arg1=IN, arg2=TIME_CONSTANT)
+    uint8_t instance_id = instr->arg.builtin_call.instance_id;
+    st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
+    if (!stateful || instance_id >= stateful->filter_count) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg),
+               "Invalid filter instance ID: %d", instance_id);
+      return false;
+    }
+    st_filter_instance_t *instance = &stateful->filters[instance_id];
+    result = st_builtin_filter(arg1, arg2, instance);
   }
   else {
     result = st_builtin_call(func_id, arg1, arg2);

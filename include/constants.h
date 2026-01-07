@@ -298,10 +298,20 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "4.7.2"
+#define PROJECT_VERSION     "4.8.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v4.8.0 (2026-01-07): Signal Processing Function Blocks + SR/RS Latches
+ *                      - FEAT: SCALE(IN, IN_MIN, IN_MAX, OUT_MIN, OUT_MAX) - Linear scaling/mapping (5-arg stateless)
+ *                      - FEAT: HYSTERESIS(IN, HIGH, LOW) - Schmitt trigger with dead zone (stateful, 1 byte)
+ *                      - FEAT: BLINK(ENABLE, ON_TIME, OFF_TIME) - Pulse generator (stateful, 6 bytes)
+ *                      - FEAT: FILTER(IN, TIME_CONSTANT) - Exponential moving average low-pass (stateful, 4 bytes)
+ *                      - FEAT: SR/RS bistable latches with priority handling (v4.7.3, Build #999)
+ *                      - Extended VM to support 5-argument functions (previously max 3)
+ *                      - Memory: +88 bytes per program (452→540 bytes)
+ *                      - Documentation: ST_SIGNAL_PROCESSING_DESIGN.md, ST_LATCH_TEST_CASES.md
+ *                      - Build #999-1006
  * v4.7.2 (2026-01-04): CLI Consistency & Documentation - Holding-Reg vs Input-Reg Naming
  *                      - BUG-144: CLI naming standardiseret (holding-reg vs input-reg)
  *                      - BUG-145: Fixed missing "read input-reg" i help message

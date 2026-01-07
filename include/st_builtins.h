@@ -85,6 +85,12 @@ typedef enum {
   ST_BUILTIN_SR,            // SR(S1, R) → BOOL (set-reset latch, reset priority) v4.7.3
   ST_BUILTIN_RS,            // RS(S, R1) → BOOL (reset-set latch, set priority) v4.7.3
 
+  // Signal Processing (v4.8)
+  ST_BUILTIN_SCALE,         // SCALE(IN, IN_MIN, IN_MAX, OUT_MIN, OUT_MAX) → REAL (linear scaling)
+  ST_BUILTIN_HYSTERESIS,    // HYSTERESIS(IN, HIGH, LOW) → BOOL (Schmitt trigger)
+  ST_BUILTIN_BLINK,         // BLINK(ENABLE, ON_TIME, OFF_TIME) → BOOL (pulse generator)
+  ST_BUILTIN_FILTER,        // FILTER(IN, TIME_CONSTANT) → REAL (low-pass filter)
+
   ST_BUILTIN_COUNT          // Total number of built-ins
 } st_builtin_func_t;
 

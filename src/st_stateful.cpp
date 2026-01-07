@@ -23,6 +23,9 @@ void st_stateful_init(st_stateful_storage_t* storage) {
   storage->edge_count = 0;
   storage->counter_count = 0;
   storage->latch_count = 0;  // v4.7.3: SR/RS latches
+  storage->hysteresis_count = 0;  // v4.8: Signal processing
+  storage->blink_count = 0;
+  storage->filter_count = 0;
 
   // Mark as initialized
   storage->initialized = true;
@@ -59,6 +62,21 @@ void st_stateful_reset(st_stateful_storage_t* storage) {
   // Reset all latches (v4.7.3)
   for (uint8_t i = 0; i < storage->latch_count; i++) {
     storage->latches[i].Q = false;
+  }
+
+  // Reset all signal processing instances (v4.8)
+  for (uint8_t i = 0; i < storage->hysteresis_count; i++) {
+    storage->hysteresis[i].Q = false;
+  }
+
+  for (uint8_t i = 0; i < storage->blink_count; i++) {
+    storage->blinks[i].Q = false;
+    storage->blinks[i].state = 0;  // IDLE
+    storage->blinks[i].timer = 0;
+  }
+
+  for (uint8_t i = 0; i < storage->filter_count; i++) {
+    storage->filters[i].out_prev = 0.0f;
   }
 }
 
@@ -175,4 +193,73 @@ st_latch_instance_t* st_stateful_get_latch(st_stateful_storage_t* storage, uint8
   if (!storage || !storage->initialized) return NULL;
   if (instance_id >= storage->latch_count) return NULL;
   return &storage->latches[instance_id];
+}
+
+/* ============================================================================
+ * SIGNAL PROCESSING ALLOCATION (v4.8)
+ * ============================================================================ */
+
+st_hysteresis_instance_t* st_stateful_alloc_hysteresis(st_stateful_storage_t* storage) {
+  if (!storage || !storage->initialized) return NULL;
+  if (storage->hysteresis_count >= ST_MAX_HYSTERESIS_INSTANCES) return NULL;
+
+  // Get next slot
+  st_hysteresis_instance_t* hyst = &storage->hysteresis[storage->hysteresis_count];
+  storage->hysteresis_count++;
+
+  // Initialize hysteresis
+  memset(hyst, 0, sizeof(st_hysteresis_instance_t));
+  hyst->Q = false;
+
+  return hyst;
+}
+
+st_hysteresis_instance_t* st_stateful_get_hysteresis(st_stateful_storage_t* storage, uint8_t instance_id) {
+  if (!storage || !storage->initialized) return NULL;
+  if (instance_id >= storage->hysteresis_count) return NULL;
+  return &storage->hysteresis[instance_id];
+}
+
+st_blink_instance_t* st_stateful_alloc_blink(st_stateful_storage_t* storage) {
+  if (!storage || !storage->initialized) return NULL;
+  if (storage->blink_count >= ST_MAX_BLINK_INSTANCES) return NULL;
+
+  // Get next slot
+  st_blink_instance_t* blink = &storage->blinks[storage->blink_count];
+  storage->blink_count++;
+
+  // Initialize blink
+  memset(blink, 0, sizeof(st_blink_instance_t));
+  blink->Q = false;
+  blink->state = 0;  // IDLE
+  blink->timer = 0;
+
+  return blink;
+}
+
+st_blink_instance_t* st_stateful_get_blink(st_stateful_storage_t* storage, uint8_t instance_id) {
+  if (!storage || !storage->initialized) return NULL;
+  if (instance_id >= storage->blink_count) return NULL;
+  return &storage->blinks[instance_id];
+}
+
+st_filter_instance_t* st_stateful_alloc_filter(st_stateful_storage_t* storage) {
+  if (!storage || !storage->initialized) return NULL;
+  if (storage->filter_count >= ST_MAX_FILTER_INSTANCES) return NULL;
+
+  // Get next slot
+  st_filter_instance_t* filter = &storage->filters[storage->filter_count];
+  storage->filter_count++;
+
+  // Initialize filter
+  memset(filter, 0, sizeof(st_filter_instance_t));
+  filter->out_prev = 0.0f;
+
+  return filter;
+}
+
+st_filter_instance_t* st_stateful_get_filter(st_stateful_storage_t* storage, uint8_t instance_id) {
+  if (!storage || !storage->initialized) return NULL;
+  if (instance_id >= storage->filter_count) return NULL;
+  return &storage->filters[instance_id];
 }

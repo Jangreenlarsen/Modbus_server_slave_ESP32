@@ -511,6 +511,22 @@ uint8_t st_builtin_arg_count(st_builtin_func_t func_id) {
     case ST_BUILTIN_CTUD:          // CTUD(CU, CD, RESET, LOAD, PV)
       return 5;
 
+    // Bistable latches (v4.7.3)
+    case ST_BUILTIN_SR:            // SR(S1, R)
+    case ST_BUILTIN_RS:            // RS(S, R1)
+      return 2;
+
+    // Signal processing (v4.8)
+    case ST_BUILTIN_SCALE:         // SCALE(IN, IN_MIN, IN_MAX, OUT_MIN, OUT_MAX)
+      return 5;
+
+    case ST_BUILTIN_HYSTERESIS:    // HYSTERESIS(IN, HIGH, LOW)
+    case ST_BUILTIN_BLINK:         // BLINK(ENABLE, ON_TIME, OFF_TIME)
+      return 3;
+
+    case ST_BUILTIN_FILTER:        // FILTER(IN, TIME_CONSTANT)
+      return 2;
+
     default:
       return 0;
   }

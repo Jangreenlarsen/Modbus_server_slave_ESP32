@@ -161,21 +161,64 @@ typedef struct {
 } st_latch_instance_t;
 
 /* ============================================================================
+ * SIGNAL PROCESSING INSTANCES (v4.8+)
+ * ============================================================================ */
+
+/**
+ * @brief Hysteresis instance state
+ *
+ * Stores state for HYSTERESIS Schmitt trigger.
+ * Tracks output state to provide hysteresis behavior.
+ */
+typedef struct {
+  bool Q;  // Output state (holds value in dead zone)
+} st_hysteresis_instance_t;
+
+/**
+ * @brief Blink generator instance state
+ *
+ * Stores state for BLINK periodic pulse generator.
+ * Tracks state machine state and timing.
+ */
+typedef struct {
+  bool Q;           // Current output state
+  uint8_t state;    // State machine state (0=IDLE, 1=ON, 2=OFF)
+  uint32_t timer;   // Timestamp in milliseconds
+} st_blink_instance_t;
+
+/**
+ * @brief Low-pass filter instance state
+ *
+ * Stores state for FILTER first-order low-pass filter.
+ * Tracks previous output for exponential moving average.
+ */
+typedef struct {
+  float out_prev;  // Previous output value
+} st_filter_instance_t;
+
+#define ST_MAX_HYSTERESIS_INSTANCES 8  // Max HYSTERESIS instances per program
+#define ST_MAX_BLINK_INSTANCES      8  // Max BLINK instances per program
+#define ST_MAX_FILTER_INSTANCES     8  // Max FILTER instances per program
+
+/* ============================================================================
  * STATEFUL STORAGE CONTAINER
  * ============================================================================ */
 
 /**
  * @brief Complete stateful storage for one ST program
  *
- * Holds all stateful instances (timers, edges, counters) for a single
+ * Holds all stateful instances (timers, edges, counters, latches, signal) for a single
  * ST Logic program. Allocated per-program and persists across cycles.
  *
- * Memory: ~452 bytes per program (v4.7.3+ with SR/RS latches)
+ * Memory: ~540 bytes per program (v4.8+ with signal processing)
  * - Timers: 8 × ~24 bytes = 192 bytes
  * - Edges: 8 × 8 bytes = 64 bytes
  * - Counters: 8 × ~20 bytes = 160 bytes
- * - Latches: 8 × 4 bytes = 32 bytes (NEW v4.7.3)
- * - Total: ~452 bytes
+ * - Latches: 8 × 4 bytes = 32 bytes (v4.7.3)
+ * - Hysteresis: 8 × 1 byte = 8 bytes (v4.8)
+ * - Blink: 8 × 6 bytes = 48 bytes (v4.8)
+ * - Filter: 8 × 4 bytes = 32 bytes (v4.8)
+ * - Total: ~540 bytes
  */
 typedef struct {
   // Timer instances (TON/TOF/TP)
@@ -193,6 +236,16 @@ typedef struct {
   // Latch instances (SR/RS) - v4.7.3
   st_latch_instance_t latches[ST_MAX_LATCH_INSTANCES];
   uint8_t latch_count;  // Number of allocated latch instances
+
+  // Signal processing instances - v4.8
+  st_hysteresis_instance_t hysteresis[ST_MAX_HYSTERESIS_INSTANCES];
+  uint8_t hysteresis_count;
+
+  st_blink_instance_t blinks[ST_MAX_BLINK_INSTANCES];
+  uint8_t blink_count;
+
+  st_filter_instance_t filters[ST_MAX_FILTER_INSTANCES];
+  uint8_t filter_count;
 
   // Initialization flag
   bool initialized;
@@ -301,5 +354,56 @@ st_latch_instance_t* st_stateful_alloc_latch(st_stateful_storage_t* storage, st_
  * @return Pointer to latch instance, or NULL if invalid ID
  */
 st_latch_instance_t* st_stateful_get_latch(st_stateful_storage_t* storage, uint8_t instance_id);
+
+/**
+ * @brief Allocate a new hysteresis instance (v4.8)
+ *
+ * @param storage Pointer to storage structure
+ * @return Pointer to allocated hysteresis instance, or NULL if no slots available
+ */
+st_hysteresis_instance_t* st_stateful_alloc_hysteresis(st_stateful_storage_t* storage);
+
+/**
+ * @brief Get hysteresis instance by ID (v4.8)
+ *
+ * @param storage Pointer to storage structure
+ * @param instance_id Hysteresis instance ID (0-7)
+ * @return Pointer to hysteresis instance, or NULL if invalid ID
+ */
+st_hysteresis_instance_t* st_stateful_get_hysteresis(st_stateful_storage_t* storage, uint8_t instance_id);
+
+/**
+ * @brief Allocate a new blink instance (v4.8)
+ *
+ * @param storage Pointer to storage structure
+ * @return Pointer to allocated blink instance, or NULL if no slots available
+ */
+st_blink_instance_t* st_stateful_alloc_blink(st_stateful_storage_t* storage);
+
+/**
+ * @brief Get blink instance by ID (v4.8)
+ *
+ * @param storage Pointer to storage structure
+ * @param instance_id Blink instance ID (0-7)
+ * @return Pointer to blink instance, or NULL if invalid ID
+ */
+st_blink_instance_t* st_stateful_get_blink(st_stateful_storage_t* storage, uint8_t instance_id);
+
+/**
+ * @brief Allocate a new filter instance (v4.8)
+ *
+ * @param storage Pointer to storage structure
+ * @return Pointer to allocated filter instance, or NULL if no slots available
+ */
+st_filter_instance_t* st_stateful_alloc_filter(st_stateful_storage_t* storage);
+
+/**
+ * @brief Get filter instance by ID (v4.8)
+ *
+ * @param storage Pointer to storage structure
+ * @param instance_id Filter instance ID (0-7)
+ * @return Pointer to filter instance, or NULL if invalid ID
+ */
+st_filter_instance_t* st_stateful_get_filter(st_stateful_storage_t* storage, uint8_t instance_id);
 
 #endif // ST_STATEFUL_H

@@ -265,6 +265,7 @@ gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
 |------|---------|
 | `st_builtins.cpp/h` | Built-in ST functions (ABS, MIN, MAX, etc.) |
 | `st_builtin_persist.cpp/h` | Persistent ST variable storage |
+| `st_builtin_signal.cpp/h` | Signal processing (SCALE, HYSTERESIS, BLINK, FILTER) v4.8 |
 
 ---
 

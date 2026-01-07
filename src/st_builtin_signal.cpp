@@ -1,0 +1,179 @@
+/**
+ * @file st_builtin_signal.cpp
+ * @brief ST Signal Processing Function Implementation
+ *
+ * Implements signal processing and conditioning functions.
+ */
+
+#include "st_builtin_signal.h"
+#include <Arduino.h>
+#include <math.h>
+
+/* ============================================================================
+ * SCALE - Linear Scaling/Mapping
+ * ============================================================================ */
+
+st_value_t st_builtin_scale(st_value_t in, st_value_t in_min, st_value_t in_max,
+                             st_value_t out_min, st_value_t out_max) {
+  st_value_t result;
+  result.real_val = 0.0f;
+
+  // Extract values
+  float in_val = in.real_val;
+  float in_min_val = in_min.real_val;
+  float in_max_val = in_max.real_val;
+  float out_min_val = out_min.real_val;
+  float out_max_val = out_max.real_val;
+
+  // Avoid divide-by-zero
+  if (in_max_val == in_min_val) {
+    result.real_val = out_min_val;
+    return result;
+  }
+
+  // Clamp input to input range
+  if (in_val < in_min_val) {
+    in_val = in_min_val;
+  }
+  if (in_val > in_max_val) {
+    in_val = in_max_val;
+  }
+
+  // Linear scaling: OUT = (IN - IN_MIN) / (IN_MAX - IN_MIN) * (OUT_MAX - OUT_MIN) + OUT_MIN
+  float span_in = in_max_val - in_min_val;
+  float span_out = out_max_val - out_min_val;
+  result.real_val = (in_val - in_min_val) * span_out / span_in + out_min_val;
+
+  return result;
+}
+
+/* ============================================================================
+ * HYSTERESIS - Schmitt Trigger
+ * ============================================================================ */
+
+st_value_t st_builtin_hysteresis(st_value_t in, st_value_t high, st_value_t low,
+                                  st_hysteresis_instance_t* instance) {
+  st_value_t result;
+  result.bool_val = false;
+
+  if (!instance) {
+    return result;  // No storage - cannot maintain state
+  }
+
+  // Extract input values
+  float in_val = in.real_val;
+  float high_val = high.real_val;
+  float low_val = low.real_val;
+
+  // Hysteresis logic
+  if (in_val > high_val) {
+    // Above upper threshold - switch ON
+    instance->Q = true;
+  } else if (in_val < low_val) {
+    // Below lower threshold - switch OFF
+    instance->Q = false;
+  }
+  // Else: in dead zone (low ≤ in ≤ high) - hold previous state
+
+  // Return current output state
+  result.bool_val = instance->Q;
+  return result;
+}
+
+/* ============================================================================
+ * BLINK - Periodic Pulse Generator
+ * ============================================================================ */
+
+st_value_t st_builtin_blink(st_value_t enable, st_value_t on_time, st_value_t off_time,
+                             st_blink_instance_t* instance) {
+  st_value_t result;
+  result.bool_val = false;
+
+  if (!instance) {
+    return result;  // No storage - cannot maintain state
+  }
+
+  // Extract input values
+  bool enable_val = enable.bool_val;
+  uint32_t on_time_ms = (uint32_t)on_time.int_val;
+  uint32_t off_time_ms = (uint32_t)off_time.int_val;
+
+  // Get current timestamp
+  uint32_t now = millis();
+
+  // State machine
+  if (!enable_val) {
+    // Disabled - reset to IDLE
+    instance->Q = false;
+    instance->state = 0;  // IDLE
+    instance->timer = now;
+  } else {
+    if (instance->state == 0) {
+      // IDLE → Start blinking
+      instance->Q = true;
+      instance->timer = now;
+      instance->state = 1;  // ON_PHASE
+    } else if (instance->state == 1) {
+      // ON_PHASE - check if ON duration expired
+      if ((now - instance->timer) >= on_time_ms) {
+        instance->Q = false;
+        instance->timer = now;
+        instance->state = 2;  // OFF_PHASE
+      }
+    } else if (instance->state == 2) {
+      // OFF_PHASE - check if OFF duration expired
+      if ((now - instance->timer) >= off_time_ms) {
+        instance->Q = true;
+        instance->timer = now;
+        instance->state = 1;  // ON_PHASE
+      }
+    }
+  }
+
+  // Return current output state
+  result.bool_val = instance->Q;
+  return result;
+}
+
+/* ============================================================================
+ * FILTER - First-Order Low-Pass Filter
+ * ============================================================================ */
+
+st_value_t st_builtin_filter(st_value_t in, st_value_t time_constant,
+                              st_filter_instance_t* instance) {
+  st_value_t result;
+  result.real_val = 0.0f;
+
+  if (!instance) {
+    return result;  // No storage - cannot maintain state
+  }
+
+  // Extract input values
+  float in_val = in.real_val;
+  float tau = (float)time_constant.int_val;  // Time constant in ms
+
+  // Avoid negative or zero time constant
+  if (tau <= 0.0f) {
+    // No filtering - pass through
+    instance->out_prev = in_val;
+    result.real_val = in_val;
+    return result;
+  }
+
+  // Cycle time (DT) - assume 10ms for 100Hz execution
+  // TODO: Get actual cycle time from system
+  float DT = 10.0f;  // milliseconds
+
+  // Calculate smoothing factor: α = DT / (τ + DT)
+  float alpha = DT / (tau + DT);
+
+  // Exponential moving average: OUT = OUT_prev + α * (IN - OUT_prev)
+  float out_val = instance->out_prev + alpha * (in_val - instance->out_prev);
+
+  // Update state
+  instance->out_prev = out_val;
+
+  // Return filtered output
+  result.real_val = out_val;
+  return result;
+}

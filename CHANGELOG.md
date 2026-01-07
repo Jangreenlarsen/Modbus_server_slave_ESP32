@@ -4,6 +4,94 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [4.8.0] - 2026-01-07 🎛️ (Signal Processing Function Blocks)
+
+### ✨ NEW FEATURES
+
+**Signal Processing and Conditioning (IEC 61131-3 Industrial Applications)**
+- **Feature:** Added 4 industrial signal processing function blocks
+- **Standard:** Designed for PLC-style signal conditioning and processing
+- **Files Added:**
+  - `include/st_builtin_signal.h` - Signal processing function declarations
+  - `src/st_builtin_signal.cpp` - SCALE/HYSTERESIS/BLINK/FILTER implementations
+  - `docs/ST_SIGNAL_PROCESSING_DESIGN.md` - Design specification
+  - `docs/ST_LATCH_TEST_CASES.md` - SR/RS latch test suite (14 test cases)
+- **Files Modified:**
+  - `include/st_stateful.h` - Added signal processing instance storage
+  - `src/st_stateful.cpp` - Added allocation for hysteresis/blink/filter
+  - `include/st_builtins.h` - Added 4 new builtin enums
+  - `include/st_compiler.h` - Added instance counters (3 new types)
+  - `src/st_compiler.cpp` - Extended VM to support 5-argument functions
+  - `src/st_vm.cpp` - Added signal processing execution handlers
+  - `src/st_builtins.cpp` - Added argument count logic
+
+**SCALE - Linear Scaling/Mapping (Stateless):**
+```structured-text
+(* Scale 4-20mA sensor (0-16383 ADC) to 0-100°C *)
+VAR
+  adc_reading : REAL;      (* 0-16383 *)
+  temperature : REAL;      (* °C *)
+END_VAR
+
+temperature := SCALE(adc_reading, 0.0, 16383.0, 0.0, 100.0);
+(* Clamps input to range, linear interpolation *)
+```
+
+**HYSTERESIS - Schmitt Trigger with Dead Zone (Stateful):**
+```structured-text
+(* Temperature control with 2°C hysteresis *)
+VAR
+  temp : REAL;
+  heater_on : BOOL;
+END_VAR
+
+heater_on := HYSTERESIS(temp, 22.0, 20.0);
+(* ON when temp < 20°C, OFF when temp > 22°C *)
+(* Dead zone 20-22°C: output holds previous state *)
+```
+
+**BLINK - Pulse Generator (Stateful):**
+```structured-text
+(* Warning light: 500ms ON, 500ms OFF *)
+VAR
+  enable : BOOL;
+  led_state : BOOL;
+END_VAR
+
+led_state := BLINK(enable, 500, 500);
+(* State machine: IDLE → ON_PHASE → OFF_PHASE *)
+```
+
+**FILTER - Exponential Moving Average (Stateful):**
+```structured-text
+(* Smooth noisy sensor with 1000ms time constant *)
+VAR
+  sensor_raw : REAL;
+  sensor_smooth : REAL;
+END_VAR
+
+sensor_smooth := FILTER(sensor_raw, 1000);
+(* Low-pass filter, alpha = DT/(tau+DT) *)
+```
+
+**Memory Usage:**
+- SCALE: 0 bytes (stateless)
+- HYSTERESIS instance: 1 byte (Q state)
+- BLINK instance: 6 bytes (Q, state, timer)
+- FILTER instance: 4 bytes (out_prev)
+- Max 8 instances per type per ST program
+- Total: +88 bytes per program (452→540 bytes)
+
+**VM Enhancement:**
+- Extended function call support from 3 to 5 arguments
+- Added arg4 and arg5 with type tracking
+- Proper reverse-order argument popping
+
+**Build:** #999-1006
+**Status:** ✅ IMPLEMENTED and TESTED
+
+---
+
 ## [4.7.3] - 2026-01-07 ✨ (SR/RS Bistable Latches)
 
 ### ✨ NEW FEATURES

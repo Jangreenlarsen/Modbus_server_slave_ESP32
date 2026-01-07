@@ -32,6 +32,9 @@ void st_compiler_init(st_compiler_t *compiler) {
   compiler->timer_instance_count = 0;
   compiler->counter_instance_count = 0;
   compiler->latch_instance_count = 0;  // v4.7.3: SR/RS latches
+  compiler->hysteresis_instance_count = 0;  // v4.8: Signal processing
+  compiler->blink_instance_count = 0;
+  compiler->filter_instance_count = 0;
 }
 
 /* ============================================================================
@@ -317,6 +320,11 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
       // v4.7.3: Bistable latches
       else if (strcasecmp(node->data.function_call.func_name, "SR") == 0) func_id = ST_BUILTIN_SR;
       else if (strcasecmp(node->data.function_call.func_name, "RS") == 0) func_id = ST_BUILTIN_RS;
+      // v4.8: Signal processing
+      else if (strcasecmp(node->data.function_call.func_name, "SCALE") == 0) func_id = ST_BUILTIN_SCALE;
+      else if (strcasecmp(node->data.function_call.func_name, "HYSTERESIS") == 0) func_id = ST_BUILTIN_HYSTERESIS;
+      else if (strcasecmp(node->data.function_call.func_name, "BLINK") == 0) func_id = ST_BUILTIN_BLINK;
+      else if (strcasecmp(node->data.function_call.func_name, "FILTER") == 0) func_id = ST_BUILTIN_FILTER;
       else {
         char msg[128];
         snprintf(msg, sizeof(msg), "Unknown function: %s", node->data.function_call.func_name);
@@ -374,7 +382,35 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
         debug_printf("[COMPILER] Allocated latch instance %d for %s\n",
                      instance_id, node->data.function_call.func_name);
       }
-      // Stateless functions use instance_id = 0
+      // Signal processing functions (v4.8)
+      else if (func_id == ST_BUILTIN_HYSTERESIS) {
+        if (compiler->hysteresis_instance_count >= 8) {
+          st_compiler_error(compiler, "Too many hysteresis instances (max 8)");
+          return false;
+        }
+        instance_id = compiler->hysteresis_instance_count++;
+        debug_printf("[COMPILER] Allocated hysteresis instance %d for %s\n",
+                     instance_id, node->data.function_call.func_name);
+      }
+      else if (func_id == ST_BUILTIN_BLINK) {
+        if (compiler->blink_instance_count >= 8) {
+          st_compiler_error(compiler, "Too many blink instances (max 8)");
+          return false;
+        }
+        instance_id = compiler->blink_instance_count++;
+        debug_printf("[COMPILER] Allocated blink instance %d for %s\n",
+                     instance_id, node->data.function_call.func_name);
+      }
+      else if (func_id == ST_BUILTIN_FILTER) {
+        if (compiler->filter_instance_count >= 8) {
+          st_compiler_error(compiler, "Too many filter instances (max 8)");
+          return false;
+        }
+        instance_id = compiler->filter_instance_count++;
+        debug_printf("[COMPILER] Allocated filter instance %d for %s\n",
+                     instance_id, node->data.function_call.func_name);
+      }
+      // Stateless functions (SCALE) use instance_id = 0
 
       // Emit CALL_BUILTIN instruction with instance ID
       return st_compiler_emit_builtin_call(compiler, (int32_t)func_id, instance_id);
