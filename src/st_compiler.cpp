@@ -147,6 +147,14 @@ void st_compiler_patch_jump(st_compiler_t *compiler, uint16_t jump_addr, uint16_
     return;
   }
 
+  // BUG-162 FIX: Validate target_addr bounds
+  if (target_addr >= 1024) {
+    snprintf(compiler->error_msg, sizeof(compiler->error_msg),
+             "Jump target address %u out of bounds (max 1024)", target_addr);
+    compiler->error_count++;
+    return;
+  }
+
   // BUG-120: Detect self-loop (jump to same address)
   if (jump_addr == target_addr) {
     snprintf(compiler->error_msg, sizeof(compiler->error_msg),
@@ -332,6 +340,17 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
         return false;
       }
 
+      // BUG-156 FIX: Validate argument count
+      uint8_t expected_args = st_builtin_arg_count(func_id);
+      if (node->data.function_call.arg_count != expected_args) {
+        char msg[128];
+        snprintf(msg, sizeof(msg), "Function %s expects %d arguments, got %d",
+                 st_builtin_name(func_id), expected_args,
+                 node->data.function_call.arg_count);
+        st_compiler_error(compiler, msg);
+        return false;
+      }
+
       // Compile arguments (push onto stack)
       for (uint8_t i = 0; i < node->data.function_call.arg_count; i++) {
         if (!st_compiler_compile_expr(compiler, node->data.function_call.args[i])) {
@@ -473,6 +492,15 @@ static bool st_compiler_compile_remote_write(st_compiler_t *compiler, st_ast_nod
 }
 
 static bool st_compiler_compile_case(st_compiler_t *compiler, st_ast_node_t *node) {
+  // BUG-168 FIX: Validate branch count does not exceed array bounds
+  if (node->data.case_stmt.branch_count > 16) {
+    char msg[128];
+    snprintf(msg, sizeof(msg), "CASE statement has %d branches, max 16 allowed",
+             node->data.case_stmt.branch_count);
+    st_compiler_error(compiler, msg);
+    return false;
+  }
+
   // Compile the expression being tested
   if (!st_compiler_compile_expr(compiler, node->data.case_stmt.expr)) {
     return false;

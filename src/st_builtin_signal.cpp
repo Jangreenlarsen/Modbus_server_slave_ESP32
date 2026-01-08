@@ -25,9 +25,9 @@ st_value_t st_builtin_scale(st_value_t in, st_value_t in_min, st_value_t in_max,
   float out_min_val = out_min.real_val;
   float out_max_val = out_max.real_val;
 
-  // Avoid divide-by-zero
+  // BUG-161 FIX: Avoid divide-by-zero, return 0.0 instead of arbitrary out_min
   if (in_max_val == in_min_val) {
-    result.real_val = out_min_val;
+    result.real_val = 0.0f;  // Consistent with other math functions (SQRT, LN, etc.)
     return result;
   }
 
@@ -65,6 +65,14 @@ st_value_t st_builtin_hysteresis(st_value_t in, st_value_t high, st_value_t low,
   float high_val = high.real_val;
   float low_val = low.real_val;
 
+  // BUG-176 FIX: Validate that high threshold is greater than low threshold
+  if (high_val <= low_val) {
+    // Invalid thresholds → reset to OFF state and return false
+    instance->Q = false;
+    result.bool_val = false;
+    return result;
+  }
+
   // Hysteresis logic
   if (in_val > high_val) {
     // Above upper threshold - switch ON
@@ -95,6 +103,16 @@ st_value_t st_builtin_blink(st_value_t enable, st_value_t on_time, st_value_t of
 
   // Extract input values
   bool enable_val = enable.bool_val;
+
+  // BUG-165 FIX: Validate time values are non-negative before casting to unsigned
+  if (on_time.int_val < 0 || off_time.int_val < 0) {
+    // Invalid time → disable blinking and return false
+    instance->Q = false;
+    instance->state = 0;  // IDLE
+    result.bool_val = false;
+    return result;
+  }
+
   uint32_t on_time_ms = (uint32_t)on_time.int_val;
   uint32_t off_time_ms = (uint32_t)off_time.int_val;
 

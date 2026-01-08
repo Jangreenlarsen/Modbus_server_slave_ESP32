@@ -46,8 +46,9 @@ static void lexer_skip_whitespace(st_lexer_t *lexer) {
   }
 }
 
-/* Skip comment: (* comment *) */
-static void lexer_skip_comment(st_lexer_t *lexer) {
+/* Skip comment: (* comment *)
+ * BUG-167 FIX: Return false if comment is not terminated */
+static bool lexer_skip_comment(st_lexer_t *lexer) {
   if (lexer->current_char == '(' && lexer_peek(lexer, 1) == '*') {
     lexer_advance(lexer); // skip (
     lexer_advance(lexer); // skip *
@@ -55,11 +56,14 @@ static void lexer_skip_comment(st_lexer_t *lexer) {
       if (lexer->current_char == '*' && lexer_peek(lexer, 1) == ')') {
         lexer_advance(lexer); // skip *
         lexer_advance(lexer); // skip )
-        return;
+        return true;  // BUG-167 FIX: Successfully found comment terminator
       }
       lexer_advance(lexer);
     }
+    // BUG-167 FIX: Reached EOF without finding *) terminator
+    return false;
   }
+  return true;  // Not a comment start
 }
 
 /* ============================================================================
@@ -319,7 +323,15 @@ bool st_lexer_next_token(st_lexer_t *lexer, st_token_t *token) {
   while (1) {
     lexer_skip_whitespace(lexer);
     if (lexer->current_char == '(' && lexer_peek(lexer, 1) == '*') {
-      lexer_skip_comment(lexer);
+      // BUG-167 FIX: Check for unterminated comment
+      if (!lexer_skip_comment(lexer)) {
+        // Unterminated comment - return error token
+        token->type = ST_TOK_ERROR;
+        token->line = lexer->line;
+        token->column = lexer->column;
+        snprintf(token->value, sizeof(token->value), "Unterminated comment (* ... *)");
+        return false;
+      }
     } else {
       break;
     }

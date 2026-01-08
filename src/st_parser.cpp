@@ -25,6 +25,7 @@ void st_parser_init(st_parser_t *parser, const char *input) {
   st_lexer_init(&parser->lexer, input);
   parser->error_count = 0;
   memset(parser->error_msg, 0, sizeof(parser->error_msg));
+  parser->recursion_depth = 0;  // BUG-157 FIX: Initialize recursion depth
 
   // Load first token
   st_lexer_next_token(&parser->lexer, &parser->current_token);
@@ -349,6 +350,12 @@ static st_ast_node_t *parser_parse_primary(st_parser_t *parser) {
 static st_ast_node_t *parser_parse_unary(st_parser_t *parser) {
   uint32_t line = parser->current_token.line;
 
+  // BUG-157 FIX: Check recursion depth to prevent stack overflow
+  if (parser->recursion_depth >= ST_MAX_RECURSION_DEPTH) {
+    parser_error(parser, "Expression nesting too deep (max 32 levels)");
+    return NULL;
+  }
+
   if (parser_match(parser, ST_TOK_MINUS) || parser_match(parser, ST_TOK_NOT)) {
     st_token_type_t op = parser->current_token.type;
     parser_advance(parser);
@@ -360,7 +367,12 @@ static st_ast_node_t *parser_parse_unary(st_parser_t *parser) {
       return NULL;
     }
     node->data.unary_op.op = op;
+
+    // BUG-157 FIX: Increment depth before recursive call
+    parser->recursion_depth++;
     node->data.unary_op.operand = parser_parse_unary(parser);
+    parser->recursion_depth--;  // BUG-157 FIX: Decrement after return
+
     // BUG-081: Check if operand parsing failed
     if (!node->data.unary_op.operand) {
       free(node);
@@ -869,6 +881,13 @@ static st_ast_node_t *parser_parse_case_statement(st_parser_t *parser) {
     node->data.case_stmt.branches[node->data.case_stmt.branch_count].value = case_value;
     node->data.case_stmt.branches[node->data.case_stmt.branch_count].body = case_body;
     node->data.case_stmt.branch_count++;
+  }
+
+  // BUG-168 FIX: Check if we hit max branches while more branches exist
+  if (node->data.case_stmt.branch_count >= 16 && parser_match(parser, ST_TOK_INT)) {
+    parser_error(parser, "CASE statement exceeds maximum of 16 branches");
+    st_ast_node_free(node);
+    return NULL;
   }
 
   // Parse optional ELSE clause

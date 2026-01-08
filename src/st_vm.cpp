@@ -280,6 +280,13 @@ static bool st_vm_exec_add(st_vm_t *vm, st_bytecode_instr_t *instr) {
                     (right_type == ST_TYPE_INT) ? (float)right.int_val :
                     (float)right.dint_val;
     result.real_val = left_f + right_f;
+
+    // BUG-160 FIX: Validate NaN/INF
+    if (isnan(result.real_val) || isinf(result.real_val)) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "Arithmetic overflow (NaN/INF in ADD)");
+      return false;
+    }
+
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
   }
 
@@ -315,6 +322,13 @@ static bool st_vm_exec_sub(st_vm_t *vm, st_bytecode_instr_t *instr) {
                     (right_type == ST_TYPE_INT) ? (float)right.int_val :
                     (float)right.dint_val;
     result.real_val = left_f - right_f;
+
+    // BUG-160 FIX: Validate NaN/INF
+    if (isnan(result.real_val) || isinf(result.real_val)) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "Arithmetic overflow (NaN/INF in SUB)");
+      return false;
+    }
+
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
   }
 
@@ -350,6 +364,13 @@ static bool st_vm_exec_mul(st_vm_t *vm, st_bytecode_instr_t *instr) {
                     (right_type == ST_TYPE_INT) ? (float)right.int_val :
                     (float)right.dint_val;
     result.real_val = left_f * right_f;
+
+    // BUG-160 FIX: Validate NaN/INF
+    if (isnan(result.real_val) || isinf(result.real_val)) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "Arithmetic overflow (NaN/INF in MUL)");
+      return false;
+    }
+
     return st_vm_push_typed(vm, result, ST_TYPE_REAL);
   }
 
@@ -393,6 +414,13 @@ static bool st_vm_exec_div(st_vm_t *vm, st_bytecode_instr_t *instr) {
   }
 
   result.real_val = left_f / right_f;
+
+  // BUG-160 FIX: Validate NaN/INF
+  if (isnan(result.real_val) || isinf(result.real_val)) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg), "Arithmetic overflow (NaN/INF in DIV)");
+    return false;
+  }
+
   return st_vm_push_typed(vm, result, ST_TYPE_REAL);
 }
 
@@ -997,10 +1025,20 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
   }
   // v4.7+: Stateful functions (edge detection, timers, counters)
   else if (func_id == ST_BUILTIN_R_TRIG || func_id == ST_BUILTIN_F_TRIG) {
+    // BUG-158 FIX: Check vm->program first
+    if (!vm->program) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No program loaded");
+      return false;
+    }
+
     // Edge detection functions
     uint8_t instance_id = instr->arg.builtin_call.instance_id;
     st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
-    if (!stateful || instance_id >= stateful->edge_count) {
+    if (!stateful) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No stateful storage allocated");
+      return false;
+    }
+    if (instance_id >= stateful->edge_count) {
       snprintf(vm->error_msg, sizeof(vm->error_msg),
                "Invalid edge detector instance ID: %d", instance_id);
       return false;
@@ -1013,10 +1051,20 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     }
   }
   else if (func_id == ST_BUILTIN_TON || func_id == ST_BUILTIN_TOF || func_id == ST_BUILTIN_TP) {
+    // BUG-158 FIX: Check vm->program first
+    if (!vm->program) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No program loaded");
+      return false;
+    }
+
     // Timer functions
     uint8_t instance_id = instr->arg.builtin_call.instance_id;
     st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
-    if (!stateful || instance_id >= stateful->timer_count) {
+    if (!stateful) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No stateful storage allocated");
+      return false;
+    }
+    if (instance_id >= stateful->timer_count) {
       snprintf(vm->error_msg, sizeof(vm->error_msg),
                "Invalid timer instance ID: %d", instance_id);
       return false;
@@ -1031,10 +1079,20 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     }
   }
   else if (func_id == ST_BUILTIN_CTU || func_id == ST_BUILTIN_CTD || func_id == ST_BUILTIN_CTUD) {
+    // BUG-158 FIX: Check vm->program first
+    if (!vm->program) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No program loaded");
+      return false;
+    }
+
     // Counter functions
     uint8_t instance_id = instr->arg.builtin_call.instance_id;
     st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
-    if (!stateful || instance_id >= stateful->counter_count) {
+    if (!stateful) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No stateful storage allocated");
+      return false;
+    }
+    if (instance_id >= stateful->counter_count) {
       snprintf(vm->error_msg, sizeof(vm->error_msg),
                "Invalid counter instance ID: %d", instance_id);
       return false;
@@ -1059,10 +1117,20 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     }
   }
   else if (func_id == ST_BUILTIN_SR || func_id == ST_BUILTIN_RS) {
+    // BUG-158 FIX: Check vm->program first
+    if (!vm->program) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No program loaded");
+      return false;
+    }
+
     // Latch functions (v4.7.3)
     uint8_t instance_id = instr->arg.builtin_call.instance_id;
     st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
-    if (!stateful || instance_id >= stateful->latch_count) {
+    if (!stateful) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No stateful storage allocated");
+      return false;
+    }
+    if (instance_id >= stateful->latch_count) {
       snprintf(vm->error_msg, sizeof(vm->error_msg),
                "Invalid latch instance ID: %d", instance_id);
       return false;
@@ -1112,11 +1180,21 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     result = st_builtin_scale(in_real, in_min_real, in_max_real, out_min_real, out_max_real);
   }
   else if (func_id == ST_BUILTIN_HYSTERESIS) {
+    // BUG-158 FIX: Check vm->program first
+    if (!vm->program) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No program loaded");
+      return false;
+    }
+
     // BUG-152 FIX: HYSTERESIS - type-aware conversion to REAL
     // arg1=IN, arg2=HIGH, arg3=LOW
     uint8_t instance_id = instr->arg.builtin_call.instance_id;
     st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
-    if (!stateful || instance_id >= stateful->hysteresis_count) {
+    if (!stateful) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No stateful storage allocated");
+      return false;
+    }
+    if (instance_id >= stateful->hysteresis_count) {
       snprintf(vm->error_msg, sizeof(vm->error_msg),
                "Invalid hysteresis instance ID: %d", instance_id);
       return false;
@@ -1146,11 +1224,21 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     result = st_builtin_hysteresis(in_real, high_real, low_real, instance);
   }
   else if (func_id == ST_BUILTIN_BLINK) {
+    // BUG-158 FIX: Check vm->program first
+    if (!vm->program) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No program loaded");
+      return false;
+    }
+
     // BUG-152 FIX: BLINK - type-aware conversion
     // arg1=ENABLE (BOOL), arg2=ON_TIME (INT ms), arg3=OFF_TIME (INT ms)
     uint8_t instance_id = instr->arg.builtin_call.instance_id;
     st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
-    if (!stateful || instance_id >= stateful->blink_count) {
+    if (!stateful) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No stateful storage allocated");
+      return false;
+    }
+    if (instance_id >= stateful->blink_count) {
       snprintf(vm->error_msg, sizeof(vm->error_msg),
                "Invalid blink instance ID: %d", instance_id);
       return false;
@@ -1191,11 +1279,21 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     result = st_builtin_blink(enable_bool, on_time_int, off_time_int, instance);
   }
   else if (func_id == ST_BUILTIN_FILTER) {
+    // BUG-158 FIX: Check vm->program first
+    if (!vm->program) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No program loaded");
+      return false;
+    }
+
     // BUG-152 FIX: FILTER - type-aware conversion
     // arg1=IN (REAL), arg2=TIME_CONSTANT (INT ms)
     uint8_t instance_id = instr->arg.builtin_call.instance_id;
     st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
-    if (!stateful || instance_id >= stateful->filter_count) {
+    if (!stateful) {
+      snprintf(vm->error_msg, sizeof(vm->error_msg), "No stateful storage allocated");
+      return false;
+    }
+    if (instance_id >= stateful->filter_count) {
       snprintf(vm->error_msg, sizeof(vm->error_msg),
                "Invalid filter instance ID: %d", instance_id);
       return false;

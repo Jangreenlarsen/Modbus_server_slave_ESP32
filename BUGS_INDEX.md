@@ -130,6 +130,28 @@
 | BUG-152 | Signal processing antager REAL type uden validering | ✅ FIXED | 🟡 MEDIUM | v4.8.0 | SCALE/HYSTERESIS/BLINK/FILTER bruger direkte .real_val uden type check (st_vm.cpp:1070-1213) (Build #1011) |
 | BUG-153 | FILTER hardcoded cycle time (10ms) | ✅ FIXED | 🟠 MEDIUM | v4.8.1 | Cycle time læses nu fra stateful->cycle_time_ms (st_logic_engine.cpp:51-55, st_builtin_signal.cpp:163-169) (Build #1015) |
 | BUG-154 | Jump target validation manglede | ✅ FIXED | 🟠 MEDIUM | v4.8.0 | JMP/JMP_IF_FALSE/JMP_IF_TRUE validerer ikke target < instr_count (st_vm.cpp:1275-1329) (Build #1012) |
+| BUG-155 | Buffer overflow i st_token_t.value | ❌ OPEN | 🔴 CRITICAL | v4.8.2 | Token buffer kun 256 bytes, lexer kan skrive mere → stack corruption (st_types.h:129) |
+| BUG-156 | Manglende validation af function argument count | ✅ FIXED | 🔴 CRITICAL | v4.8.2 | Compiler validerer ikke antal argumenter → stack corruption (st_compiler.cpp:335-344) (Build #1018) |
+| BUG-157 | Stack overflow risk i parser recursion | ✅ FIXED | 🔴 CRITICAL | v4.8.2 | Rekursiv descent uden depth limit → ESP32 crash (st_parser.h:27, st_parser.cpp:28,353-374) (Build #1018) |
+| BUG-158 | NULL pointer dereference i st_vm_exec_call_builtin | ✅ FIXED | 🔴 CRITICAL | v4.8.2 | Stateful check EFTER brug → NULL deref (st_vm.cpp:1000-1272) (Build #1018) |
+| BUG-159 | Integer overflow i FOR loop | ❌ OPEN | 🟡 HIGH | v4.8.2 | FOR loop inkrement kan overflow → uendelig loop (st_compiler.cpp:696-715) |
+| BUG-160 | Missing NaN/INF validation i arithmetic | ✅ FIXED | 🟡 HIGH | v4.8.2 | REAL arithmetik validerer ikke NaN/INF → propagering (st_vm.cpp:284-422) (Build #1018) |
+| BUG-161 | Division by zero i SCALE function | ✅ FIXED | 🟡 HIGH | v4.8.2 | Returnerer arbitrær værdi uden error (st_builtin_signal.cpp:28-32) (Build #1018) |
+| BUG-162 | Manglende bounds check på bytecode array | ✅ FIXED | 🟡 HIGH | v4.8.2 | target_addr ikke valideret → VM crash (st_compiler.cpp:150-156) (Build #1018) |
+| BUG-163 | Memory leak i parser error paths | ❌ OPEN | 🟡 HIGH | v4.8.2 | Function argument parsing lækker AST nodes (st_parser.cpp:283-312) |
+| BUG-164 | Inefficient linear search i symbol lookup | ❌ OPEN | 🟡 HIGH | v4.8.2 | O(n) lookup for hver variable reference (st_compiler.cpp:73-80) |
+| BUG-165 | Missing input validation i BLINK function | ✅ FIXED | 🟠 MEDIUM | v4.8.2 | Negative time → huge unsigned (st_builtin_signal.cpp:98-99) (Build #1019) |
+| BUG-166 | Race condition i stateful storage access | ❌ OPEN | 🟠 MEDIUM | v4.8.2 | cycle_time_ms uden lock på dual-core ESP32 (st_logic_engine.cpp:54, st_vm.cpp:1222) |
+| BUG-167 | No timeout i lexer comment parsing | ✅ FIXED | 🟠 MEDIUM | v4.8.2 | Unterminated comment scanner til EOF (st_lexer.cpp:50-63) (Build #1019) |
+| BUG-168 | Missing validation af CASE branch count | ✅ FIXED | 🟠 MEDIUM | v4.8.2 | Max 16 branches ikke valideret → memory overwrite (st_compiler.cpp:475-574) (Build #1019) |
+| BUG-169 | Inefficient memory usage i AST nodes | ❌ OPEN | 🔵 LOW | v4.8.2 | Union ~600 bytes per node → høj RAM brug (st_types.h:270-291) |
+| BUG-170 | Missing overflow check i millis() wraparound | ❌ OPEN | 🔵 LOW | v4.8.2 | BLINK timer efter 49+ dage kan glitch (st_builtin_signal.cpp:102-130) |
+| BUG-171 | Suboptimal error messages i compiler | ❌ OPEN | 🔵 LOW | v4.8.2 | Ingen line/column info i fejl (st_compiler.cpp:161-165) |
+| BUG-172 | Missing overflow detection i integer arithmetic | ❌ OPEN | 🟠 MEDIUM | v4.8.2 | IEC 61131-3 kræver detection/clamping, bruger wrapping (st_vm.cpp:296-367) |
+| BUG-173 | MOD operation med negative operands | ❌ OPEN | 🔵 LOW | v4.8.2 | C semantics vs matematik modulo (st_vm.cpp:399-444) |
+| BUG-174 | Missing type validation i binary operations | ❌ OPEN | 🟠 MEDIUM | v4.8.2 | BOOL + BOOL ikke valideret (st_vm.cpp:265-367) |
+| BUG-175 | FILTER function med zero cycle time | ❌ OPEN | 🔵 LOW | v4.8.2 | Fallback til 10ms uden dokumentation (st_builtin_signal.cpp:167-169) |
+| BUG-176 | HYSTERESIS function med inverterede thresholds | ✅ FIXED | 🔵 LOW | v4.8.2 | Ingen validation af high > low (st_builtin_signal.cpp:69-76) (Build #1019) |
 
 ## Feature Requests / Enhancements
 
@@ -176,6 +198,10 @@
 - **BUG-136:** MB_WRITE_COIL mangler value type validering (FIXED v4.6.1 Build #919)
 - **BUG-146:** Use-after-free i config_save.cpp (FIXED v4.7.3 Build #995)
 - **BUG-147:** Buffer underflow i modbus_frame.cpp (FIXED v4.7.3 Build #995)
+- **BUG-155:** Buffer overflow i st_token_t.value (OPEN v4.8.2)
+- **BUG-156:** Manglende validation af function argument count (FIXED Build #1018)
+- **BUG-157:** Stack overflow risk i parser recursion (FIXED Build #1018)
+- **BUG-158:** NULL pointer dereference i st_vm_exec_call_builtin (FIXED Build #1018)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
@@ -202,6 +228,12 @@
 - **BUG-132:** CLI `set baud` kommando virker ikke (FIXED v4.5.0 Build #910)
 - **BUG-133:** Modbus Master request counter reset mangler (FIXED v4.5.2 Build #911)
 - **BUG-148:** Printf format mismatch i cli_config_regs.cpp (FIXED v4.7.3 Build #995)
+- **BUG-159:** Integer overflow i FOR loop (OPEN v4.8.2 - kompleks fix)
+- **BUG-160:** Missing NaN/INF validation i arithmetic (FIXED Build #1018)
+- **BUG-161:** Division by zero i SCALE function (FIXED Build #1018)
+- **BUG-162:** Manglende bounds check på bytecode array (FIXED Build #1018)
+- **BUG-163:** Memory leak i parser error paths (OPEN v4.8.2 - behøver refactoring)
+- **BUG-164:** Inefficient linear search i symbol lookup (OPEN v4.8.2 - optimization, ikke bug)
 - **BUG-CLI-1:** Parameter keyword clarification
 - **BUG-CLI-2:** GPIO validation
 
@@ -225,6 +257,12 @@
 - **BUG-137:** CLI `read reg` count parameter ignoreres for REAL/DINT/DWORD (FIXED v4.7.1 Build #937)
 - **BUG-142:** `set reg STATIC` blokerer HR238-255 fejlagtigt (FIXED v4.7.3 Build #995)
 - **BUG-149:** Identical condition i modbus_master.cpp (FIXED v4.7.3 Build #995)
+- **BUG-165:** Missing input validation i BLINK function (FIXED Build #1019)
+- **BUG-166:** Race condition i stateful storage access (OPEN v4.8.2)
+- **BUG-167:** No timeout i lexer comment parsing (FIXED Build #1019)
+- **BUG-168:** Missing validation af CASE branch count (FIXED Build #1019)
+- **BUG-172:** Missing overflow detection i integer arithmetic (OPEN v4.8.2)
+- **BUG-174:** Missing type validation i binary operations (OPEN v4.8.2)
 
 ### 🔵 LOW Priority (COSMETIC)
 - **BUG-006:** Counter wrapping at 65535
@@ -232,6 +270,12 @@
 - **BUG-126:** st_count redeclaration in cli_show.cpp (FIXED v4.4.0 Build #869)
 - **BUG-127:** st_state declaration order (FIXED v4.4.0 Build #869)
 - **BUG-138:** ST Logic upload error message generisk (FIXED v4.7.1 Build #940)
+- **BUG-169:** Inefficient memory usage i AST nodes (OPEN v4.8.2)
+- **BUG-170:** Missing overflow check i millis() wraparound (OPEN v4.8.2)
+- **BUG-171:** Suboptimal error messages i compiler (OPEN v4.8.2)
+- **BUG-173:** MOD operation med negative operands (OPEN v4.8.2)
+- **BUG-175:** FILTER function med zero cycle time (OPEN v4.8.2)
+- **BUG-176:** HYSTERESIS function med inverterede thresholds (FIXED Build #1019)
 
 ### ✔️ NOT BUGS (DESIGN CHOICES)
 - **BUG-013:** Binding display order (intentional)

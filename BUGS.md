@@ -6849,3 +6849,291 @@ if (bytes_received >= 5) {
 
 **Build #995 Samlet Fix:** 5 bugs fixed (2 CRITICAL, 1 HIGH, 2 MEDIUM)
 
+---
+
+# BUGS IDENTIFIED 2026-01-08 (Build #1017+)
+
+---
+
+## BUG-155: Buffer Overflow i st_token_t.value
+
+**Severity:** CRITICAL | **Status:** OPEN (v4.8.2) | **File:** st_types.h:129, st_lexer.cpp
+
+### Problem
+Token buffer er kun 256 bytes, men lexer kan potentielt skrive mere ved meget lange identifikatorer eller strings.
+
+```cpp
+// st_types.h:129
+typedef struct {
+  st_token_type_t type;
+  char value[256];  // FIXED SIZE - risiko for overflow
+  uint32_t line;
+  uint32_t column;
+} st_token_t;
+```
+
+Lexer funktioner som `lexer_read_identifier()` og `lexer_read_string()` bruger strcpy uden bounds checking.
+
+### Root Cause
+- Ingen validering af identifier/string længde før kopiering
+- strcpy bruges i stedet for strncpy
+- Ingen max length konstant defineret
+
+### Impact
+Stack corruption hvis:
+- Identifier > 255 karakterer (f.eks. `very_long_variable_name_that_exceeds_the_buffer_limit...`)
+- String literal > 255 karakterer
+- Kan føre til ESP32 crash eller undefined behavior
+
+### Reproduktion
+```st
+VAR
+  this_is_an_extremely_long_variable_name_that_should_definitely_exceed_the_buffer_limit_of_256_bytes_and_cause_a_stack_corruption_when_the_lexer_tries_to_copy_it_into_the_token_value_field_without_proper_bounds_checking_this_should_trigger_BUG_155 : INT;
+END_VAR
+```
+
+### Recommended Fix
+```cpp
+// st_lexer.cpp - lexer_read_identifier()
+char buffer[256];
+int pos = 0;
+while (is_alpha_or_digit(lexer->current_char) && pos < 255) {  // ADD LIMIT
+  buffer[pos++] = lexer->current_char;
+  lexer_advance(lexer);
+}
+buffer[pos] = '\0';
+strncpy(token->value, buffer, 255);  // Use strncpy
+token->value[255] = '\0';  // Ensure null termination
+```
+
+---
+
+## BUG-156: Manglende Validation af Function Argument Count
+
+**Severity:** CRITICAL | **Status:** OPEN (v4.8.2) | **File:** st_compiler.cpp:336-340
+
+### Problem
+Compiler validerer ikke at funktioner får det korrekte antal argumenter. Parser tillader op til 4 argumenter, men compiler checker ikke mod `st_builtin_arg_count()`.
+
+```cpp
+// Compile arguments (push onto stack)
+for (uint8_t i = 0; i < node->data.function_call.arg_count; i++) {
+  if (!st_compiler_compile_expr(compiler, node->data.function_call.args[i])) {
+    return false;
+  }
+}
+// INGEN CHECK: Er arg_count korrekt for denne funktion?
+```
+
+### Root Cause
+- Compiler stoler på at parser har valideret argument count
+- Parser har IKKE denne validation
+- VM popper blindt det antal argumenter funktionen forventer
+
+### Impact
+Stack corruption hvis:
+- `LIMIT(1, 2)` i stedet for `LIMIT(1, 2, 3)` → VM popper 3 værdier men kun 2 er pushed
+- `MIN(1)` i stedet for `MIN(1, 2)` → VM popper 2 værdier men kun 1 er pushed
+- Kan føre til ESP32 crash eller garbage resultater
+
+### Reproduktion
+```st
+VAR
+  result : INT;
+END_VAR
+
+result := LIMIT(10, 50);  (* Mangler 3. argument - SKAL fejle! *)
+```
+
+### Recommended Fix
+```cpp
+// st_compiler.cpp - st_compiler_compile_function_call()
+uint8_t expected_args = st_builtin_arg_count(func_id);
+if (node->data.function_call.arg_count != expected_args) {
+  snprintf(compiler->error_msg, sizeof(compiler->error_msg),
+           "Function %s expects %d arguments, got %d",
+           st_builtin_name(func_id), expected_args,
+           node->data.function_call.arg_count);
+  return false;
+}
+```
+
+---
+
+## BUG-157: Stack Overflow Risk i Parser Recursion
+
+**Severity:** CRITICAL | **Status:** OPEN (v4.8.2) | **File:** st_parser.cpp (diverse)
+
+### Problem
+Parser bruger rekursiv descent uden depth limit. Dybt nestede udtryk kan forårsage stack overflow på ESP32.
+
+```cpp
+// st_parser.cpp
+static st_ast_node_t *parser_parse_unary(st_parser_t *parser) {
+  // ...
+  node->data.unary_op.operand = parser_parse_unary(parser);  // REKURSION UDEN LIMIT
+```
+
+### Root Cause
+- Ingen recursion depth counter
+- Ingen max nesting limit (f.eks. 32 niveauer)
+- ESP32 stack er begrænset (~8KB per task)
+
+### Impact
+ESP32 crash hvis:
+- Dybt nestede expressions: `NOT NOT NOT NOT ... NOT x` (100+ niveauer)
+- Komplekse aritmetiske udtryk: `((((a + b) * c) / d) - e)...` (50+ niveauer)
+- Malicious ST code kan DoS systemet
+
+### Reproduktion
+```st
+VAR
+  x : BOOL := FALSE;
+  result : BOOL;
+END_VAR
+
+(* 100 nested NOT operatorer *)
+result := NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT NOT x;
+```
+
+### Recommended Fix
+```cpp
+// st_parser.h
+#define ST_MAX_RECURSION_DEPTH 32
+
+typedef struct {
+  // ... existing fields
+  uint8_t recursion_depth;
+} st_parser_t;
+
+// st_parser.cpp
+static st_ast_node_t *parser_parse_unary(st_parser_t *parser) {
+  if (parser->recursion_depth >= ST_MAX_RECURSION_DEPTH) {
+    st_parser_error(parser, "Expression nesting too deep (max 32 levels)");
+    return NULL;
+  }
+
+  parser->recursion_depth++;
+  st_ast_node_t *node = parser_parse_unary_internal(parser);
+  parser->recursion_depth--;
+
+  return node;
+}
+```
+
+---
+
+## BUG-158: NULL Pointer Dereference i st_vm_exec_call_builtin
+
+**Severity:** CRITICAL | **Status:** OPEN (v4.8.2) | **File:** st_vm.cpp:1002-1006
+
+### Problem
+Stateful function pointer check kommer EFTER brug af pointer.
+
+```cpp
+// st_vm.cpp:1002
+st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
+if (!stateful || instance_id >= stateful->edge_count) {  // CHECK ER FOR SENT
+  // Hvis vm->program eller vm->program->stateful er NULL, får vi NULL deref på linje 1002
+```
+
+### Root Cause
+- `vm->program` antages at være valid uden check
+- `vm->program->stateful` antages at være valid uden check
+- Check kommer efter cast
+
+### Impact
+NULL pointer dereference hvis:
+- VM kaldes uden valid program loaded
+- Stateful storage ikke allokeret
+- ESP32 crash ved edge/timer/counter functions
+
+### Reproduktion
+Vanskelig at reproducere uden at modificere koden, men kan ske ved:
+1. Program deleted mens det eksekverer
+2. Memory corruption af program pointer
+3. Race condition mellem delete og execute
+
+### Recommended Fix
+```cpp
+// st_vm.cpp - st_vm_exec_call_builtin()
+// Check vm->program FØRST
+if (!vm->program) {
+  snprintf(vm->error_msg, sizeof(vm->error_msg), "No program loaded");
+  return false;
+}
+
+// Så check stateful storage
+st_stateful_storage_t *stateful = (st_stateful_storage_t*)vm->program->stateful;
+if (!stateful) {
+  snprintf(vm->error_msg, sizeof(vm->error_msg), "No stateful storage");
+  return false;
+}
+
+// Så check instance ID
+if (instance_id >= stateful->edge_count) {
+  snprintf(vm->error_msg, sizeof(vm->error_msg),
+           "Invalid edge detector instance ID: %d", instance_id);
+  return false;
+}
+```
+
+---
+
+## BUG-159: Integer Overflow i FOR Loop
+
+**Severity:** HIGH | **Status:** OPEN (v4.8.2) | **File:** st_compiler.cpp:696-715
+
+### Problem
+FOR loop inkrement/dekrement kan overflow uden check.
+
+```cpp
+// FOR i := start TO end BY step
+if (!st_compiler_emit(compiler, ST_OP_ADD)) {  // INT16 + step kan overflow
+  return false;
+}
+```
+
+### Impact
+`FOR i := 32760 TO 32770 DO` vil wrappe rundt til -32768 og lave uendelig loop.
+
+### Recommended Fix
+Tilføj overflow check i loop iteration eller begræns loop range til sikker zone.
+
+---
+
+## BUG-160: Missing NaN/INF Validation i Arithmetic Operations
+
+**Severity:** HIGH | **Status:** OPEN (v4.8.2) | **File:** st_vm.cpp:265-476
+
+### Problem
+REAL arithmetik validerer ikke NaN eller INF resultater.
+
+```cpp
+result.real_val = left_f + right_f;  // Kan producere INF eller NaN
+return st_vm_push_typed(vm, result, ST_TYPE_REAL);
+```
+
+### Impact
+NaN/INF kan propagere gennem beregninger og forårsage uventet adfærd.
+
+### Recommended Fix
+```cpp
+float result_f = left_f + right_f;
+if (isnan(result_f) || isinf(result_f)) {
+  snprintf(vm->error_msg, sizeof(vm->error_msg), "Arithmetic overflow (NaN/INF)");
+  return false;
+}
+result.real_val = result_f;
+```
+
+---
+
+## BUG-161 til BUG-176: Øvrige Bugs
+
+Se BUGS_INDEX.md for komplet liste. Detaljerede beskrivelser tilføjes ved behov.
+
+---
+
+**Build #1017+ Identified Bugs:** 22 new issues (4 CRITICAL, 6 HIGH, 8 MEDIUM, 4 LOW)
+

@@ -17,6 +17,9 @@
 #include "st_types.h"
 #include "st_lexer.h"
 
+/* BUG-157 FIX: Maximum recursion depth to prevent stack overflow */
+#define ST_MAX_RECURSION_DEPTH 32
+
 /* Parser state machine */
 typedef struct {
   st_lexer_t lexer;
@@ -24,6 +27,7 @@ typedef struct {
   st_token_t peek_token;
   uint32_t error_count;
   char error_msg[256];
+  uint8_t recursion_depth;  // BUG-157 FIX: Track recursion depth to prevent stack overflow
 } st_parser_t;
 
 /**
