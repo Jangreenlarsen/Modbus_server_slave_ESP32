@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v4.8.3 | **Build:** #1022 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v4.8.4 | **Build:** #1027 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, telnet CLI interface, og komplet Modbus register dokumentation.
 
@@ -75,7 +75,7 @@ Remote I/O Boards (Modbus Slaves)
 - **[TIMING_ANALYSIS.md](TIMING_ANALYSIS.md)** - ST Logic timing specifications
 
 **Test & Analysis:**
-- **[ST_COMPLETE_TEST_PLAN.md](ST_COMPLETE_TEST_PLAN.md)** - 59 ST Logic test cases (copy/paste ready)
+- **[ST_COMPLETE_TEST_PLAN.md](ST_COMPLETE_TEST_PLAN.md)** - 65 ST Logic test cases (copy/paste ready)
 - **[ST_MODULE_ANALYSIS.md](ST_MODULE_ANALYSIS.md)** - ST module architecture
 - **[ST_SYNTAX_ANALYSIS.md](ST_SYNTAX_ANALYSIS.md)** - ST syntax reference
 - **[ST_TYPE_REFACTOR_PLAN.md](ST_TYPE_REFACTOR_PLAN.md)** - IEC 61131-3 type refactor plan
@@ -500,13 +500,16 @@ Hver timer har **4 modes:**
 - **Variable Sections:** VAR_INPUT, VAR_OUTPUT, VAR (persistent)
 - **Comments:** (* multi-line *) og // single-line
 - **Built-in Functions:**
-  - Math: `ABS()`, `SQRT()`, `MIN()`, `MAX()`, `SUM()`, `LIMIT()`, `SEL()`
-  - Exponential (v4.7.0): `EXP()`, `LN()`, `LOG()`, `POW()` ⭐ NEW
+  - Math: `ABS()`, `SQRT()`, `MIN()`, `MAX()`, `SUM()`, `LIMIT()`, `SEL()`, `MUX()` ⭐ NEW v4.8.4
+  - Exponential (v4.7.0): `EXP()`, `LN()`, `LOG()`, `POW()`
   - Type Conversion: `INT_TO_REAL()`, `REAL_TO_INT()`, `BOOL_TO_INT()`, `DWORD_TO_INT()`
   - Trigonometry: `SIN()`, `COS()`, `TAN()`, `ROUND()`, `TRUNC()`, `FLOOR()`, `CEIL()`
-  - Edge Detection (v4.7.0): `R_TRIG()`, `F_TRIG()` ⭐ NEW
-  - Timers (v4.7.0): `TON()`, `TOF()`, `TP()` ⭐ NEW
-  - Counters (v4.7.0): `CTU()`, `CTD()`, `CTUD()` ⭐ NEW
+  - Bit Rotation (v4.8.4): `ROL()`, `ROR()` ⭐ NEW
+  - Edge Detection (v4.7.0): `R_TRIG()`, `F_TRIG()`
+  - Timers (v4.7.0): `TON()`, `TOF()`, `TP()`
+  - Counters (v4.7.0): `CTU()`, `CTD()`, `CTUD()`
+  - Latches (v4.7.3): `SR()`, `RS()` ⭐ NEW
+  - Signal Processing (v4.8): `SCALE()`, `HYSTERESIS()`, `BLINK()`, `FILTER()`
   - Persistence: `SAVE(group_id)` → INT, `LOAD(group_id)` → INT (0=OK, -1=error, -2=rate limited)
   - Modbus Master: `MB_READ_COIL()`, `MB_READ_HOLDING()`, `MB_WRITE_COIL()`, `MB_WRITE_HOLDING()`
 
