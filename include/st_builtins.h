@@ -90,6 +90,7 @@ typedef enum {
   ST_BUILTIN_HYSTERESIS,    // HYSTERESIS(IN, HIGH, LOW) → BOOL (Schmitt trigger)
   ST_BUILTIN_BLINK,         // BLINK(ENABLE, ON_TIME, OFF_TIME) → BOOL (pulse generator)
   ST_BUILTIN_FILTER,        // FILTER(IN, TIME_CONSTANT) → REAL (low-pass filter)
+  ST_BUILTIN_MUX,           // MUX(K, IN0, IN1, IN2) → ANY (4-way multiplexer, select by index)
 
   ST_BUILTIN_COUNT          // Total number of built-ins
 } st_builtin_func_t;
@@ -217,6 +218,7 @@ st_value_t st_builtin_limit(st_value_t min_val, st_value_t value, st_value_t max
  * @return Selected value
  */
 st_value_t st_builtin_sel(st_value_t g, st_value_t in0, st_value_t in1);
+st_value_t st_builtin_mux(st_value_t k, st_value_t in0, st_value_t in1, st_value_t in2);
 
 /* ============================================================================
  * TRIGONOMETRIC FUNCTIONS (v4.4+)

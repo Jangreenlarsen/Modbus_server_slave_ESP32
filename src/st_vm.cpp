@@ -1005,6 +1005,13 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
     } else {
       result.int_val = (arg1.int_val > arg2.int_val) ? arg1.int_val : arg2.int_val;
     }
+  } else if (arg_count == 4) {
+    // Special handling for 4-arg functions
+    if (func_id == ST_BUILTIN_MUX) {
+      // MUX(K, IN0, IN1, IN2) - type-polymorphic multiplexer
+      // arg1 = K (selector), arg2 = IN0, arg3 = IN1, arg4 = IN2
+      result = st_builtin_mux(arg1, arg2, arg3, arg4);
+    }
   } else if (func_id == ST_BUILTIN_ABS && arg_count == 1) {
     // BUG-118 FIX: ABS is type-polymorphic
     if (arg1_type == ST_TYPE_REAL) {
@@ -1334,6 +1341,16 @@ static bool st_vm_exec_call_builtin(st_vm_t *vm, st_bytecode_instr_t *instr) {
       return_type = ST_TYPE_DINT;
     } else {
       return_type = arg2_type;  // Both are INT/BOOL → use first
+    }
+  } else if (func_id == ST_BUILTIN_MUX) {
+    // MUX returns same type as IN0/IN1/IN2 (arg2, arg3, arg4) with proper promotion
+    // Type promotion: INT → DINT → REAL
+    if (arg2_type == ST_TYPE_REAL || arg3_type == ST_TYPE_REAL || arg4_type == ST_TYPE_REAL) {
+      return_type = ST_TYPE_REAL;
+    } else if (arg2_type == ST_TYPE_DINT || arg3_type == ST_TYPE_DINT || arg4_type == ST_TYPE_DINT) {
+      return_type = ST_TYPE_DINT;
+    } else {
+      return_type = arg2_type;  // All are INT/BOOL → use first
     }
   } else if (func_id == ST_BUILTIN_LIMIT) {
     // BUG-121 FIX: LIMIT returns same type as min/val/max with proper promotion

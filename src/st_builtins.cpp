@@ -116,6 +116,24 @@ st_value_t st_builtin_sel(st_value_t g, st_value_t in0, st_value_t in1) {
   return (g.bool_val) ? in1 : in0;
 }
 
+st_value_t st_builtin_mux(st_value_t k, st_value_t in0, st_value_t in1, st_value_t in2) {
+  // MUX: Integer selector (4-way multiplexer)
+  // K=0 → return IN0
+  // K=1 → return IN1
+  // K=2 → return IN2
+  // K out of range → return IN0 (default)
+
+  int16_t selector = k.int_val;
+
+  if (selector == 1) {
+    return in1;
+  } else if (selector == 2) {
+    return in2;
+  } else {
+    return in0;  // Default: selector 0 or out of range
+  }
+}
+
 /* ============================================================================
  * TRIGONOMETRIC FUNCTIONS (v4.4+)
  * ============================================================================ */
@@ -299,6 +317,12 @@ st_value_t st_builtin_call(st_builtin_func_t func_id, st_value_t arg1, st_value_
       result.int_val = 0;
       break;
 
+    case ST_BUILTIN_MUX:
+      // NOTE: 4-arg functions are handled directly in VM (st_vm.cpp)
+      // This case should not be reached
+      result.int_val = 0;
+      break;
+
     // Trigonometric (v4.4+)
     case ST_BUILTIN_SIN:
       result = st_builtin_sin(arg1);
@@ -415,6 +439,7 @@ const char *st_builtin_name(st_builtin_func_t func_id) {
     case ST_BUILTIN_CEIL:          return "CEIL";
     case ST_BUILTIN_LIMIT:         return "LIMIT";
     case ST_BUILTIN_SEL:           return "SEL";
+    case ST_BUILTIN_MUX:           return "MUX";
     case ST_BUILTIN_SIN:           return "SIN";
     case ST_BUILTIN_COS:           return "COS";
     case ST_BUILTIN_TAN:           return "TAN";
@@ -481,6 +506,10 @@ uint8_t st_builtin_arg_count(st_builtin_func_t func_id) {
     case ST_BUILTIN_MB_READ_HOLDING:   // MB_READ_HOLDING(slave_id, address)
     case ST_BUILTIN_MB_READ_INPUT_REG: // MB_READ_INPUT_REG(slave_id, address)
       return 2;
+
+    // 4-argument functions (v4.8.3+)
+    case ST_BUILTIN_MUX:            // MUX(K, IN0, IN1, IN2)
+      return 4;
 
     // 3-argument functions (v4.4+)
     case ST_BUILTIN_LIMIT:  // LIMIT(min, val, max)
@@ -577,6 +606,7 @@ st_datatype_t st_builtin_return_type(st_builtin_func_t func_id) {
     case ST_BUILTIN_CEIL:
     case ST_BUILTIN_LIMIT:
     case ST_BUILTIN_SEL:
+    case ST_BUILTIN_MUX:          // MUX returns same type as inputs (defaults to INT)
     case ST_BUILTIN_REAL_TO_INT:
     case ST_BUILTIN_BOOL_TO_INT:
     case ST_BUILTIN_DWORD_TO_INT:

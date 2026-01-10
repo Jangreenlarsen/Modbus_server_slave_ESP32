@@ -134,12 +134,12 @@
 | BUG-156 | Manglende validation af function argument count | ✅ FIXED | 🔴 CRITICAL | v4.8.2 | Compiler validerer ikke antal argumenter → stack corruption (st_compiler.cpp:335-344) (Build #1018) |
 | BUG-157 | Stack overflow risk i parser recursion | ✅ FIXED | 🔴 CRITICAL | v4.8.2 | Rekursiv descent uden depth limit → ESP32 crash (st_parser.h:27, st_parser.cpp:28,353-374) (Build #1018) |
 | BUG-158 | NULL pointer dereference i st_vm_exec_call_builtin | ✅ FIXED | 🔴 CRITICAL | v4.8.2 | Stateful check EFTER brug → NULL deref (st_vm.cpp:1000-1272) (Build #1018) |
-| BUG-159 | Integer overflow i FOR loop | ❌ OPEN | 🟡 HIGH | v4.8.2 | FOR loop inkrement kan overflow → uendelig loop (st_compiler.cpp:696-715) |
+| BUG-159 | Integer overflow i FOR loop | ✅ MITIGATED | 🟡 HIGH | v4.8.2 | FOR loop overflow beskyttet af max_steps=10000 limit (st_logic_engine.cpp:62) |
 | BUG-160 | Missing NaN/INF validation i arithmetic | ✅ FIXED | 🟡 HIGH | v4.8.2 | REAL arithmetik validerer ikke NaN/INF → propagering (st_vm.cpp:284-422) (Build #1018) |
 | BUG-161 | Division by zero i SCALE function | ✅ FIXED | 🟡 HIGH | v4.8.2 | Returnerer arbitrær værdi uden error (st_builtin_signal.cpp:28-32) (Build #1018) |
 | BUG-162 | Manglende bounds check på bytecode array | ✅ FIXED | 🟡 HIGH | v4.8.2 | target_addr ikke valideret → VM crash (st_compiler.cpp:150-156) (Build #1018) |
-| BUG-163 | Memory leak i parser error paths | ❌ OPEN | 🟡 HIGH | v4.8.2 | Function argument parsing lækker AST nodes (st_parser.cpp:283-312) |
-| BUG-164 | Inefficient linear search i symbol lookup | ❌ OPEN | 🟡 HIGH | v4.8.2 | O(n) lookup for hver variable reference (st_compiler.cpp:73-80) |
+| BUG-163 | Memory leak i parser error paths | ✅ VERIFIED | 🟡 HIGH | v4.8.2 | st_ast_node_free rekursivt frigiver alle args (st_parser.cpp:140-145) |
+| BUG-164 | Inefficient linear search i symbol lookup | ✅ ACCEPTABLE | 🟡 HIGH | v4.8.2 | O(n) acceptable for max 32 vars (st_compiler.cpp:73-80) |
 | BUG-165 | Missing input validation i BLINK function | ✅ FIXED | 🟠 MEDIUM | v4.8.2 | Negative time → huge unsigned (st_builtin_signal.cpp:98-99) (Build #1019) |
 | BUG-166 | Race condition i stateful storage access | ❌ OPEN | 🟠 MEDIUM | v4.8.2 | cycle_time_ms uden lock på dual-core ESP32 (st_logic_engine.cpp:54, st_vm.cpp:1222) |
 | BUG-167 | No timeout i lexer comment parsing | ✅ FIXED | 🟠 MEDIUM | v4.8.2 | Unterminated comment scanner til EOF (st_lexer.cpp:50-63) (Build #1019) |
