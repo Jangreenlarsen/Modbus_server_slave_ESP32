@@ -1,8 +1,14 @@
 # ST Logic - Test Eksempler for Nye Funktioner
 
-**Version:** v4.4
-**Build:** #672+
-**Nye Funktioner:** LIMIT, SEL, SIN, COS, TAN
+**Version:** v4.8.4
+**Build:** #1027+
+
+> **⚠️ BEMÆRK:** Fra v4.8.4 og fremefter tilføjes ALLE nye tests til [`ST_COMPLETE_TEST_PLAN.md`](ST_COMPLETE_TEST_PLAN.md).
+> Denne fil indeholder historiske test eksempler og kan bruges som reference.
+
+**Nye Funktioner i denne fil:**
+- v4.8.4: MUX, ROL, ROR (tests flyttet til ST_COMPLETE_TEST_PLAN.md)
+- v4.4: LIMIT, SEL, SIN, COS, TAN
 
 ---
 

@@ -1,7 +1,7 @@
 # ST Logic - Komplet Testplan
 
-**Version:** v4.4.2
-**Build:** #787+
+**Version:** v4.8.4
+**Build:** #1027+
 **Formål:** Systematisk test af ALLE ST-funktioner
 
 ---
@@ -41,19 +41,19 @@
 |----------|-------------|---------------|
 | Aritmetiske operatorer | 6 | 3 min |
 | Logiske operatorer | 4 | 2 min |
-| Bit-shift operatorer | 2 | 1 min |
+| Bit-shift operatorer | 4 | 2 min |
 | Sammenlignings operatorer | 6 | 3 min |
 | Builtin matematiske | 9 | 5 min |
-| Builtin clamping/selection | 2 | 2 min |
+| Builtin clamping/selection | 3 | 3 min |
 | Builtin trigonometriske | 3 | 2 min |
 | Builtin type conversion | 6 | 3 min |
 | Builtin persistence | 2 | 2 min |
 | GPIO & Hardware tests | 4 | 5 min |
 | Kontrolstrukturer | 5 | 5 min |
 | Type System (INT/DINT) | 3 | 5 min |
-| **Fase 1 Total** | **52** | **38 min** |
+| **Fase 1 Total** | **55** | **40 min** |
 | Kombinerede tests | 10 | 15 min |
-| **Total** | **62** | **53 min** |
+| **Total** | **65** | **55 min** |
 | **Udsat (Modbus Master)** | **6** | *Senere* |
 
 ### Test Konventioner
@@ -829,6 +829,138 @@ read reg 22 int
 ✅ 8 SHR 3 = 1
 ✅ 20 SHR 2 = 5
 ✅ 1 SHR 0 = 1
+```
+
+---
+
+### Test 1.3.3: ROL (Rotate Left)
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM test
+VAR
+  value: INT;
+  shift: INT;
+  result: INT;
+END_VAR
+BEGIN
+  result := ROL(value, shift);
+END_PROGRAM
+END_UPLOAD
+set logic 1 bind value reg:20 input
+set logic 1 bind shift reg:21 input
+set logic 1 bind result reg:22 output
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Test 1: ROL(0x1234, 4) = 0x2341
+write reg 20 value int 0x1234
+write reg 21 value int 4
+read reg 22 int
+# Forventet: 0x2341 (9025 decimal)
+
+# Test 2: ROL(0x0001, 1) = 0x0002
+write reg 20 value int 1
+write reg 21 value int 1
+read reg 22 int
+# Forventet: 2
+
+# Test 3: ROL(0x8000, 1) = 0x0001 (MSB wraps to LSB)
+write reg 20 value int 0x8000
+write reg 21 value int 1
+read reg 22 int
+# Forventet: 1
+
+# Test 4: ROL(0xABCD, 8) = 0xCDAB (byte swap)
+write reg 20 value int 0xABCD
+write reg 21 value int 8
+read reg 22 int
+# Forventet: 0xCDAB (52651 decimal)
+
+# Test 5: ROL(0xFF00, 4) = 0xF00F
+write reg 20 value int 0xFF00
+write reg 21 value int 4
+read reg 22 int
+# Forventet: 0xF00F (61455 decimal)
+```
+
+**Forventet Resultat:**
+```
+✅ ROL(0x1234, 4) = 0x2341
+✅ ROL(0x0001, 1) = 0x0002
+✅ ROL(0x8000, 1) = 0x0001 (wrap)
+✅ ROL(0xABCD, 8) = 0xCDAB (byte swap)
+✅ ROL(0xFF00, 4) = 0xF00F
+```
+
+---
+
+### Test 1.3.4: ROR (Rotate Right)
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM test
+VAR
+  value: INT;
+  shift: INT;
+  result: INT;
+END_VAR
+BEGIN
+  result := ROR(value, shift);
+END_PROGRAM
+END_UPLOAD
+set logic 1 bind value reg:20 input
+set logic 1 bind shift reg:21 input
+set logic 1 bind result reg:22 output
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Test 1: ROR(0x1234, 4) = 0x4123
+write reg 20 value int 0x1234
+write reg 21 value int 4
+read reg 22 int
+# Forventet: 0x4123 (16675 decimal)
+
+# Test 2: ROR(0x0002, 1) = 0x0001
+write reg 20 value int 2
+write reg 21 value int 1
+read reg 22 int
+# Forventet: 1
+
+# Test 3: ROR(0x0001, 1) = 0x8000 (LSB wraps to MSB)
+write reg 20 value int 1
+write reg 21 value int 1
+read reg 22 int
+# Forventet: 0x8000 (32768 decimal)
+
+# Test 4: ROR(0xABCD, 8) = 0xCDAB (byte swap)
+write reg 20 value int 0xABCD
+write reg 21 value int 8
+read reg 22 int
+# Forventet: 0xCDAB (52651 decimal)
+
+# Test 5: ROR(0xFF00, 4) = 0x0FF0
+write reg 20 value int 0xFF00
+write reg 21 value int 4
+read reg 22 int
+# Forventet: 0x0FF0 (4080 decimal)
+```
+
+**Forventet Resultat:**
+```
+✅ ROR(0x1234, 4) = 0x4123
+✅ ROR(0x0002, 1) = 0x0001
+✅ ROR(0x0001, 1) = 0x8000 (wrap)
+✅ ROR(0xABCD, 8) = 0xCDAB (byte swap)
+✅ ROR(0xFF00, 4) = 0x0FF0
 ```
 
 ---
@@ -1688,6 +1820,76 @@ read reg 22 int
 ```
 ✅ SEL(FALSE, 50, 75) = 50
 ✅ SEL(TRUE, 50, 75) = 75
+```
+
+---
+
+### Test 1.6.3: MUX (4-Way Multiplexer)
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM test
+VAR
+  selector: INT;
+  in0: INT;
+  in1: INT;
+  in2: INT;
+  result: INT;
+END_VAR
+BEGIN
+  result := MUX(selector, in0, in1, in2);
+END_PROGRAM
+END_UPLOAD
+set logic 1 bind selector reg:20 input
+set logic 1 bind in0 reg:21 input
+set logic 1 bind in1 reg:22 input
+set logic 1 bind in2 reg:23 input
+set logic 1 bind result reg:24 output
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Setup input values
+write reg 21 value int 0
+write reg 22 value int 18
+write reg 23 value int 22
+
+# Test 1: MUX(0, 0, 18, 22) = 0 (select IN0)
+write reg 20 value int 0
+read reg 24 int
+# Forventet: 0
+
+# Test 2: MUX(1, 0, 18, 22) = 18 (select IN1)
+write reg 20 value int 1
+read reg 24 int
+# Forventet: 18
+
+# Test 3: MUX(2, 0, 18, 22) = 22 (select IN2)
+write reg 20 value int 2
+read reg 24 int
+# Forventet: 22
+
+# Test 4: MUX(5, 0, 18, 22) = 0 (invalid selector → default IN0)
+write reg 20 value int 5
+read reg 24 int
+# Forventet: 0
+
+# Test 5: MUX(-1, 0, 18, 22) = 0 (negative selector → default IN0)
+write reg 20 value int -1
+read reg 24 int
+# Forventet: 0
+```
+
+**Forventet Resultat:**
+```
+✅ MUX(0, 0, 18, 22) = 0
+✅ MUX(1, 0, 18, 22) = 18
+✅ MUX(2, 0, 18, 22) = 22
+✅ MUX(5, 0, 18, 22) = 0 (default)
+✅ MUX(-1, 0, 18, 22) = 0 (default)
 ```
 
 ---
