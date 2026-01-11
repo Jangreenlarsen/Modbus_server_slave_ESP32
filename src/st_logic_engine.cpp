@@ -218,7 +218,7 @@ void st_logic_print_status(st_logic_engine_state_t *state) {
   debug_printf("\n");
 }
 
-void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) {
+void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id, uint8_t show_source) {
   st_logic_program_config_t *prog = st_logic_get_program(state, program_id);
   if (!prog) {
     debug_printf("Invalid program ID: %d\n", program_id);
@@ -231,7 +231,8 @@ void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) 
   debug_printf("Source Code: %d bytes\n", prog->source_size);
   debug_printf("Execution Interval: %ums\n", (unsigned int)state->execution_interval_ms);
 
-  if (prog->source_size > 0) {
+  // v5.1.0: Show source code only if show_source=1 or 'show logic X st' used
+  if (show_source && prog->source_size > 0) {
     debug_printf("\nSource:\n");
     // Print first 500 chars of source
     const char *source = st_logic_get_source_code(state, program_id);
@@ -242,9 +243,62 @@ void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id) 
         debug_printf("... (%d more bytes)\n", prog->source_size - 500);
       }
     }
+  } else if (!show_source && prog->source_size > 0) {
+    debug_printf("\n(Source code hidden - use 'show logic %d st' to display)\n", program_id + 1);
   }
 
-  debug_printf("\nVariable Bindings:\n");
+  // v5.1.0: Show EXPORT variables → IR 220-251 mapping
+  debug_printf("\nEXPORT Variables → IR 220-251:\n");
+  if (prog->compiled && prog->ir_pool_offset != 65535 && prog->ir_pool_size > 0) {
+    debug_printf("  IR Pool: offset=%d, size=%d registers\n", prog->ir_pool_offset, prog->ir_pool_size);
+
+    // Iterate through variables and show EXPORT ones
+    uint16_t export_slot = 0;
+    uint8_t export_count = 0;
+    for (uint8_t var_idx = 0; var_idx < prog->bytecode.var_count; var_idx++) {
+      if (!prog->bytecode.var_export_flags[var_idx]) {
+        continue;
+      }
+
+      export_count++;
+      st_datatype_t var_type = prog->bytecode.var_types[var_idx];
+      uint16_t base_reg = 220 + prog->ir_pool_offset + export_slot;
+
+      debug_printf("  [%d] %s (", var_idx, prog->bytecode.var_names[var_idx]);
+
+      // Print type
+      switch (var_type) {
+        case ST_TYPE_BOOL: debug_printf("BOOL"); break;
+        case ST_TYPE_INT: debug_printf("INT"); break;
+        case ST_TYPE_DINT: debug_printf("DINT"); break;
+        case ST_TYPE_DWORD: debug_printf("DWORD"); break;
+        case ST_TYPE_REAL: debug_printf("REAL"); break;
+        default: debug_printf("???"); break;
+      }
+
+      debug_printf(") → IR %d", base_reg);
+
+      // Multi-register types show range
+      if (var_type == ST_TYPE_REAL || var_type == ST_TYPE_DINT || var_type == ST_TYPE_DWORD) {
+        debug_printf("-%d", base_reg + 1);
+        export_slot += 2;
+      } else {
+        export_slot += 1;
+      }
+
+      debug_printf("\n");
+    }
+
+    if (export_count == 0) {
+      debug_printf("  (No EXPORT variables - all variables are program-internal)\n");
+    }
+  } else if (prog->compiled) {
+    debug_printf("  (No IR pool allocated - no EXPORT variables)\n");
+  } else {
+    debug_printf("  (Program not compiled)\n");
+  }
+
+  debug_printf("\nVariable Bindings (INPUT/OUTPUT modes):\n");
 
   // Find and display all ST bindings for this program from g_persist_config
   extern PersistConfig g_persist_config;

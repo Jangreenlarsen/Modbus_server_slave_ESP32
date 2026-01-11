@@ -63,10 +63,11 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
                            const char *direction, uint8_t input_type, uint8_t output_type);
 
 /**
- * @brief show logic <id>
+ * @brief show logic <id> [st]
  * Show details for a specific logic program
+ * @param show_source 1=show ST source, 0=hide (v5.1.0)
  */
-int cli_cmd_show_logic_program(st_logic_engine_state_t *logic_state, uint8_t program_id);
+int cli_cmd_show_logic_program(st_logic_engine_state_t *logic_state, uint8_t program_id, uint8_t show_source);
 
 /**
  * @brief show logic all

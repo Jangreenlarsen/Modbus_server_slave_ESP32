@@ -73,8 +73,9 @@ void st_logic_print_status(st_logic_engine_state_t *state);
  * @brief Print individual program info
  * @param state Logic engine state
  * @param program_id Program ID (0-3)
+ * @param show_source Show ST source code (0=hide, 1=show) - v5.1.0
  */
-void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id);
+void st_logic_print_program(st_logic_engine_state_t *state, uint8_t program_id, uint8_t show_source);
 
 /* ============================================================================
  * BUG-038 FIX: Variable access synchronization

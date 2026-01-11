@@ -668,17 +668,18 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
  * ============================================================================ */
 
 /**
- * @brief show logic <id>
+ * @brief show logic <id> [st]
  *
  * Show detailed info about a logic program
+ * @param show_source 1=show ST source code, 0=hide (v5.1.0)
  */
-int cli_cmd_show_logic_program(st_logic_engine_state_t *logic_state, uint8_t program_id) {
+int cli_cmd_show_logic_program(st_logic_engine_state_t *logic_state, uint8_t program_id, uint8_t show_source) {
   if (program_id >= 4) {
     debug_println("ERROR: Invalid program ID (0-3)");
     return -1;
   }
 
-  st_logic_print_program(logic_state, program_id);
+  st_logic_print_program(logic_state, program_id, show_source);
   return 0;
 }
 

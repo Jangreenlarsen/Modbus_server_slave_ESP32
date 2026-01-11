@@ -557,6 +557,84 @@ void cli_cmd_show_config(void) {
     }
   }
 
+  // Show EXPORT variable → IR 220-251 mapping (v5.1.0)
+  debug_println("\nEXPORT variables → IR 220-251:");
+  bool has_exports = false;
+  for (uint8_t prog_id = 0; prog_id < 4; prog_id++) {
+    st_logic_program_config_t *prog = &st_state->programs[prog_id];
+
+    // Skip if not compiled or no IR pool allocation
+    if (!prog->compiled || prog->ir_pool_offset == 65535 || prog->ir_pool_size == 0) {
+      continue;
+    }
+
+    // Check if program has EXPORT variables
+    bool has_export_vars = false;
+    for (uint8_t i = 0; i < prog->bytecode.var_count; i++) {
+      if (prog->bytecode.var_export_flags[i]) {
+        has_export_vars = true;
+        break;
+      }
+    }
+
+    if (!has_export_vars) continue;
+    has_exports = true;
+
+    // Print program header
+    debug_print("logic");
+    debug_print_uint(prog_id + 1);
+    debug_print(": IR pool [offset=");
+    debug_print_uint(prog->ir_pool_offset);
+    debug_print(", size=");
+    debug_print_uint(prog->ir_pool_size);
+    debug_println("]");
+
+    // Print all EXPORT variables with their IR addresses
+    uint16_t export_slot = 0;
+    for (uint8_t var_idx = 0; var_idx < prog->bytecode.var_count; var_idx++) {
+      if (!prog->bytecode.var_export_flags[var_idx]) {
+        continue;
+      }
+
+      st_datatype_t var_type = prog->bytecode.var_types[var_idx];
+      uint16_t base_reg = 220 + prog->ir_pool_offset + export_slot;
+
+      debug_print("  ");
+      debug_print(prog->bytecode.var_names[var_idx]);
+      debug_print(" (");
+
+      // Print type
+      switch (var_type) {
+        case ST_TYPE_BOOL: debug_print("BOOL"); break;
+        case ST_TYPE_INT: debug_print("INT"); break;
+        case ST_TYPE_DINT: debug_print("DINT"); break;
+        case ST_TYPE_DWORD: debug_print("DWORD"); break;
+        case ST_TYPE_REAL: debug_print("REAL"); break;
+        default: debug_print("???"); break;
+      }
+
+      debug_print(") → IR ");
+      debug_print_uint(base_reg);
+
+      // Multi-register types show range
+      if (var_type == ST_TYPE_REAL || var_type == ST_TYPE_DINT || var_type == ST_TYPE_DWORD) {
+        debug_print("-");
+        debug_print_uint(base_reg + 1);
+        debug_print(" (2 regs)");
+        export_slot += 2;
+      } else {
+        export_slot += 1;
+      }
+
+      debug_println("");
+    }
+  }
+
+  if (!has_exports) {
+    debug_println("  (No EXPORT variables configured)");
+    debug_println("  Syntax: VAR temp : INT EXPORT; END_VAR");
+  }
+
   // =========================================================================
   // NETWORK
   // =========================================================================

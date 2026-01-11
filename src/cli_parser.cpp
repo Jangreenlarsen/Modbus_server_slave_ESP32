@@ -217,7 +217,8 @@ static void print_show_help(void) {
   debug_println("  show timers          - Vis alle timers");
   debug_println("  show timer <id> [verbose] - Vis specifik timer (1-4)");
   debug_println("  show logic           - Vis alle ST Logic programmer");
-  debug_println("  show logic <id>      - Vis specifikt program (1-4)");
+  debug_println("  show logic <id>      - Vis program (uden source)");
+  debug_println("  show logic <id> st   - Vis program med ST source code (v5.1.0)");
   debug_println("  show logic <id> code - Vis compiled bytecode");
   debug_println("  show gpio            - Vis GPIO mappings");
   debug_println("  show gpio <pin>      - Vis specifik GPIO pin (0-39)");
@@ -474,7 +475,8 @@ static void print_persist_help(void) {
 static void print_logic_help(void) {
   debug_println("");
   debug_println("Available 'show logic' commands:");
-  debug_println("  show logic <id>          - Vis specifikt program (1-4)");
+  debug_println("  show logic <id>          - Vis specifikt program (1-4, uden source)");
+  debug_println("  show logic <id> st       - Vis program med ST source code (v5.1.0)");
   debug_println("  show logic all           - Vis alle programmer");
   debug_println("  show logic program       - Vis oversigt over alle programmer");
   debug_println("  show logic errors        - Vis kun programmer med fejl");
@@ -675,8 +677,18 @@ bool cli_parser_execute(char* line) {
             debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
             return false;
           }
+        } else if (!strcmp(subcommand2_norm, "ST")) {
+          // show logic <id> st - v5.1.0: Show with source code
+          uint8_t program_id = atoi(subcommand);
+          if (program_id > 0 && program_id <= 4) {
+            cli_cmd_show_logic_program(st_logic_get_state(), program_id - 1, 1);  // show_source=1
+            return true;
+          } else {
+            debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
+            return false;
+          }
         }
-        // If argv[3] exists but is not "code"/"timing"/"bytecode", fall through to normal handling
+        // If argv[3] exists but is not "code"/"timing"/"bytecode"/"st", fall through to normal handling
       }
 
       // Handle other subcommands (without code)
@@ -693,10 +705,10 @@ bool cli_parser_execute(char* line) {
         cli_cmd_show_logic_errors(st_logic_get_state());
         return true;
       } else {
-        // show logic <id> - specific program
+        // show logic <id> - specific program (hide source code by default - v5.1.0)
         uint8_t program_id = atoi(subcommand);
         if (program_id > 0 && program_id <= 4) {
-          cli_cmd_show_logic_program(st_logic_get_state(), program_id - 1);
+          cli_cmd_show_logic_program(st_logic_get_state(), program_id - 1, 0);  // show_source=0
           return true;
         } else {
           debug_printf("ERROR: Invalid program ID '%s' (expected 1-4 or all|stats|program|errors)\n", subcommand);
