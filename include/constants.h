@@ -298,10 +298,21 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "4.8.0"
+#define PROJECT_VERSION     "5.1.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v5.1.0 (2026-01-11): EXPORT Keyword & Dynamic IR Pool Allocation (BUG-143 RESOLVED)
+ *                      - FEAT: EXPORT keyword for ST variable visibility control (IEC 61131-3 compliant)
+ *                      - FEAT: Dynamic IR 220-251 pool allocation (32 regs shared flexibly across 4 programs)
+ *                      - NEW: ir_pool_manager.h/cpp - Dynamic pool allocation with type-aware sizing
+ *                      - Type-aware allocation: INT/BOOL=1 reg, REAL/DINT/DWORD=2 regs
+ *                      - Pool persistence: ir_pool_reallocate_all() restores allocations after NVS load
+ *                      - BUG-143 RESOLVED: Removed fixed 8 vars/program limitation
+ *                      - Compiler: Added var_export_flags[32] to bytecode, ST_TOK_EXPORT token
+ *                      - registers.cpp: Replaced fixed offset with dynamic pool lookup
+ *                      - Documentation: README.md, MODBUS_REGISTER_MAP.md, ST_COMPLETE_TEST_PLAN.md
+ *                      - Build #1032-1035
  * v4.8.0 (2026-01-07): Signal Processing Function Blocks + SR/RS Latches
  *                      - FEAT: SCALE(IN, IN_MIN, IN_MAX, OUT_MIN, OUT_MAX) - Linear scaling/mapping (5-arg stateless)
  *                      - FEAT: HYSTERESIS(IN, HIGH, LOW) - Schmitt trigger with dead zone (stateful, 1 byte)
