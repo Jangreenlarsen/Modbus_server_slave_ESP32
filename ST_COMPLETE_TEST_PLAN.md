@@ -1,7 +1,7 @@
 # ST Logic - Komplet Testplan
 
-**Version:** v4.8.4
-**Build:** #1027+
+**Version:** v5.1.0
+**Build:** #1032+
 **Formål:** Systematisk test af ALLE ST-funktioner
 
 ---
@@ -27,6 +27,7 @@
    - [1.14 Kontrolstrukturer - WHILE Loop](#114-kontrolstrukturer---while-loop)
    - [1.15 Kontrolstrukturer - REPEAT Loop](#115-kontrolstrukturer---repeat-loop)
    - [1.16 Type System - INT vs DINT](#116-type-system---int-vs-dint)
+   - [1.17 EXPORT Keyword & IR Pool Allocation](#117-export-keyword--ir-pool-allocation)
 4. [Fase 2: Kombinerede Tests](#fase-2-kombinerede-tests)
 5. [Test Execution Workflow](#test-execution-workflow)
 6. [Fejlhåndtering](#fejlhåndtering)
@@ -51,9 +52,10 @@
 | GPIO & Hardware tests | 4 | 5 min |
 | Kontrolstrukturer | 5 | 5 min |
 | Type System (INT/DINT) | 3 | 5 min |
-| **Fase 1 Total** | **55** | **40 min** |
+| EXPORT keyword & IR pool | 5 | 8 min |
+| **Fase 1 Total** | **60** | **48 min** |
 | Kombinerede tests | 10 | 15 min |
-| **Total** | **65** | **55 min** |
+| **Total** | **70** | **63 min** |
 | **Udsat (Modbus Master)** | **6** | *Senere* |
 
 ### Test Konventioner
@@ -3239,6 +3241,379 @@ read reg 54 2
 ✅ Positive INT + large DINT (1000 + 200000 = 201000)
 ✅ Negative INT + positive DINT (-100 + 50000 = 49900)
 ✅ CLI command 'write reg <addr> value dint <value>' simplifies testing
+```
+
+---
+
+## 1.17 EXPORT Keyword & IR Pool Allocation
+
+**Feature:** v5.1.0 - EXPORT keyword til variable visibility control og dynamic IR 220-251 pool allocation.
+
+**Formål:**
+- Verificer EXPORT keyword funktionalitet
+- Test dynamic IR pool allocation
+- Validér type-aware register allocation (INT=1 reg, REAL/DINT=2 regs)
+- Verificer pool persistence across reboots
+- Test pool exhaustion handling
+
+### Test 1.17.1: Basic EXPORT - Single Variable
+
+**Formål:** Verificer at EXPORT keyword mapper variable til IR 220-251
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM test
+VAR
+  temp : INT EXPORT;      (* Should be visible in IR 220-251 *)
+  internal : INT;         (* Should NOT be visible in IR *)
+END_VAR
+BEGIN
+  temp := 42;
+  internal := 99;
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Vent 1 sekund for execution
+delay 1000
+
+# Læs IR 220-251 (kun temp skal være synlig)
+read input-reg 220 1
+# Forventet: IR220 = 42 (temp er EXPORT)
+
+# Verificer at internal IKKE er synlig i IR 221
+read input-reg 221 1
+# Forventet: IR221 = 0 eller uændret (internal har INGEN EXPORT)
+
+# Vis Logic 1 info (skal vise ir_pool_offset og ir_pool_size)
+show logic 1
+# Forventet output skal inkludere:
+#   IR Pool: offset=0, size=1 (1 register allocated)
+```
+
+**Forventet Resultat:**
+```
+✅ temp (EXPORT) synlig i IR 220 = 42
+✅ internal (no EXPORT) IKKE synlig i IR 221
+✅ IR pool allocation: offset=0, size=1
+✅ show logic 1 viser correct pool info
+```
+
+---
+
+### Test 1.17.2: Multi-Register Types (REAL, DINT)
+
+**Formål:** Verificer at REAL og DINT bruger 2 registre i IR pool
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM test
+VAR
+  int_var : INT EXPORT;       (* 1 register *)
+  real_var : REAL EXPORT;     (* 2 registers *)
+  dint_var : DINT EXPORT;     (* 2 registers *)
+END_VAR
+BEGIN
+  int_var := 100;
+  real_var := 3.14;
+  dint_var := 123456;
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Vent 1 sekund
+delay 1000
+
+# Læs IR pool (5 registers total: 1 + 2 + 2)
+read input-reg 220 5
+
+# IR 220: int_var = 100 (1 register)
+# IR 221-222: real_var = 3.14 (2 registers, LSW first)
+# IR 223-224: dint_var = 123456 (2 registers, LSW first)
+
+# Forventet:
+# IR220 = 100
+# IR221 = LSW of 3.14 (float bits)
+# IR222 = MSW of 3.14 (float bits)
+# IR223 = 57920 (LSW of 123456)
+# IR224 = 1 (MSW of 123456)
+
+# Verificer pool allocation
+show logic 1
+# Forventet: IR Pool: offset=0, size=5
+```
+
+**Forventet Resultat:**
+```
+✅ int_var uses 1 register (IR 220)
+✅ real_var uses 2 registers (IR 221-222, LSW first)
+✅ dint_var uses 2 registers (IR 223-224, LSW first)
+✅ Total pool allocation: 5 registers
+✅ show logic 1 confirms size=5
+```
+
+---
+
+### Test 1.17.3: Dynamic Pool Allocation - Multiple Programs
+
+**Formål:** Verificer at IR pool deles fleksibelt mellem programmer
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+# Logic 1: 3 EXPORT vars (3 registers)
+set logic 1 delete
+set logic 1 upload
+PROGRAM logic1
+VAR
+  var1 : INT EXPORT;
+  var2 : INT EXPORT;
+  var3 : INT EXPORT;
+END_VAR
+BEGIN
+  var1 := 10;
+  var2 := 20;
+  var3 := 30;
+END_PROGRAM
+END_UPLOAD
+set logic 1 enabled:true
+
+# Logic 2: 2 EXPORT vars (4 registers - en DINT)
+set logic 2 delete
+set logic 2 upload
+PROGRAM logic2
+VAR
+  var1 : INT EXPORT;
+  var2 : DINT EXPORT;
+END_VAR
+BEGIN
+  var1 := 40;
+  var2 := 50000;
+END_PROGRAM
+END_UPLOAD
+set logic 2 enabled:true
+
+# Logic 3: 1 EXPORT var (2 registers - REAL)
+set logic 3 delete
+set logic 3 upload
+PROGRAM logic3
+VAR
+  temp : REAL EXPORT;
+END_VAR
+BEGIN
+  temp := 2.5;
+END_PROGRAM
+END_UPLOAD
+set logic 3 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Vent 1 sekund
+delay 1000
+
+# Læs alle IR 220-251 (total 9 registers used: 3+4+2)
+read input-reg 220 9
+
+# Logic 1: IR 220-222 (offset=0, size=3)
+#   IR220 = 10, IR221 = 20, IR222 = 30
+# Logic 2: IR 223-226 (offset=3, size=4)
+#   IR223 = 40, IR224-225 = 50000 (DINT, LSW first)
+# Logic 3: IR 226-227 (offset=7, size=2)
+#   IR226-227 = 2.5 (REAL, LSW first)
+
+# Verificer pool allocations
+show logic 1
+# Forventet: IR Pool: offset=0, size=3
+
+show logic 2
+# Forventet: IR Pool: offset=3, size=4
+
+show logic 3
+# Forventet: IR Pool: offset=7, size=2
+
+# Total pool usage: 3+4+2 = 9/32 registers
+```
+
+**Forventet Resultat:**
+```
+✅ Logic 1: 3 registers (IR 220-222)
+✅ Logic 2: 4 registers (IR 223-226)
+✅ Logic 3: 2 registers (IR 227-228)
+✅ No overlap between programs
+✅ Total pool usage: 9/32 registers
+✅ Each program shows correct offset and size
+```
+
+---
+
+### Test 1.17.4: Pool Reallocation After Delete
+
+**Formål:** Verificer at pool compaction fungerer ved program sletning
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+# Setup 3 programs
+set logic 1 delete
+set logic 1 upload
+PROGRAM logic1
+VAR
+  a : INT EXPORT;
+  b : INT EXPORT;
+END_VAR
+BEGIN
+  a := 1;
+  b := 2;
+END_PROGRAM
+END_UPLOAD
+set logic 1 enabled:true
+
+set logic 2 delete
+set logic 2 upload
+PROGRAM logic2
+VAR
+  c : INT EXPORT;
+  d : INT EXPORT;
+END_VAR
+BEGIN
+  c := 3;
+  d := 4;
+END_PROGRAM
+END_UPLOAD
+set logic 2 enabled:true
+
+set logic 3 delete
+set logic 3 upload
+PROGRAM logic3
+VAR
+  e : INT EXPORT;
+  f : INT EXPORT;
+END_VAR
+BEGIN
+  e := 5;
+  f := 6;
+END_PROGRAM
+END_UPLOAD
+set logic 3 enabled:true
+
+# Verificer initial allocation
+show logic 1
+# Forventet: IR Pool: offset=0, size=2
+show logic 2
+# Forventet: IR Pool: offset=2, size=2
+show logic 3
+# Forventet: IR Pool: offset=4, size=2
+
+# Slet Logic 2 (midterste program)
+set logic 2 delete
+
+# Verificer at Logic 1 og Logic 3 stadig virker
+show logic 1
+# Forventet: IR Pool: offset=0, size=2
+show logic 3
+# Forventet: IR Pool: offset=4, size=2 (eller måske compacted til offset=2)
+
+# Læs IR for at verificere
+read input-reg 220 6
+# IR220-221: Logic1 (1, 2)
+# IR222-223: Muligvis 0 (Logic2 slettet)
+# IR224-225: Logic3 (5, 6) eller compacted til IR222-223
+```
+
+**Forventet Resultat:**
+```
+✅ Logic 2 deleted successfully
+✅ Logic 1 still functional (IR 220-221)
+✅ Logic 3 still functional
+✅ Pool may be compacted or fragmented (implementation choice)
+✅ No crashes or corruption
+```
+
+---
+
+### Test 1.17.5: Pool Exhaustion Handling
+
+**Formål:** Test hvad der sker når IR pool er fuld (32 regs max)
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+# Logic 1: Alloker 15 REAL variables (30 registers)
+set logic 1 delete
+set logic 1 upload
+PROGRAM logic1
+VAR
+  v1 : REAL EXPORT;
+  v2 : REAL EXPORT;
+  v3 : REAL EXPORT;
+  v4 : REAL EXPORT;
+  v5 : REAL EXPORT;
+  v6 : REAL EXPORT;
+  v7 : REAL EXPORT;
+  v8 : REAL EXPORT;
+  v9 : REAL EXPORT;
+  v10 : REAL EXPORT;
+  v11 : REAL EXPORT;
+  v12 : REAL EXPORT;
+  v13 : REAL EXPORT;
+  v14 : REAL EXPORT;
+  v15 : REAL EXPORT;
+END_VAR
+BEGIN
+  v1 := 1.0;
+  v15 := 15.0;
+END_PROGRAM
+END_UPLOAD
+set logic 1 enabled:true
+
+# Verificer allocation
+show logic 1
+# Forventet: IR Pool: offset=0, size=30
+
+# Forsøg at allokere Logic 2 med 2 REAL (4 registers - overstiger 32)
+set logic 2 delete
+set logic 2 upload
+PROGRAM logic2
+VAR
+  extra1 : REAL EXPORT;
+  extra2 : REAL EXPORT;
+END_VAR
+BEGIN
+  extra1 := 99.0;
+  extra2 := 88.0;
+END_PROGRAM
+END_UPLOAD
+set logic 2 enabled:true
+
+# Check om compilation fejler eller giver warning
+show logic 2
+# Forventet: Fejlbesked eller warning om pool exhaustion
+```
+
+**Forventet Resultat:**
+```
+✅ Logic 1 allocates 30 registers successfully
+✅ Logic 2 compilation detects pool exhaustion
+✅ Warning/error message: "IR pool exhausted" eller lignende
+✅ Logic 2 kan ikke enables hvis pool er fuld
+✅ System forbliver stabil (no crash)
+```
+
+**Cleanup:**
+```bash
+set logic 1 delete
+set logic 2 delete
+set logic 3 delete
 ```
 
 ---
