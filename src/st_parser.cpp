@@ -1294,6 +1294,13 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
       var->is_input = (var_type_token == ST_TOK_VAR_INPUT);
       var->is_output = (var_type_token == ST_TOK_VAR_OUTPUT);
 
+      // Optional EXPORT modifier (v5.1.0 - IR pool export)
+      var->is_exported = 0;  // Default: not exported
+      if (parser_match(parser, ST_TOK_EXPORT)) {
+        var->is_exported = 1;
+        parser_advance(parser);
+      }
+
       // Optional initial value
       if (parser_match(parser, ST_TOK_ASSIGN)) {
         parser_advance(parser);

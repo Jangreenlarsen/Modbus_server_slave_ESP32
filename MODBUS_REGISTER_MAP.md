@@ -20,7 +20,8 @@ Dette dokument beskriver **ALLE** Modbus registre, coils og discrete inputs som 
 - Læs **Holding Registers (HR):** `read holding-reg <addr> <count>` (eller: `read reg`)
 - Læs **Input Registers (IR):** `read input-reg <addr> <count>` ⚠️ **Ikke "read reg"!**
 - Skriv **Holding Registers:** `set holding-reg STATIC/DYNAMIC ...` (eller: `set reg`)
-- **ST Logic variable VALUES** ligger i **IR 220-251** (ikke HR!) → Brug `read input-reg 220 32`
+- **ST Logic EXPORT variable VALUES** ligger i **IR 220-251** (ikke HR!) → Brug `read input-reg 220 32`
+- **v5.1.0:** Kun variabler markeret med `EXPORT` keyword i ST program er synlige i IR 220-251
 
 **Addressing:**
 - Alle adresser er 0-baserede (Modbus standard)
@@ -44,9 +45,11 @@ Dette dokument beskriver **ALLE** Modbus registre, coils og discrete inputs som 
 
 | Mode | Modbus → ST | ST → Modbus | CLI Kommando | Brug Til |
 |------|-------------|-------------|--------------|----------|
-| **INPUT** | ✅ HR (FC06/FC16) | ✅ IR 220-251 (auto) | `bind var hr:100 input` | Setpoints, commands fra SCADA |
-| **OUTPUT** | - | ✅ IR 220-251 (auto)<br>+ IR custom | `bind var ir:300 output` | Status, målinger til SCADA |
-| **BOTH** | ✅ HR (FC06/FC16) | ✅ IR 220-251 (auto)<br>+ IR custom | `bind var both hr:100 ir:300` | Begge retninger |
+| **INPUT** | ✅ HR (FC06/FC16) | ✅ IR 220-251 (auto EXPORT) | `bind var hr:100 input` | Setpoints, commands fra SCADA |
+| **OUTPUT** | - | ✅ IR 220-251 (auto EXPORT)<br>+ IR custom | `bind var ir:300 output` | Status, målinger til SCADA |
+| **BOTH** | ✅ HR (FC06/FC16) | ✅ IR 220-251 (auto EXPORT)<br>+ IR custom | `bind var both hr:100 ir:300` | Begge retninger |
+
+**Note (v5.1.0):** IR 220-251 automatic mapping requires `EXPORT` keyword in ST program variable declaration.
 
 ### Praktisk Eksempel: Temperature Controller
 
@@ -193,12 +196,12 @@ For at undgå konflikter mellem system funktioner og bruger data, skal du bruge 
 | **IR 208-211** | 🔒 **SYSTEM** | ST Logic error count (4 programs) | ST Logic engine |
 | **IR 212-215** | 🔒 **SYSTEM** | ST Logic error codes (4 programs) | ST Logic engine |
 | **IR 216-219** | 🔒 **SYSTEM** | ST Logic variable count (4 programs) | ST Logic engine |
-| **IR 220-251** | 🔒 **SYSTEM** | ST Logic variable values (4 programs × 8 vars = 32 regs) | ST Logic engine |
-|                |               | - IR 220-227: Program 1 variables (8 regs) | |
-|                |               | - IR 228-235: Program 2 variables (8 regs) | |
-|                |               | - IR 236-243: Program 3 variables (8 regs) | |
-|                |               | - IR 244-251: Program 4 variables (8 regs) | |
-|                |               | **Note:** Max 8 vars/program visible in IR | |
+| **IR 220-251** | 🔒 **SYSTEM** | ST Logic EXPORT variables (dynamic pool, 32 regs) | ST Logic engine |
+|                |               | **v5.1.0:** Dynamic allocation based on EXPORT keyword | |
+|                |               | - Only variables marked EXPORT are visible | |
+|                |               | - Flexible allocation across 4 programs | |
+|                |               | - Type-aware: REAL/DINT/DWORD use 2 regs, INT/BOOL use 1 reg | |
+|                |               | **Note:** Pool shared across all programs (max 32 regs total) | |
 | **IR 252-259** | 🔒 **SYSTEM** | ST Logic min exec time (4 programs × 2 regs) | ST Logic engine |
 | **IR 260-267** | 🔒 **SYSTEM** | ST Logic max exec time (4 programs × 2 regs) | ST Logic engine |
 | **IR 268-275** | 🔒 **SYSTEM** | ST Logic avg exec time (4 programs × 2 regs) | ST Logic engine |
@@ -447,61 +450,93 @@ IR 201 = 0x0009  →  Logic2 has error + is enabled (bits 0+3 set)
 
 ---
 
-#### **IR 220-251: Variable Values (8 variables × 4 programs)**
-| Register Range | Program | Variables | Beskrivelse |
-|----------------|---------|-----------|-------------|
-| **220-227** | Logic1 | Var[0]-Var[7] | Variable values for Logic1 |
-| **228-235** | Logic2 | Var[0]-Var[7] | Variable values for Logic2 |
-| **236-243** | Logic3 | Var[0]-Var[7] | Variable values for Logic3 |
-| **244-251** | Logic4 | Var[0]-Var[7] | Variable values for Logic4 |
+#### **IR 220-251: Variable Values (Dynamic Pool Allocation - v5.1.0)**
 
-**Format:**
-```
-IR 220 = Logic1.Var[0]  (første variable i Logic1)
-IR 221 = Logic1.Var[1]  (anden variable i Logic1)
-...
-IR 227 = Logic1.Var[7]  (sidste variable i Logic1)
-IR 228 = Logic2.Var[0]  (første variable i Logic2)
-...
+**🎯 NY FEATURE (v5.1.0): EXPORT Keyword & Dynamic Pool**
+
+IR 220-251 (32 registers total) er nu en **dynamisk pool** som deles fleksibelt mellem de 4 ST Logic programmer baseret på EXPORT keyword.
+
+**Variable Visibility Control:**
+```st
+VAR
+  temp : INT EXPORT;        (* ✅ Synlig i IR 220-251 - bruger 1 register *)
+  setpoint : REAL EXPORT;   (* ✅ Synlig i IR 220-251 - bruger 2 registre *)
+  internal : INT;           (* ❌ IKKE synlig i IR - kun intern brug *)
+END_VAR
 ```
 
-**Variable Mapping:**
-- Kun variabler med bindings vises her
-- Variable index matcher binding configuration
-- Type conversion: BOOL → 0/1, INT → int16_t, REAL → (int16_t)float
+**Pool Allocation Eksempel:**
+```
+Logic1: 3 EXPORT vars (5 registers)  → IR 220-224 (5 regs)
+Logic2: 2 EXPORT vars (2 registers)  → IR 225-226 (2 regs)
+Logic3: 6 EXPORT vars (10 registers) → IR 227-236 (10 regs)
+Logic4: 4 EXPORT vars (6 registers)  → IR 237-242 (6 regs)
+Total: 23/32 registers used, 9 free
+```
 
-**⚠️ VIGTIG BEGRÆNSNING:**
-- ST programmer kan deklarere op til **32 variabler** (st_types.h:299)
-- Men kun de **første 8 variabler** per program får automatisk mapping til IR 220-251
-- Variabler 9-32 har INGEN automatisk IR mapping (kun intern brug i ST program)
-- Kode reference: `registers.cpp:337` → `(prog_id * 8)` allokerer kun 8 registre per program
-- Se BUG-143 for diskussion om at øge denne grænse
+**Type-Aware Register Allocation:**
+| Type | Registers Used | Format |
+|------|----------------|--------|
+| **INT** | 1 register | 16-bit signed integer |
+| **BOOL** | 1 register | 0x0000 (false) eller 0x0001 (true) |
+| **REAL** | 2 registers | 32-bit float (LSW first, MSW second) |
+| **DINT** | 2 registers | 32-bit signed integer (LSW first, MSW second) |
+| **DWORD** | 2 registers | 32-bit unsigned (LSW first, MSW second) |
 
-**🔄 AUTOMATISK IR MAPPING vs MANUAL BINDINGS:**
+**Variable Mapping (EXPORT Only):**
+- Kun variabler markeret med **EXPORT** keyword vises i IR 220-251
+- Variabler uden EXPORT er program-internal (ingen Modbus access)
+- IR allocation er **contiguous** per program (ingen huller)
+- Automatic reallocation ved program compile/delete/reload
 
-IR 220-251 opdateres **ALTID automatisk** for de første 8 variabler - **uanset binding mode!**
+**🔄 AUTOMATISK IR MAPPING vs MANUAL BINDINGS (v5.1.0):**
+
+IR 220-251 opdateres **ALTID automatisk** for EXPORT variabler - **uanset binding mode!**
 
 | Binding Mode | Automatisk IR 220-251 | Manual Bindings | Total Modbus Access |
 |--------------|----------------------|-----------------|---------------------|
-| **Ingen** | ✅ Ja (read-only) | - | **1 sted** (IR 220-227) |
-| **INPUT** | ✅ Ja (read-only) | HR (input) | **2 steder** (IR + HR) |
-| **OUTPUT** | ✅ Ja (read-only) | IR custom (output) | **2 steder** (IR 220 + IR custom) |
-| **BOTH** | ✅ Ja (read-only) | HR (input) + IR custom (output) | **3 steder** (IR 220 + HR + IR custom) |
+| **Ingen (kun EXPORT)** | ✅ Ja (read-only) | - | **1 sted** (IR 220-251) |
+| **INPUT + EXPORT** | ✅ Ja (read-only) | HR (input) | **2 steder** (IR + HR) |
+| **OUTPUT + EXPORT** | ✅ Ja (read-only) | IR custom (output) | **2 steder** (IR auto + IR custom) |
+| **BOTH + EXPORT** | ✅ Ja (read-only) | HR (input) + IR custom (output) | **3 steder** (IR auto + HR + IR custom) |
 
-**Eksempel:**
+**Eksempel - EXPORT + BOTH Binding:**
+```st
+VAR
+  temp : INT EXPORT;      (* Automatisk IR 220-251 + bindings *)
+  internal : INT;         (* Kun intern - ingen IR mapping *)
+END_VAR
 ```
+```bash
 bind temp both hr:100 ir:300    # temp tilgængelig 3 steder:
-                                # - IR 220 (automatisk, read-only)
+                                # - IR 220-251 (automatisk EXPORT, read-only)
                                 # - HR 100 (INPUT: SCADA → ST)
                                 # - IR 300 (OUTPUT: ST → SCADA)
 ```
 
+**Eksempel - EXPORT Uden Bindings:**
+```st
+VAR
+  sensor : INT EXPORT;    (* Kun automatisk IR 220-251 *)
+END_VAR
+```
+```bash
+# Ingen bind kommando nødvendig!
+# sensor er automatisk tilgængelig i IR 220-251 (read-only)
+read input-reg 220 1    # Læs sensor værdi
+```
+
 **⚠️ ANBEFALING:** Brug IKKE IR 220-251 i manual bindings! De er allerede automatisk mappet.
 
+```bash
+bind temp both hr:100 ir:220  # ❌ DÅRLIGT - IR 220 allerede automatisk via EXPORT
+bind temp both hr:100 ir:300  # ✅ GODT - Brug IR uden for 220-251 for OUTPUT binding
 ```
-bind temp both hr:100 ir:220  # ❌ DÅRLIGT - IR 220 allerede automatisk
-bind temp both hr:100 ir:300  # ✅ GODT - Brug IR uden for 220-251
-```
+
+**Pool Statistics & Queries:**
+- IR pool allocation kan ses med CLI: `show logic <id>` (viser ir_pool_offset og ir_pool_size)
+- Total pool usage: Sum af alle programs ir_pool_size
+- Free space: 32 - total used
 
 ---
 

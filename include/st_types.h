@@ -47,6 +47,7 @@ typedef enum {
   ST_TOK_VAR_OUTPUT,        // VAR_OUTPUT
   ST_TOK_VAR_IN_OUT,        // VAR_IN_OUT (future)
   ST_TOK_END_VAR,           // END_VAR
+  ST_TOK_EXPORT,            // EXPORT (v5.1.0 - mark variable for IR pool export)
 
   // Keywords - Control structures (IEC 6.3.2)
   ST_TOK_IF,                // IF
@@ -160,6 +161,7 @@ typedef struct {
   st_value_t initial_value; // Default value
   uint8_t is_input;         // VAR_INPUT flag
   uint8_t is_output;        // VAR_OUTPUT flag
+  uint8_t is_exported;      // EXPORT flag (v5.1.0 - map to IR 220-251 pool)
 } st_variable_decl_t;
 
 /* ============================================================================
@@ -400,6 +402,10 @@ typedef struct {
   char var_names[32][64];    // Variable names (for CLI binding by name)
   st_datatype_t var_types[32]; // Variable types (BOOL, INT, etc.) - for bindings display
   uint8_t var_count;
+
+  // IR Pool Export (v5.1.0 - dynamic allocation of IR 220-251)
+  uint8_t var_export_flags[32]; // 1 = EXPORT (visible in IR pool), 0 = private
+  uint8_t exported_var_count;    // Number of exported variables
 
   // Stateful storage for timers, edges, counters (v4.7+)
   struct st_stateful_storage* stateful;  // Persistent state between cycles (opaque pointer)

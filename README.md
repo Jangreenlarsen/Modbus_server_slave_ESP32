@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v4.8.4 | **Build:** #1027 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v5.1.0 | **Build:** #1032 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, telnet CLI interface, og komplet Modbus register dokumentation.
 
@@ -494,6 +494,7 @@ Hver timer har **4 modes:**
 
 **Language Features:**
 - **Variable Types:** INT, BOOL, REAL (16-bit, 1-bit, float)
+- **Variable Visibility:** EXPORT keyword (v5.1.0) - mark variables for Modbus IR 220-251 exposure
 - **Operators:** +, -, *, /, MOD, AND, OR, NOT, XOR
 - **Comparisons:** =, <>, <, >, <=, >=
 - **Control Flow:** IF/THEN/ELSIF/ELSE, WHILE, FOR, REPEAT/UNTIL
@@ -3147,6 +3148,51 @@ empty := CTD(dispense, reload, 50);              (* Count down from 50 *)
 ---
 
 ## 📝 Version History
+
+- **v5.1.0** (2026-01-11) - 🎯 EXPORT Keyword & Dynamic IR Pool Allocation (BUG-143 RESOLVED)
+  - **NEW FEATURE: EXPORT Keyword (IEC 61131-3 compliant)**
+    - Mark ST Logic variables for Modbus Input Register (IR) visibility
+    - Syntax: `VAR temp : INT EXPORT; END_VAR` exposes variable to IR 220-251
+    - Variables without EXPORT are program-internal only (no Modbus access)
+    - Compatible with all ST types: INT, BOOL, REAL, DINT, DWORD
+  - **NEW FEATURE: Dynamic IR Pool Allocation**
+    - IR 220-251 (32 registers) now shared flexibly across 4 ST Logic programs
+    - OLD LIMITATION: Fixed 8 registers per program (IR 220-227, 228-235, 236-243, 244-251)
+    - NEW SYSTEM: Dynamic allocation based on EXPORT count per program
+    - Example allocation: Logic1=5 regs, Logic2=12 regs, Logic3=3 regs, Logic4=10 regs = 30/32 used
+    - Automatic pool compaction on program delete/recompile
+    - Type-aware allocation: REAL/DINT/DWORD use 2 registers, INT/BOOL use 1 register
+  - **IR Pool Manager (new module: ir_pool_manager.h/cpp)**
+    - `ir_pool_calculate_size()` - calculates required IR space based on EXPORT flags
+    - `ir_pool_allocate()` - allocates contiguous IR space for program
+    - `ir_pool_free()` - releases IR space on program delete
+    - `ir_pool_get_total_used()` / `ir_pool_get_free_space()` - pool statistics
+    - `ir_pool_compact()` - optional defragmentation to reclaim gaps
+    - `ir_pool_reallocate_all()` - restore IR allocations after NVS load on boot
+  - **Compiler Integration**
+    - ST Lexer: Added ST_TOK_EXPORT token (st_lexer.cpp)
+    - ST Parser: Parse EXPORT modifier after variable type (st_parser.cpp)
+    - ST Compiler: Store export flags in bytecode (st_compiler.cpp)
+    - Bytecode: Added var_export_flags[32] and exported_var_count fields
+  - **Register Mapping Updates (registers.cpp)**
+    - Replaced fixed `(prog_id * 8)` allocation with dynamic pool lookup
+    - Only EXPORT variables are written to IR 220-251 (efficient register usage)
+    - Type-aware multi-register handling (REAL/DINT/DWORD span 2 registers)
+    - LSW-first byte order maintained (per BUG-124/BUG-125 specification)
+  - **Persistence (NVS)**
+    - IR pool allocations restored on boot via `ir_pool_reallocate_all()`
+    - Called in main.cpp:setup() after `st_logic_load_from_persist_config()`
+    - Ensures consistent IR mapping across reboots
+  - **Documentation Updates**
+    - README.md: Added EXPORT to ST Language Features
+    - MODBUS_REGISTER_MAP.md: Updated IR 220-251 section with dynamic allocation details
+    - Added practical examples of EXPORT usage in ST programs
+  - **Backward Compatibility**
+    - Programs compiled before v5.1.0 continue to work (no EXPORT = no IR mapping)
+    - Existing bindings (INPUT/OUTPUT/BOTH) unchanged and functional
+  - **Bug Fixes**
+    - **BUG-143 RESOLVED:** IR 220-251 limitation removed - now dynamic pool allocation
+  - **Build:** #1032
 
 - **v4.7.2** (2026-01-04) - 📋 CLI Consistency & Documentation - Holding-Reg vs Input-Reg Naming
   - **CLI Naming Standardization:**

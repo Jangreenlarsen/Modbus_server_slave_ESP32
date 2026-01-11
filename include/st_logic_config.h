@@ -56,6 +56,10 @@ typedef struct {
   uint32_t total_execution_us;// Total execution time for average calculation (microseconds)
   uint32_t overrun_count;     // Number of times execution > target interval
 
+  // IR Pool allocation (v5.1.0 - dynamic export to IR 220-251)
+  uint16_t ir_pool_offset;    // Start offset in IR 220-251 (65535 if not allocated)
+  uint8_t ir_pool_size;       // Number of registers allocated (0-32)
+
 } st_logic_program_config_t;
 
 /* ============================================================================

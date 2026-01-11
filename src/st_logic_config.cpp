@@ -7,6 +7,7 @@
 #include "st_parser.h"
 #include "st_compiler.h"
 #include "register_allocator.h"
+#include "ir_pool_manager.h"  // v5.1.0 - IR pool management
 #include "debug.h"
 #include "debug_flags.h"
 #include <string.h>
@@ -54,7 +55,12 @@ void st_logic_init(st_logic_engine_state_t *state) {
     prog->compiled = 0;
     prog->source_offset = 0xFFFFFFFF;  // Not allocated in pool
     prog->source_size = 0;
+    prog->ir_pool_offset = 65535;  // v5.1.0 - IR pool not allocated
+    prog->ir_pool_size = 0;
   }
+
+  // v5.1.0 - Initialize IR pool manager
+  ir_pool_init(state);
 }
 
 /* ============================================================================
@@ -244,6 +250,31 @@ bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
   prog->execution_count = 0;
   prog->error_count = 0;
 
+  // v5.1.0 - Allocate IR pool for EXPORT variables
+  // Free old allocation if recompiling
+  if (prog->ir_pool_offset != 65535) {
+    ir_pool_free(state, program_id);
+  }
+
+  // Calculate required IR pool size
+  uint8_t ir_size_needed = ir_pool_calculate_size(&prog->bytecode);
+  if (ir_size_needed > 0) {
+    uint8_t ir_offset = ir_pool_allocate(state, program_id, ir_size_needed);
+    if (ir_offset == 255) {
+      // Pool exhausted - compilation succeeded but IR export disabled
+      snprintf(prog->last_error, sizeof(prog->last_error),
+               "Warning: IR pool exhausted (%d regs needed, %d free). EXPORT disabled.",
+               ir_size_needed, ir_pool_get_free_space(state));
+      debug_printf("[WARN] Logic%d: IR pool exhausted, EXPORT disabled\n", program_id + 1);
+      prog->ir_pool_offset = 65535;  // No allocation
+      prog->ir_pool_size = 0;
+    }
+  } else {
+    // No exported variables
+    prog->ir_pool_offset = 65535;
+    prog->ir_pool_size = 0;
+  }
+
   st_program_free(program);
   free(bytecode);
 
@@ -287,8 +318,9 @@ bool st_logic_set_enabled(st_logic_engine_state_t *state, uint8_t program_id, ui
 bool st_logic_delete(st_logic_engine_state_t *state, uint8_t program_id) {
   if (program_id >= 4) return false;
 
-  // Free pool allocation
+  // Free pool allocations
   st_logic_pool_free(state, program_id);
+  ir_pool_free(state, program_id);  // v5.1.0 - Free IR pool
 
   // Clear the program itself
   st_logic_program_config_t *prog = &state->programs[program_id];
@@ -298,6 +330,8 @@ bool st_logic_delete(st_logic_engine_state_t *state, uint8_t program_id) {
   prog->compiled = 0;
   prog->source_offset = 0xFFFFFFFF;  // Not allocated
   prog->source_size = 0;
+  prog->ir_pool_offset = 65535;  // v5.1.0 - IR pool not allocated
+  prog->ir_pool_size = 0;
 
   // Clear all variable bindings for this program
   extern PersistConfig g_persist_config;

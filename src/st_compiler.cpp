@@ -42,7 +42,7 @@ void st_compiler_init(st_compiler_t *compiler) {
  * ============================================================================ */
 
 uint8_t st_compiler_add_symbol(st_compiler_t *compiler, const char *name,
-                                st_datatype_t type, uint8_t is_input, uint8_t is_output) {
+                                st_datatype_t type, uint8_t is_input, uint8_t is_output, uint8_t is_exported) {
   if (compiler->symbol_table.count >= 32) {
     st_compiler_error(compiler, "Too many variables (max 32)");
     return 0xFF;
@@ -62,10 +62,11 @@ uint8_t st_compiler_add_symbol(st_compiler_t *compiler, const char *name,
   sym->type = type;
   sym->is_input = is_input;
   sym->is_output = is_output;
+  sym->is_exported = is_exported;  // v5.1.0 - IR pool export flag
   sym->index = compiler->symbol_table.count;
 
-  debug_printf("[COMPILER] Added symbol[%d]: name='%s' type=%d input=%d output=%d\n",
-               sym->index, sym->name, sym->type, sym->is_input, sym->is_output);
+  debug_printf("[COMPILER] Added symbol[%d]: name='%s' type=%d input=%d output=%d exported=%d\n",
+               sym->index, sym->name, sym->type, sym->is_input, sym->is_output, sym->is_exported);
 
   return compiler->symbol_table.count++;
 }
@@ -955,7 +956,7 @@ st_bytecode_program_t *st_compiler_compile(st_compiler_t *compiler, st_program_t
   for (int i = 0; i < program->var_count; i++) {
     st_variable_decl_t *var = &program->variables[i];
     uint8_t index = st_compiler_add_symbol(compiler, var->name, var->type,
-                                            var->is_input, var->is_output);
+                                            var->is_input, var->is_output, var->is_exported);
     if (index == 0xFF) {
       return NULL;  // Error already reported
     }
@@ -990,6 +991,7 @@ st_bytecode_program_t *st_compiler_compile(st_compiler_t *compiler, st_program_t
          compiler->bytecode_ptr * sizeof(st_bytecode_instr_t));
 
   // Copy variable declarations
+  bytecode->exported_var_count = 0;  // v5.1.0 - IR pool export count
   for (int i = 0; i < compiler->symbol_table.count; i++) {
     st_symbol_t *sym = &compiler->symbol_table.symbols[i];
     bytecode->variables[i].int_val = 0;  // Initialize all to 0
@@ -997,8 +999,12 @@ st_bytecode_program_t *st_compiler_compile(st_compiler_t *compiler, st_program_t
     strncpy(bytecode->var_names[i], sym->name, sizeof(bytecode->var_names[i]) - 1);
     bytecode->var_names[i][sizeof(bytecode->var_names[i]) - 1] = '\0';
     bytecode->var_types[i] = sym->type;  // Store variable type (BOOL, INT, etc.)
-    debug_printf("[COMPILER] Copied to bytecode: var[%d] name='%s' type=%d\n",
-                 i, bytecode->var_names[i], bytecode->var_types[i]);
+    bytecode->var_export_flags[i] = sym->is_exported;  // v5.1.0 - IR pool export flag
+    if (sym->is_exported) {
+      bytecode->exported_var_count++;
+    }
+    debug_printf("[COMPILER] Copied to bytecode: var[%d] name='%s' type=%d exported=%d\n",
+                 i, bytecode->var_names[i], bytecode->var_types[i], bytecode->var_export_flags[i]);
   }
 
   // v4.7+: Allocate stateful storage if any stateful functions were used

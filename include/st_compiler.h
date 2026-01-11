@@ -26,6 +26,7 @@ typedef struct {
   st_datatype_t type;
   uint8_t is_input;
   uint8_t is_output;
+  uint8_t is_exported;        // EXPORT flag (v5.1.0 - map to IR 220-251 pool)
 } st_symbol_t;
 
 /* Symbol table */
@@ -111,10 +112,11 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node);
  * @param type Data type
  * @param is_input Is VAR_INPUT?
  * @param is_output Is VAR_OUTPUT?
+ * @param is_exported Is EXPORT? (v5.1.0)
  * @return Variable index, or 0xFF on error
  */
 uint8_t st_compiler_add_symbol(st_compiler_t *compiler, const char *name,
-                                st_datatype_t type, uint8_t is_input, uint8_t is_output);
+                                st_datatype_t type, uint8_t is_input, uint8_t is_output, uint8_t is_exported);
 
 /**
  * @brief Look up symbol in table

@@ -29,6 +29,7 @@
 #include "registers.h"
 #include "st_logic_config.h"
 #include "st_logic_engine.h"
+#include "ir_pool_manager.h"  // v5.1.0 - IR pool management
 #include "network_manager.h"
 #include "watchdog_monitor.h"
 #include "register_allocator.h"
@@ -86,6 +87,9 @@ void setup() {
 
   // Load ST Logic programs from persistent config
   st_logic_load_from_persist_config(&g_persist_config);
+
+  // v5.1.0 - Reallocate IR pool for loaded programs (based on EXPORT flags in bytecode)
+  ir_pool_reallocate_all(st_logic_get_state());
 
   // Apply loaded configuration (MUST be after subsystem init to override defaults)
   config_apply(&g_persist_config);

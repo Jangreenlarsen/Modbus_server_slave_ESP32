@@ -321,38 +321,64 @@ void registers_update_st_logic_status(void) {
     // Note: binding_count is updated by st_logic_update_binding_counts()
     registers_set_input_register(ST_LOGIC_VAR_COUNT_REG_BASE + prog_id, prog->binding_count);
 
-    // 220-251: Variable Values (32 registers total for 4 programs * 8 vars each)
-    // Map ST Logic variables to registers
-    for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
-      const VariableMapping *map = &g_persist_config.var_maps[i];
-      if (map->source_type == MAPPING_SOURCE_ST_VAR &&
-          map->st_program_id == prog_id) {
+    // =========================================================================
+    // 220-251: EXPORTED Variable Values (v5.1.0 - Dynamic IR Pool)
+    // =========================================================================
+    // Maps EXPORT-flagged variables to IR 220-251 using dynamic pool allocation.
+    // Each program gets a flexible range based on exported variable count.
 
-        // BUG-003 FIX: Bounds check before accessing variable array
-        if (!prog || map->st_var_index >= prog->bytecode.var_count) {
-          continue;  // Skip invalid mapping
+    if (prog->ir_pool_offset != 65535 && prog->ir_pool_size > 0) {
+      // Program has IR pool allocated - map exported variables
+      uint16_t export_slot = 0;  // Current position in export array
+
+      for (uint8_t var_idx = 0; var_idx < prog->bytecode.var_count; var_idx++) {
+        // Only process EXPORT variables
+        if (!prog->bytecode.var_export_flags[var_idx]) {
+          continue;
         }
 
-        uint16_t var_reg_offset = ST_LOGIC_VAR_VALUES_REG_BASE +
-                                  (prog_id * 8) +
-                                  map->st_var_index;
+        st_datatype_t var_type = prog->bytecode.var_types[var_idx];
+        uint16_t base_reg = ST_LOGIC_VAR_VALUES_REG_BASE + prog->ir_pool_offset + export_slot;
 
-        if (var_reg_offset < INPUT_REGS_SIZE) {
-          // BUG-001 FIX: Update input register with actual variable value from bytecode
-          // BUG-009 FIX: Use type-aware reading (consistent with gpio_mapping.cpp)
-          st_datatype_t var_type = prog->bytecode.var_types[map->st_var_index];
-          int16_t var_value;
+        // Type-aware value extraction and register writing
+        if (var_type == ST_TYPE_BOOL) {
+          // BOOL: 1 register
+          uint16_t value = prog->bytecode.variables[var_idx].bool_val ? 1 : 0;
+          registers_set_input_register(base_reg, value);
+          export_slot++;
 
-          if (var_type == ST_TYPE_BOOL) {
-            var_value = prog->bytecode.variables[map->st_var_index].bool_val ? 1 : 0;
-          } else if (var_type == ST_TYPE_REAL) {
-            var_value = (int16_t)prog->bytecode.variables[map->st_var_index].real_val;
-          } else {
-            // ST_TYPE_INT or ST_TYPE_DWORD
-            var_value = prog->bytecode.variables[map->st_var_index].int_val;
-          }
+        } else if (var_type == ST_TYPE_INT) {
+          // INT: 1 register (16-bit signed)
+          uint16_t value = (uint16_t)prog->bytecode.variables[var_idx].int_val;
+          registers_set_input_register(base_reg, value);
+          export_slot++;
 
-          registers_set_input_register(var_reg_offset, (uint16_t)var_value);
+        } else if (var_type == ST_TYPE_REAL) {
+          // REAL: 2 registers (32-bit float, LSW first per BUG-125)
+          uint32_t bits;
+          memcpy(&bits, &prog->bytecode.variables[var_idx].real_val, sizeof(float));
+          registers_set_input_register(base_reg,     (uint16_t)(bits & 0xFFFF));        // LSW
+          registers_set_input_register(base_reg + 1, (uint16_t)((bits >> 16) & 0xFFFF)); // MSW
+          export_slot += 2;
+
+        } else if (var_type == ST_TYPE_DINT) {
+          // DINT: 2 registers (32-bit signed, LSW first per BUG-124)
+          int32_t value = prog->bytecode.variables[var_idx].dint_val;
+          registers_set_input_register(base_reg,     (uint16_t)(value & 0xFFFF));        // LSW
+          registers_set_input_register(base_reg + 1, (uint16_t)((value >> 16) & 0xFFFF)); // MSW
+          export_slot += 2;
+
+        } else if (var_type == ST_TYPE_DWORD) {
+          // DWORD: 2 registers (32-bit unsigned, LSW first)
+          uint32_t value = prog->bytecode.variables[var_idx].dword_val;
+          registers_set_input_register(base_reg,     (uint16_t)(value & 0xFFFF));        // LSW
+          registers_set_input_register(base_reg + 1, (uint16_t)((value >> 16) & 0xFFFF)); // MSW
+          export_slot += 2;
+        }
+
+        // Safety check: don't overflow allocated pool
+        if (export_slot >= prog->ir_pool_size) {
+          break;
         }
       }
     }

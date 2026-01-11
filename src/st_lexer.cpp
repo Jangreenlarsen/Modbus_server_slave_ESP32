@@ -94,6 +94,7 @@ static const keyword_entry_t keywords[] = {
   {"VAR_IN_OUT", ST_TOK_VAR_IN_OUT},
   {"END_VAR", ST_TOK_END_VAR},
   {"CONST", ST_TOK_CONST},
+  {"EXPORT", ST_TOK_EXPORT},  // v5.1.0 - IR pool export modifier
 
   // Control structures
   {"IF", ST_TOK_IF},
@@ -563,6 +564,7 @@ const char *st_token_type_to_string(st_token_type_t type) {
     case ST_TOK_VAR_INPUT:      return "VAR_INPUT";
     case ST_TOK_VAR_OUTPUT:     return "VAR_OUTPUT";
     case ST_TOK_VAR_IN_OUT:     return "VAR_IN_OUT";
+    case ST_TOK_EXPORT:         return "EXPORT";
     case ST_TOK_IF:             return "IF";
     case ST_TOK_THEN:           return "THEN";
     case ST_TOK_ELSE:           return "ELSE";
