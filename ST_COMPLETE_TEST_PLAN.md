@@ -20,14 +20,15 @@
    - [1.7 Builtin Funktioner - Trigonometriske](#17-builtin-funktioner---trigonometriske)
    - [1.8 Builtin Funktioner - Type Conversion](#18-builtin-funktioner---type-conversion)
    - [1.9 Builtin Funktioner - Persistence](#19-builtin-funktioner---persistence)
-   - [1.10 GPIO & Hardware Tests](#110-gpio--hardware-tests)
-   - [1.11 Kontrolstrukturer - IF/THEN/ELSE](#111-kontrolstrukturer---ifthenelse)
-   - [1.12 Kontrolstrukturer - CASE](#112-kontrolstrukturer---case)
-   - [1.13 Kontrolstrukturer - FOR Loop](#113-kontrolstrukturer---for-loop)
-   - [1.14 Kontrolstrukturer - WHILE Loop](#114-kontrolstrukturer---while-loop)
-   - [1.15 Kontrolstrukturer - REPEAT Loop](#115-kontrolstrukturer---repeat-loop)
-   - [1.16 Type System - INT vs DINT](#116-type-system---int-vs-dint)
-   - [1.17 EXPORT Keyword & IR Pool Allocation](#117-export-keyword--ir-pool-allocation)
+   - [1.10 Builtin Funktioner - Timers (TON/TOF/TP)](#110-builtin-funktioner---timers-tontoFtp)
+   - [1.11 GPIO & Hardware Tests](#111-gpio--hardware-tests)
+   - [1.12 Kontrolstrukturer - IF/THEN/ELSE](#112-kontrolstrukturer---ifthenelse)
+   - [1.13 Kontrolstrukturer - CASE](#113-kontrolstrukturer---case)
+   - [1.14 Kontrolstrukturer - FOR Loop](#114-kontrolstrukturer---for-loop)
+   - [1.15 Kontrolstrukturer - WHILE Loop](#115-kontrolstrukturer---while-loop)
+   - [1.16 Kontrolstrukturer - REPEAT Loop](#116-kontrolstrukturer---repeat-loop)
+   - [1.17 Type System - INT vs DINT](#117-type-system---int-vs-dint)
+   - [1.18 EXPORT Keyword & IR Pool Allocation](#118-export-keyword--ir-pool-allocation)
 4. [Fase 2: Kombinerede Tests](#fase-2-kombinerede-tests)
 5. [Test Execution Workflow](#test-execution-workflow)
 6. [Fejlhåndtering](#fejlhåndtering)
@@ -49,13 +50,14 @@
 | Builtin trigonometriske | 3 | 2 min |
 | Builtin type conversion | 6 | 3 min |
 | Builtin persistence | 2 | 2 min |
+| Builtin timers (TON/TOF/TP) | 6 | 8 min |
 | GPIO & Hardware tests | 4 | 5 min |
 | Kontrolstrukturer | 5 | 5 min |
 | Type System (INT/DINT) | 3 | 5 min |
 | EXPORT keyword & IR pool | 5 | 8 min |
-| **Fase 1 Total** | **60** | **48 min** |
+| **Fase 1 Total** | **66** | **56 min** |
 | Kombinerede tests | 10 | 15 min |
-| **Total** | **70** | **63 min** |
+| **Total** | **76** | **71 min** |
 | **Udsat (Modbus Master)** | **6** | *Senere* |
 
 ### Test Konventioner
@@ -2550,7 +2552,446 @@ read reg 60 int
 
 ---
 
-## 1.10 GPIO & Hardware Tests
+## 1.10 Builtin Funktioner - Timers (TON/TOF/TP)
+
+**Formål:** Test af alle tre timer funktioner med millisekund præcision
+
+**Registers brugt:**
+- Coils 10-13: Timer inputs (trigger, enable)
+- Coils 14-16: Timer outputs (Q status)
+- HR 70-73: Timer preset times (PT) og elapsed time (ET)
+
+---
+
+### Test 1.10.1: TON - On-Delay Timer (Forsinket START)
+
+**Formål:** Verificer at output går HIGH efter preset time når input er HIGH
+
+**ST Program:**
+```st
+set logic 1 upload "
+VAR
+  trigger : BOOL;
+  timer_done : BOOL;
+  delay_time : INT;
+END_VAR
+
+delay_time := 2000;  (* 2 seconds delay *)
+timer_done := TON(trigger, delay_time);
+"
+```
+
+**Step 2: Bind variables:**
+```bash
+set logic 1 bind trigger coil:10 input
+set logic 1 bind timer_done coil:14 output
+set logic 1 bind delay_time reg:70 input
+set logic 1 enabled:true
+```
+
+**Step 3: Test workflow:**
+```bash
+# 1. Initial state - timer inactive
+read coil 14
+# Forventet: FALSE (timer_done = FALSE)
+
+# 2. Start timer (rising edge på input)
+write coil 10 value 1
+read coil 14
+# Forventet: FALSE (timer running, not done yet)
+
+# 3. Wait 1 second (halfway through delay)
+# Wait 1 second...
+read coil 14
+# Forventet: FALSE (still waiting)
+
+# 4. Wait another 1+ second (total >2 seconds)
+# Wait 1.5 seconds...
+read coil 14
+# Forventet: TRUE (timer done, output HIGH)
+
+# 5. Release trigger
+write coil 10 value 0
+read coil 14
+# Forventet: FALSE (output goes LOW immediately)
+
+# 6. Test dynamic delay change
+write reg 70 value int 500
+write coil 10 value 1
+# Wait 0.6 seconds...
+read coil 14
+# Forventet: TRUE (500ms delay expired)
+```
+
+**Forventet Resultat:**
+```
+✅ Timer forbliver LOW under preset time
+✅ Timer går HIGH når ET >= PT
+✅ Timer resetter immediately når input går LOW
+✅ Dynamisk PT ændring virker
+```
+
+---
+
+### Test 1.10.2: TOF - Off-Delay Timer (Forsinket STOP)
+
+**Formål:** Verificer at output forbliver HIGH i preset time efter input går LOW
+
+**ST Program:**
+```st
+set logic 1 upload "
+VAR
+  presence : BOOL;
+  light_on : BOOL;
+  off_delay : INT;
+END_VAR
+
+off_delay := 3000;  (* 3 seconds delay *)
+light_on := TOF(presence, off_delay);
+"
+```
+
+**Step 2: Bind variables:**
+```bash
+set logic 1 bind presence coil:11 input
+set logic 1 bind light_on coil:15 output
+set logic 1 bind off_delay reg:71 input
+set logic 1 enabled:true
+```
+
+**Step 3: Test workflow:**
+```bash
+# 1. Initial state
+read coil 15
+# Forventet: FALSE (no presence, light OFF)
+
+# 2. Presence detected (input HIGH)
+write coil 11 value 1
+read coil 15
+# Forventet: TRUE (light ON immediately)
+
+# 3. Presence lost (falling edge)
+write coil 11 value 0
+read coil 15
+# Forventet: TRUE (light still ON, timer running)
+
+# 4. Wait 1.5 seconds (halfway through delay)
+# Wait 1.5 seconds...
+read coil 15
+# Forventet: TRUE (still ON, timer not expired)
+
+# 5. Wait another 2 seconds (total >3 seconds)
+# Wait 2 seconds...
+read coil 15
+# Forventet: FALSE (timer expired, light OFF)
+
+# 6. Test re-trigger before timeout
+write coil 11 value 1
+# Wait 0.1 seconds...
+write coil 11 value 0
+# Wait 1 second...
+write coil 11 value 1  (* Re-trigger before timeout *)
+read coil 15
+# Forventet: TRUE (timer reset, light stays ON)
+```
+
+**Forventet Resultat:**
+```
+✅ Output går HIGH immediately når input goes HIGH
+✅ Output forbliver HIGH under preset time efter input goes LOW
+✅ Output går LOW når timer expires
+✅ Re-trigger resetter timer korrekt
+```
+
+---
+
+### Test 1.10.3: TP - Pulse Timer (Fast puls-bredde)
+
+**Formål:** Verificer generering af fast-width pulse ved rising edge
+
+**ST Program:**
+```st
+set logic 1 upload "
+VAR
+  button : BOOL;
+  valve_pulse : BOOL;
+  pulse_width : INT;
+END_VAR
+
+pulse_width := 1000;  (* 1 second pulse *)
+valve_pulse := TP(button, pulse_width);
+"
+```
+
+**Step 2: Bind variables:**
+```bash
+set logic 1 bind button coil:12 input
+set logic 1 bind valve_pulse coil:16 output
+set logic 1 bind pulse_width reg:72 input
+set logic 1 enabled:true
+```
+
+**Step 3: Test workflow:**
+```bash
+# 1. Initial state
+read coil 16
+# Forventet: FALSE (no pulse)
+
+# 2. Trigger pulse (rising edge)
+write coil 12 value 1
+read coil 16
+# Forventet: TRUE (pulse started)
+
+# 3. Hold trigger HIGH (pulse continues)
+# Wait 0.5 seconds...
+read coil 16
+# Forventet: TRUE (pulse still active)
+
+# 4. Wait for pulse to complete
+# Wait 0.6 seconds... (total >1 second)
+read coil 16
+# Forventet: FALSE (pulse completed)
+
+# 5. Release trigger
+write coil 12 value 0
+
+# 6. Test non-retriggerable (trigger again while pulsing)
+write coil 12 value 0  (* Ensure LOW *)
+write coil 12 value 1  (* Rising edge 1 *)
+# Wait 0.3 seconds...
+write coil 12 value 0
+write coil 12 value 1  (* Rising edge 2 - should be ignored *)
+# Wait 0.8 seconds... (total 1.1 seconds from first trigger)
+read coil 16
+# Forventet: FALSE (pulse completed, not retriggered)
+
+# 7. Test short pulse (100ms)
+write reg 72 value int 100
+write coil 12 value 0
+# Wait 0.2 seconds...
+write coil 12 value 1
+# Wait 0.15 seconds...
+read coil 16
+# Forventet: FALSE (100ms pulse already done)
+```
+
+**Forventet Resultat:**
+```
+✅ Pulse starter på rising edge
+✅ Pulse har fast bredde uanset input hold time
+✅ Pulse er non-retriggerable
+✅ Dynamisk pulse width ændring virker
+```
+
+---
+
+### Test 1.10.4: TON Edge Cases - Negative PT & Zero PT
+
+**Formål:** Verificer korrekt håndtering af negative og zero preset times
+
+**ST Program:**
+```st
+set logic 1 upload "
+VAR
+  trigger : BOOL;
+  output1 : BOOL;
+  output2 : BOOL;
+  negative_pt : INT;
+  zero_pt : INT;
+END_VAR
+
+negative_pt := -1000;  (* Negative behandles som 0 *)
+zero_pt := 0;          (* Zero = immediate *)
+
+output1 := TON(trigger, negative_pt);
+output2 := TON(trigger, zero_pt);
+"
+```
+
+**Step 2: Bind variables:**
+```bash
+set logic 1 bind trigger coil:10 input
+set logic 1 bind output1 coil:14 output
+set logic 1 bind output2 coil:15 output
+set logic 1 enabled:true
+```
+
+**Step 3: Test workflow:**
+```bash
+# Test negative PT (treated as 0)
+write coil 10 value 1
+read coil 14
+read coil 15
+# Forventet: BEGGE TRUE (0ms delay = immediate)
+
+write coil 10 value 0
+read coil 14
+read coil 15
+# Forventet: BEGGE FALSE
+```
+
+**Forventet Resultat:**
+```
+✅ Negative PT behandles som 0 (immediate)
+✅ Zero PT giver immediate output
+✅ Ingen crash eller undefined behavior
+```
+
+---
+
+### Test 1.10.5: Timer Kombination - Sekvens med TON
+
+**Formål:** Test multiple timers i sekvens (trafiklys-lignende)
+
+**ST Program:**
+```st
+set logic 1 upload "
+VAR
+  start : BOOL;
+  step1_done : BOOL;
+  step2_done : BOOL;
+  step3_done : BOOL;
+
+  out_step1 : BOOL;
+  out_step2 : BOOL;
+  out_step3 : BOOL;
+END_VAR
+
+(* Step 1: 1 second *)
+step1_done := TON(start, 1000);
+out_step1 := start AND NOT step1_done;
+
+(* Step 2: 0.5 seconds efter step 1 *)
+step2_done := TON(step1_done, 500);
+out_step2 := step1_done AND NOT step2_done;
+
+(* Step 3: 2 seconds efter step 2 *)
+step3_done := TON(step2_done, 2000);
+out_step3 := step2_done AND NOT step3_done;
+"
+```
+
+**Step 2: Bind variables:**
+```bash
+set logic 1 bind start coil:10 input
+set logic 1 bind out_step1 coil:11 output
+set logic 1 bind out_step2 coil:12 output
+set logic 1 bind out_step3 coil:13 output
+set logic 1 enabled:true
+```
+
+**Step 3: Test workflow:**
+```bash
+# Start sekvens
+write coil 10 value 1
+
+# Check step 1 (active 0-1 sec)
+read coil 11 12 13
+# Forventet: 11=TRUE, 12=FALSE, 13=FALSE
+
+# Wait 1.2 seconds (step 1 done, step 2 active)
+# Wait 1.2 seconds...
+read coil 11 12 13
+# Forventet: 11=FALSE, 12=TRUE, 13=FALSE
+
+# Wait 0.6 seconds (step 2 done, step 3 active)
+# Wait 0.6 seconds...
+read coil 11 12 13
+# Forventet: 11=FALSE, 12=FALSE, 13=TRUE
+
+# Wait 2.2 seconds (all done)
+# Wait 2.2 seconds...
+read coil 11 12 13
+# Forventet: 11=FALSE, 12=FALSE, 13=FALSE
+
+# Total sekvens tid: ~3.5 sekunder
+```
+
+**Forventet Resultat:**
+```
+✅ Steps aktiveres i korrekt rækkefølge
+✅ Timing mellem steps er korrekt
+✅ Ingen overlap mellem steps
+✅ Sekvens completes efter 3.5 sekunder
+```
+
+---
+
+### Test 1.10.6: Alle Tre Timers Samtidig
+
+**Formål:** Verificer at multiple timer instances kan køre parallelt
+
+**ST Program:**
+```st
+set logic 1 upload "
+VAR
+  trig1 : BOOL;
+  trig2 : BOOL;
+  trig3 : BOOL;
+
+  ton_out : BOOL;
+  tof_out : BOOL;
+  tp_out : BOOL;
+END_VAR
+
+ton_out := TON(trig1, 1000);
+tof_out := TOF(trig2, 1500);
+tp_out := TP(trig3, 800);
+"
+```
+
+**Step 2: Bind variables:**
+```bash
+set logic 1 bind trig1 coil:10 input
+set logic 1 bind trig2 coil:11 input
+set logic 1 bind trig3 coil:12 input
+set logic 1 bind ton_out coil:14 output
+set logic 1 bind tof_out coil:15 output
+set logic 1 bind tp_out coil:16 output
+set logic 1 enabled:true
+```
+
+**Step 3: Test workflow:**
+```bash
+# Start alle tre timers samtidig
+write coil 10 value 1  (* TON start *)
+write coil 11 value 1  (* TOF immediate HIGH *)
+write coil 12 value 1  (* TP pulse start *)
+
+# Check initial state
+read coil 14 15 16
+# Forventet: 14=FALSE (TON waiting), 15=TRUE (TOF immediate), 16=TRUE (TP pulsing)
+
+# Wait 0.5 seconds
+# Wait 0.5 seconds...
+read coil 14 15 16
+# Forventet: 14=FALSE, 15=TRUE, 16=TRUE
+
+# Release TOF trigger
+write coil 11 value 0
+
+# Wait 0.5 seconds (TON done, TP done, TOF still HIGH)
+# Wait 0.5 seconds...
+read coil 14 15 16
+# Forventet: 14=TRUE (1 sec total), 15=TRUE (TOF delay running), 16=FALSE (800ms expired)
+
+# Wait 1 second (TOF expires)
+# Wait 1 second...
+read coil 14 15 16
+# Forventet: 14=TRUE, 15=FALSE (1.5 sec expired), 16=FALSE
+```
+
+**Forventet Resultat:**
+```
+✅ Alle tre timer typer kan køre samtidig
+✅ Hver timer har independent timing
+✅ Ingen interference mellem timers
+✅ Max 8 timer instances per program respekteres
+```
+
+---
+
+## 1.11 GPIO & Hardware Tests
 
 **Hardware Required:** LEDs på GPIO17-21, switches på GPIO32-34, 1kHz signal på GPIO25
 
