@@ -270,6 +270,13 @@ static bool st_vm_exec_add(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
 
+  // BUG-174 FIX: Validate that operands are not BOOL (arithmetic on BOOL not allowed)
+  if (left_type == ST_TYPE_BOOL || right_type == ST_TYPE_BOOL) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg),
+             "Type error: Arithmetic operation on BOOL type (use BOOL_TO_INT for conversion)");
+    return false;
+  }
+
   // REAL type promotion
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
     // Convert operands to REAL
@@ -311,6 +318,13 @@ static bool st_vm_exec_sub(st_vm_t *vm, st_bytecode_instr_t *instr) {
   // BUG-050: Pop with type information
   if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // BUG-174 FIX: Validate that operands are not BOOL
+  if (left_type == ST_TYPE_BOOL || right_type == ST_TYPE_BOOL) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg),
+             "Type error: Arithmetic operation on BOOL type (use BOOL_TO_INT for conversion)");
+    return false;
+  }
 
   // REAL type promotion
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
@@ -354,6 +368,13 @@ static bool st_vm_exec_mul(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
 
+  // BUG-174 FIX: Validate that operands are not BOOL
+  if (left_type == ST_TYPE_BOOL || right_type == ST_TYPE_BOOL) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg),
+             "Type error: Arithmetic operation on BOOL type (use BOOL_TO_INT for conversion)");
+    return false;
+  }
+
   // REAL type promotion
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
     // Convert operands to REAL
@@ -396,6 +417,13 @@ static bool st_vm_exec_div(st_vm_t *vm, st_bytecode_instr_t *instr) {
   if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
 
+  // BUG-174 FIX: Validate that operands are not BOOL
+  if (left_type == ST_TYPE_BOOL || right_type == ST_TYPE_BOOL) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg),
+             "Type error: Arithmetic operation on BOOL type (use BOOL_TO_INT for conversion)");
+    return false;
+  }
+
   // Division always returns REAL (to preserve precision)
   // Convert all types to REAL before division
   float left_f = (left_type == ST_TYPE_REAL) ? left.real_val :
@@ -431,6 +459,13 @@ static bool st_vm_exec_mod(st_vm_t *vm, st_bytecode_instr_t *instr) {
   // BUG-050: Pop with type information
   if (!st_vm_pop_typed(vm, &right, &right_type)) return false;
   if (!st_vm_pop_typed(vm, &left, &left_type)) return false;
+
+  // BUG-174 FIX: Validate that operands are not BOOL
+  if (left_type == ST_TYPE_BOOL || right_type == ST_TYPE_BOOL) {
+    snprintf(vm->error_msg, sizeof(vm->error_msg),
+             "Type error: Arithmetic operation on BOOL type (use BOOL_TO_INT for conversion)");
+    return false;
+  }
 
   // DINT % DINT = DINT (32-bit modulo)
   if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {

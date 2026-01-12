@@ -141,7 +141,7 @@
 | BUG-163 | Memory leak i parser error paths | ✅ VERIFIED | 🟡 HIGH | v4.8.2 | st_ast_node_free rekursivt frigiver alle args (st_parser.cpp:140-145) |
 | BUG-164 | Inefficient linear search i symbol lookup | ✅ ACCEPTABLE | 🟡 HIGH | v4.8.2 | O(n) acceptable for max 32 vars (st_compiler.cpp:73-80) |
 | BUG-165 | Missing input validation i BLINK function | ✅ FIXED | 🟠 MEDIUM | v4.8.2 | Negative time → huge unsigned (st_builtin_signal.cpp:98-99) (Build #1019) |
-| BUG-166 | Race condition i stateful storage access | ❌ OPEN | 🟠 MEDIUM | v4.8.2 | cycle_time_ms uden lock på dual-core ESP32 (st_logic_engine.cpp:54, st_vm.cpp:1222) |
+| BUG-166 | Race condition i stateful storage access | ✔️ NOT A BUG | 🟠 MEDIUM | v4.8.2 | FALSE POSITIVE - alt kører single-threaded i Arduino loop() (st_logic_engine.cpp:54, st_vm.cpp:1222) |
 | BUG-167 | No timeout i lexer comment parsing | ✅ FIXED | 🟠 MEDIUM | v4.8.2 | Unterminated comment scanner til EOF (st_lexer.cpp:50-63) (Build #1019) |
 | BUG-168 | Missing validation af CASE branch count | ✅ FIXED | 🟠 MEDIUM | v4.8.2 | Max 16 branches ikke valideret → memory overwrite (st_compiler.cpp:475-574) (Build #1019) |
 | BUG-169 | Inefficient memory usage i AST nodes | ❌ OPEN | 🔵 LOW | v4.8.2 | Union ~600 bytes per node → høj RAM brug (st_types.h:270-291) |
@@ -149,9 +149,10 @@
 | BUG-171 | Suboptimal error messages i compiler | ❌ OPEN | 🔵 LOW | v4.8.2 | Ingen line/column info i fejl (st_compiler.cpp:161-165) |
 | BUG-172 | Missing overflow detection i integer arithmetic | ❌ OPEN | 🟠 MEDIUM | v4.8.2 | IEC 61131-3 kræver detection/clamping, bruger wrapping (st_vm.cpp:296-367) |
 | BUG-173 | MOD operation med negative operands | ❌ OPEN | 🔵 LOW | v4.8.2 | C semantics vs matematik modulo (st_vm.cpp:399-444) |
-| BUG-174 | Missing type validation i binary operations | ❌ OPEN | 🟠 MEDIUM | v4.8.2 | BOOL + BOOL ikke valideret (st_vm.cpp:265-367) |
+| BUG-174 | Missing type validation i binary operations | ✅ FIXED | 🟠 MEDIUM | v5.1.1 | BOOL + BOOL nu valideret - giver type error (st_vm.cpp:273-277, 322-326, 371-375, 420-424, 463-467) (Build #1038) |
 | BUG-175 | FILTER function med zero cycle time | ❌ OPEN | 🔵 LOW | v4.8.2 | Fallback til 10ms uden dokumentation (st_builtin_signal.cpp:167-169) |
 | BUG-176 | HYSTERESIS function med inverterede thresholds | ✅ FIXED | 🔵 LOW | v4.8.2 | Ingen validation af high > low (st_builtin_signal.cpp:69-76) (Build #1019) |
+| BUG-177 | strcpy uden bounds check i lexer operators | ✅ FIXED | 🔵 LOW | v5.1.1 | strcpy → strncpy for 2-char operators (:=, <>, <=, >=, **) (st_lexer.cpp:412-445) (Build #1038) |
 
 ## Feature Requests / Enhancements
 
@@ -258,11 +259,10 @@
 - **BUG-142:** `set reg STATIC` blokerer HR238-255 fejlagtigt (FIXED v4.7.3 Build #995)
 - **BUG-149:** Identical condition i modbus_master.cpp (FIXED v4.7.3 Build #995)
 - **BUG-165:** Missing input validation i BLINK function (FIXED Build #1019)
-- **BUG-166:** Race condition i stateful storage access (OPEN v4.8.2)
 - **BUG-167:** No timeout i lexer comment parsing (FIXED Build #1019)
 - **BUG-168:** Missing validation af CASE branch count (FIXED Build #1019)
 - **BUG-172:** Missing overflow detection i integer arithmetic (OPEN v4.8.2)
-- **BUG-174:** Missing type validation i binary operations (OPEN v4.8.2)
+- **BUG-174:** Missing type validation i binary operations (FIXED Build #1038)
 
 ### 🔵 LOW Priority (COSMETIC)
 - **BUG-006:** Counter wrapping at 65535
@@ -276,9 +276,11 @@
 - **BUG-173:** MOD operation med negative operands (OPEN v4.8.2)
 - **BUG-175:** FILTER function med zero cycle time (OPEN v4.8.2)
 - **BUG-176:** HYSTERESIS function med inverterede thresholds (FIXED Build #1019)
+- **BUG-177:** strcpy uden bounds check i lexer (FIXED Build #1038)
 
 ### ✔️ NOT BUGS (DESIGN CHOICES)
 - **BUG-013:** Binding display order (intentional)
+- **BUG-166:** Race condition i stateful storage (FALSE POSITIVE - single-threaded)
 
 ## Status Legend
 

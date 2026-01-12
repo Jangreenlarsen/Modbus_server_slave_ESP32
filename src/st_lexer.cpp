@@ -409,35 +409,40 @@ bool st_lexer_next_token(st_lexer_t *lexer, st_token_t *token) {
 
   if (strcmp(two_char, ":=") == 0) {
     token->type = ST_TOK_ASSIGN;
-    strcpy(token->value, ":=");
+    strncpy(token->value, ":=", 255);
+    token->value[255] = '\0';
     lexer_advance(lexer);
     lexer_advance(lexer);
     return true;
   }
   if (strcmp(two_char, "<>") == 0) {
     token->type = ST_TOK_NE;
-    strcpy(token->value, "<>");
+    strncpy(token->value, "<>", 255);
+    token->value[255] = '\0';
     lexer_advance(lexer);
     lexer_advance(lexer);
     return true;
   }
   if (strcmp(two_char, "<=") == 0) {
     token->type = ST_TOK_LE;
-    strcpy(token->value, "<=");
+    strncpy(token->value, "<=", 255);
+    token->value[255] = '\0';
     lexer_advance(lexer);
     lexer_advance(lexer);
     return true;
   }
   if (strcmp(two_char, ">=") == 0) {
     token->type = ST_TOK_GE;
-    strcpy(token->value, ">=");
+    strncpy(token->value, ">=", 255);
+    token->value[255] = '\0';
     lexer_advance(lexer);
     lexer_advance(lexer);
     return true;
   }
   if (strcmp(two_char, "**") == 0) {
     token->type = ST_TOK_POWER;
-    strcpy(token->value, "**");
+    strncpy(token->value, "**", 255);
+    token->value[255] = '\0';
     lexer_advance(lexer);
     lexer_advance(lexer);
     return true;
