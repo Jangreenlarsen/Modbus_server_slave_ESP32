@@ -2138,6 +2138,55 @@ END_IF
 - `var <name> --> <target>` = OUTPUT mode (ST skriver til Modbus)
 - Grupperet per program (logic1:, logic2:, osv.)
 
+**EXPORT vs BIND - Forskelle og Anvendelse:**
+
+Der er to måder at mappe ST variabler til Modbus registre:
+
+| Aspekt | EXPORT keyword | BIND kommando |
+|--------|---------------|---------------|
+| **Register-valg** | Automatisk (systemet vælger fra IR pool 220-251) | Manuel (du vælger specifikt register) |
+| **Hvornår brugt** | I ST program deklaration (`VAR temp : REAL EXPORT; END_VAR`) | CLI kommando efter upload (`set logic 1 bind temp reg:50 input`) |
+| **Register stabilitet** | Kan ændre sig hvis andre EXPORT variabler tilføjes | Altid fast register-nummer |
+| **Fleksibilitet** | Kræver re-compile for at ændre mapping | Kan ændres via CLI uden re-compile |
+| **Use case** | Hurtig prototyping, intern brug, debug variabler | SCADA integration, faste registre, dokumenteret layout |
+
+**EXPORT - Automatisk Tildeling:**
+```st
+VAR
+  temp : REAL EXPORT;      // Systemet tildeler automatisk fx reg:220-221
+  counter : INT EXPORT;    // Systemet tildeler automatisk fx reg:222
+END_VAR
+```
+- System vælger ledige registre fra IR pool (220-251)
+- Se tildelte registre med `show config` kommandoen
+- Nemt og hurtigt - ingen manuel register-styring
+- Register-nummer kan ændre sig hvis konfigurationen ændres
+
+**BIND - Manuel Tildeling:**
+```bash
+# ST program (variabler UDEN EXPORT)
+VAR
+  temp : REAL;        // Ingen EXPORT
+  setpoint : INT;     // Ingen EXPORT
+END_VAR
+
+# Derefter i CLI:
+> set logic 1 bind temp reg:50 input
+> set logic 1 bind setpoint reg:52 output
+```
+- Fuld kontrol over register-mapping
+- Fast register-layout - ændrer sig aldrig
+- Nyttigt når eksterne systemer forventer data på specifikke registre
+- Lettere at debugge (du ved præcis hvor data er)
+
+**Vigtig regel:**
+- En variabel kan **enten** være EXPORT (automatisk) **eller** bound manuelt (ikke begge dele)
+- Variabler uden EXPORT og uden BIND er kun interne i ST programmet
+
+**Anbefaling:**
+- **Brug EXPORT** til hurtig udvikling og interne variabler
+- **Brug BIND** til professionel integration med SCADA/PLC systemer der kræver fast register-layout
+
 **Show kommandoer for ST Logic:**
 ```bash
 # Vis program detaljer
