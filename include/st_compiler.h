@@ -49,6 +49,7 @@ typedef struct {
 
   uint32_t error_count;
   char error_msg[256];
+  uint32_t current_line;              // Current line being compiled (for error reporting - BUG-171)
 
   // Loop state tracking (for nested loops)
   uint16_t loop_stack[8];             // Stack of loop start addresses

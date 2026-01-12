@@ -119,6 +119,14 @@ st_value_t st_builtin_blink(st_value_t enable, st_value_t on_time, st_value_t of
   // Get current timestamp
   uint32_t now = millis();
 
+  // BUG-170 NOTE: millis() wraparound handling
+  // millis() wraps around after ~49.7 days (2^32 milliseconds).
+  // The expression (now - instance->timer) uses unsigned arithmetic which correctly
+  // handles wraparound due to two's complement modulo arithmetic (per C standard).
+  // Example: If timer=4294967290 and now=5 (after wrap), then:
+  //   now - timer = 5 - 4294967290 = 15 (via uint32_t wraparound)
+  // This is mathematically correct and no special handling is needed.
+
   // State machine
   if (!enable_val) {
     // Disabled - reset to IDLE
@@ -181,9 +189,11 @@ st_value_t st_builtin_filter(st_value_t in, st_value_t time_constant,
   // BUG-153 FIX: Use actual cycle time from engine state
   float DT = (float)cycle_time_ms;  // milliseconds
 
-  // Avoid invalid cycle time
+  // BUG-175 FIX: Avoid invalid cycle time (defensive check)
+  // This should never happen in normal operation since cycle_time_ms is set by engine,
+  // but provides safe fallback if stateful storage is not properly initialized.
   if (DT <= 0.0f) {
-    DT = 10.0f;  // Fallback to 10ms default
+    DT = 10.0f;  // Fallback to 10ms default (approximate typical ST execution interval)
   }
 
   // Calculate smoothing factor: α = DT / (τ + DT)

@@ -168,8 +168,14 @@ void st_compiler_patch_jump(st_compiler_t *compiler, uint16_t jump_addr, uint16_
 }
 
 void st_compiler_error(st_compiler_t *compiler, const char *msg) {
-  snprintf(compiler->error_msg, sizeof(compiler->error_msg),
-           "Compile error: %s", msg);
+  // BUG-171 FIX: Include line number in error message if available
+  if (compiler->current_line > 0) {
+    snprintf(compiler->error_msg, sizeof(compiler->error_msg),
+             "Compile error at line %u: %s", compiler->current_line, msg);
+  } else {
+    snprintf(compiler->error_msg, sizeof(compiler->error_msg),
+             "Compile error: %s", msg);
+  }
   compiler->error_count++;
 }
 
@@ -242,6 +248,9 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
     st_compiler_error(compiler, "NULL expression node");
     return false;
   }
+
+  // BUG-171 FIX: Track current line for error reporting
+  compiler->current_line = node->line;
 
   switch (node->type) {
     case ST_AST_LITERAL: {
@@ -882,6 +891,9 @@ static bool st_compiler_compile_repeat(st_compiler_t *compiler, st_ast_node_t *n
 
 bool st_compiler_compile_node(st_compiler_t *compiler, st_ast_node_t *node) {
   if (!node) return true;  // NULL is OK (empty body)
+
+  // BUG-171 FIX: Track current line for error reporting
+  compiler->current_line = node->line;
 
   switch (node->type) {
     case ST_AST_ASSIGNMENT:

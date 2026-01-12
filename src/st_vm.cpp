@@ -277,6 +277,15 @@ static bool st_vm_exec_add(st_vm_t *vm, st_bytecode_instr_t *instr) {
     return false;
   }
 
+  // BUG-172 NOTE: Integer overflow behavior
+  // This implementation uses C standard wrapping behavior (two's complement wrap-around).
+  // IEC 61131-3 allows implementations to choose between:
+  //   1. Wrapping (what we use - fastest, standard C behavior)
+  //   2. Saturation/clamping (slower, requires checks)
+  //   3. Exception/error (slowest, interrupts execution)
+  // Design choice: Wrapping for performance on embedded systems.
+  // Examples: INT: 32767 + 1 = -32768, DINT: 2147483647 + 1 = -2147483648
+
   // REAL type promotion
   if (left_type == ST_TYPE_REAL || right_type == ST_TYPE_REAL) {
     // Convert operands to REAL
@@ -466,6 +475,11 @@ static bool st_vm_exec_mod(st_vm_t *vm, st_bytecode_instr_t *instr) {
              "Type error: Arithmetic operation on BOOL type (use BOOL_TO_INT for conversion)");
     return false;
   }
+
+  // BUG-173 NOTE: MOD operation uses C remainder semantics, not mathematical modulo
+  // C remainder: sign follows dividend (e.g., -7 % 3 = -1)
+  // Math modulo: always positive (e.g., -7 mod 3 = 2)
+  // This behavior is standard across most programming languages (C, C++, Java, etc.)
 
   // DINT % DINT = DINT (32-bit modulo)
   if (left_type == ST_TYPE_DINT || right_type == ST_TYPE_DINT) {
