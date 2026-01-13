@@ -88,7 +88,7 @@
 | BUG-105 | INT type skal være 16-bit, ikke 32-bit (IEC 61131-3) | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | INT overflow ikke korrekt, mangler DINT/multi-register |
 | BUG-106 | Division by zero gemmer gamle værdier | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | Variabler kopieres tilbage fra VM også ved runtime error |
 | BUG-107 | CLI bind display viser "HR#X" for coil input | ✅ FIXED | 🔵 LOW | v5.0.0 | Forvirrende CLI output, men funktionalitet virker |
-| BUG-108 | CLI mangler `write reg value real` kommando | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | Kan ikke skrive REAL værdier korrekt via CLI |
+| BUG-108 | CLI mangler `write h-reg value real` kommando | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | Kan ikke skrive REAL værdier korrekt via CLI |
 | BUG-109 | Multi-register bindings ikke frigivet korrekt ved delete | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | DINT/REAL bindings frigiver kun 1 register ved sletning |
 | BUG-110 | SUM funktion ikke type-aware (returnerer kun første parameter) | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | SUM(5,3) returnerer 5 i stedet for 8 |
 | BUG-116 | Modbus Master funktioner ikke registreret i compiler | ✅ FIXED | 🔴 CRITICAL | v5.0.0 | MB_READ_COIL, MB_WRITE_HOLDING osv. kan ikke kompileres |
@@ -112,14 +112,14 @@
 | BUG-134 | MB_WRITE DINT arguments sender garbage data | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | DINT slave_id/address bruger int_val i stedet for dint_val → garbage validering (Build #919) |
 | BUG-135 | MB_WRITE_HOLDING mangler value type validering | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | REAL/DWORD værdier bruger int_val → garbage sendt til remote register (Build #919) |
 | BUG-136 | MB_WRITE_COIL mangler value type validering | ✅ FIXED | 🔴 CRITICAL | v4.6.1 | INT værdier bruger bool_val i stedet for konvertering → random coil state (Build #919) |
-| BUG-137 | CLI `read reg <count> real/dint/dword` ignorerer count parameter | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Kan ikke læse arrays af multi-register værdier (Build #937) |
+| BUG-137 | CLI `read h-reg <count> real/dint/dword` ignorerer count parameter | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Kan ikke læse arrays af multi-register værdier (Build #937) |
 | BUG-138 | ST Logic upload error message generisk og ikke informativ | ✅ FIXED | 🔵 LOW | v4.7.1 | Viser kun "Failed to upload" uden detaljer (Build #940) |
 | BUG-139 | `show logic stats` skjuler disabled programs med source code | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Pool total matcher ikke per-program sum (Build #948) |
 | BUG-140 | Persistence group_count=255 buffer overflow i show config | ✅ FIXED | 🔴 CRITICAL | v4.7.1 | Out-of-bounds array access → garbage display + crash risk (Build #951 + recovery cmd #953) |
 | BUG-141 | Save/load viser var_map_count i stedet for aktive mappings | ✅ FIXED | 🟠 MEDIUM | v4.7.1 | Viser "32 mappings" selvom alle er unused (Build #960) |
 | BUG-142 | `set reg STATIC` blokerer HR238-255 fejlagtigt | ✅ FIXED | 🟠 MEDIUM | v4.7.3 | Validation blokerede HR200-299, nu korrigeret til HR200-237 (Build #995) |
 | BUG-143 | ST Logic IR variable mapping begrænset til 8 per program | ✅ FIXED | 🟠 MEDIUM | v5.1.0 | Fixed via EXPORT keyword + dynamic IR pool allocation (Build #1032) |
-| BUG-144 | Forvirrende CLI: "read reg" læser HR, men ST vars er i IR | ✅ FIXED | 🔵 LOW | v4.7.2 | Brugere forventer "read reg 220" viser ST vars, men skal bruge "read input-reg 220" (Build #973-974) |
+| BUG-144 | Forvirrende CLI: "read reg" læser HR, men ST vars er i IR | ✅ FIXED | 🔵 LOW | v4.7.2 | Brugere forventer "read h-reg 220" viser ST vars, men skal bruge "read i-reg 220" (Build #973-974) |
 | BUG-145 | CLI help message mangler "read input-reg" option | ✅ FIXED | 🔵 LOW | v4.7.2 | "read" uden argumenter viste ikke "input-reg" option selvom funktionen findes (Build #973) |
 | BUG-146 | Use-after-free i config_save.cpp | ✅ FIXED | 🔴 CRITICAL | v4.7.3 | Memory corruption - debug print brugte frigivet pointer (config_save.cpp:175) (Build #995) |
 | BUG-147 | Buffer underflow i modbus_frame.cpp | ✅ FIXED | 🔴 CRITICAL | v4.7.3 | Integer underflow i memcpy size → buffer overflow (modbus_frame.cpp:84,100) (Build #995) |
@@ -154,7 +154,7 @@
 | BUG-176 | HYSTERESIS function med inverterede thresholds | ✅ FIXED | 🔵 LOW | v4.8.2 | Ingen validation af high > low (st_builtin_signal.cpp:69-76) (Build #1019) |
 | BUG-177 | strcpy uden bounds check i lexer operators | ✅ FIXED | 🔵 LOW | v5.1.1 | strcpy → strncpy for 2-char operators (:=, <>, <=, >=, **) (st_lexer.cpp:412-445) (Build #1038) |
 | BUG-178 | EXPORT variables ikke skrevet til IR 220-251 | ✅ FIXED | 🔴 CRITICAL | v5.1.1 | EXPORT keyword allokerede pool men skrev aldrig værdier til IR → Modbus read viste altid 0 (ir_pool_manager.cpp:166-236, st_logic_engine.cpp:108-110) (Build #1044) |
-| BUG-179 | CLI read input-reg mangler type parameter support | ✅ FIXED | 🟠 MEDIUM | v5.1.2 | "read input-reg 220 int/dint/dword/real" fejlede med "antal skal være større end 0" fordi type blev parset som count → atoi("int")=0 (cli_show.cpp:2687-2960) (Build #1048) |
+| BUG-179 | CLI read i-reg mangler type parameter support | ✅ FIXED | 🟠 MEDIUM | v5.1.2 | "read i-reg 220 int/dint/dword/real" fejlede med "antal skal være større end 0" fordi type blev parset som count → atoi("int")=0 (cli_show.cpp:2687-2960) (Build #1048) |
 
 ## Feature Requests / Enhancements
 
@@ -263,7 +263,7 @@
 - **BUG-165:** Missing input validation i BLINK function (FIXED Build #1019)
 - **BUG-167:** No timeout i lexer comment parsing (FIXED Build #1019)
 - **BUG-168:** Missing validation af CASE branch count (FIXED Build #1019)
-- **BUG-179:** CLI read input-reg mangler type parameter support (FIXED Build #1048)
+- **BUG-179:** CLI read i-reg mangler type parameter support (FIXED Build #1048)
 
 ### 🔵 LOW Priority (COSMETIC)
 - **BUG-006:** Counter wrapping at 65535

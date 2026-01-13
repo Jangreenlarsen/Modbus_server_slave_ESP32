@@ -220,27 +220,27 @@ set logic 1 enabled:true
 ```bash
 # Via Modbus eller CLI
 # Test 1: 5 + 3 = 8
-write reg 20 value int 5
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 5
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 8
 
 # Test 2: -10 + 15 = 5
-write reg 20 value int -10
-write reg 21 value int 15
-read reg 22 int
+write h-reg 20 value int -10
+write h-reg 21 value int 15
+read h-reg 22 int
 # Forventet: 5
 
 # Test 3: 0 + 0 = 0
-write reg 20 value int 0
-write reg 21 value int 0
-read reg 22 int
+write h-reg 20 value int 0
+write h-reg 21 value int 0
+read h-reg 22 int
 # Forventet: 0
 
 # Test 4: Overflow test (INT_MAX + 1)
-write reg 20 value int 32767
-write reg 21 value int 1
-read reg 22 int
+write h-reg 20 value int 32767
+write h-reg 21 value int 1
+read h-reg 22 int
 # Forventet: -32768
 ```
 
@@ -280,21 +280,21 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 10 - 3 = 7
-write reg 20 value int 10
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 10
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 7
 
 # Test 2: 5 - 10 = -5
-write reg 20 value int 5
-write reg 21 value int 10
-read reg 22 int
+write h-reg 20 value int 5
+write h-reg 21 value int 10
+read h-reg 22 int
 # Forventet: -5
 
 # Test 3: 0 - 0 = 0
-write reg 20 value int 0
-write reg 21 value int 0
-read reg 22 int
+write h-reg 20 value int 0
+write h-reg 21 value int 0
+read h-reg 22 int
 # Forventet: 0
 ```
 
@@ -333,21 +333,21 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 * 3 = 15
-write reg 20 value int 5
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 5
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 15
 
 # Test 2: -4 * 5 = -20
-write reg 20 value int -4
-write reg 21 value int 5
-read reg 22 int
+write h-reg 20 value int -4
+write h-reg 21 value int 5
+read h-reg 22 int
 # Forventet: -20
 
 # Test 3: 0 * 100 = 0
-write reg 20 value int 0
-write reg 21 value int 100
-read reg 22 int
+write h-reg 20 value int 0
+write h-reg 21 value int 100
+read h-reg 22 int
 # Forventet: 0
 ```
 
@@ -386,27 +386,27 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 10 / 2 = 5
-write reg 20 value int 10
-write reg 21 value int 2
-read reg 22 int
+write h-reg 20 value int 10
+write h-reg 21 value int 2
+read h-reg 22 int
 # Forventet: 5
 
 # Test 2: 7 / 2 = 3 (integer division)
-write reg 20 value int 7
-write reg 21 value int 2
-read reg 22 int
+write h-reg 20 value int 7
+write h-reg 21 value int 2
+read h-reg 22 int
 # Forventet: 3
 
 # Test 3: -10 / 3 = -3
-write reg 20 value int -10
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int -10
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: -3
 
 # Test 4: Division by zero (should handle gracefully)
-write reg 20 value int 10
-write reg 21 value int 0
-read reg 22 int
+write h-reg 20 value int 10
+write h-reg 21 value int 0
+read h-reg 22 int
 # Forventet: 0
 ```
 
@@ -446,21 +446,21 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 10 MOD 3 = 1
-write reg 20 value int 10
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 10
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 1
 
 # Test 2: 7 MOD 2 = 1
-write reg 20 value int 7
-write reg 21 value int 2
-read reg 22 int
+write h-reg 20 value int 7
+write h-reg 21 value int 2
+read h-reg 22 int
 # Forventet: 1
 
 # Test 3: 8 MOD 4 = 0
-write reg 20 value int 8
-write reg 21 value int 4
-read reg 22 int
+write h-reg 20 value int 8
+write h-reg 21 value int 4
+read h-reg 22 int
 # Forventet: 0
 ```
 
@@ -497,18 +497,18 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: -5 → -5
-write reg 20 value int 5
-read reg 21 int
+write h-reg 20 value int 5
+read h-reg 21 int
 # Forventet: -5
 
 # Test 2: -(-10) → 10
-write reg 20 value int -10
-read reg 21 int
+write h-reg 20 value int -10
+read h-reg 21 int
 # Forventet: 10
 
 # Test 3: -0 → 0
-write reg 20 value int 0
-read reg 21 int
+write h-reg 20 value int 0
+read h-reg 21 int
 # Forventet: 0
 ```
 
@@ -758,21 +758,21 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 1 SHL 3 = 8
-write reg 20 value int 1
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 1
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 8
 
 # Test 2: 5 SHL 2 = 20
-write reg 20 value int 5
-write reg 21 value int 2
-read reg 22 int
+write h-reg 20 value int 5
+write h-reg 21 value int 2
+read h-reg 22 int
 # Forventet: 20
 
 # Test 3: 1 SHL 0 = 1
-write reg 20 value int 1
-write reg 21 value int 0
-read reg 22 int
+write h-reg 20 value int 1
+write h-reg 21 value int 0
+read h-reg 22 int
 # Forventet: 1
 ```
 
@@ -810,21 +810,21 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 8 SHR 3 = 1
-write reg 20 value int 8
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 8
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 1
 
 # Test 2: 20 SHR 2 = 5
-write reg 20 value int 20
-write reg 21 value int 2
-read reg 22 int
+write h-reg 20 value int 20
+write h-reg 21 value int 2
+read h-reg 22 int
 # Forventet: 5
 
 # Test 3: 1 SHR 0 = 1
-write reg 20 value int 1
-write reg 21 value int 0
-read reg 22 int
+write h-reg 20 value int 1
+write h-reg 21 value int 0
+read h-reg 22 int
 # Forventet: 1
 ```
 
@@ -862,33 +862,33 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: ROL(0x1234, 4) = 0x2341
-write reg 20 value int 0x1234
-write reg 21 value int 4
-read reg 22 int
+write h-reg 20 value int 0x1234
+write h-reg 21 value int 4
+read h-reg 22 int
 # Forventet: 0x2341 (9025 decimal)
 
 # Test 2: ROL(0x0001, 1) = 0x0002
-write reg 20 value int 1
-write reg 21 value int 1
-read reg 22 int
+write h-reg 20 value int 1
+write h-reg 21 value int 1
+read h-reg 22 int
 # Forventet: 2
 
 # Test 3: ROL(0x8000, 1) = 0x0001 (MSB wraps to LSB)
-write reg 20 value int 0x8000
-write reg 21 value int 1
-read reg 22 int
+write h-reg 20 value int 0x8000
+write h-reg 21 value int 1
+read h-reg 22 int
 # Forventet: 1
 
 # Test 4: ROL(0xABCD, 8) = 0xCDAB (byte swap)
-write reg 20 value int 0xABCD
-write reg 21 value int 8
-read reg 22 int
+write h-reg 20 value int 0xABCD
+write h-reg 21 value int 8
+read h-reg 22 int
 # Forventet: 0xCDAB (52651 decimal)
 
 # Test 5: ROL(0xFF00, 4) = 0xF00F
-write reg 20 value int 0xFF00
-write reg 21 value int 4
-read reg 22 int
+write h-reg 20 value int 0xFF00
+write h-reg 21 value int 4
+read h-reg 22 int
 # Forventet: 0xF00F (61455 decimal)
 ```
 
@@ -928,33 +928,33 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: ROR(0x1234, 4) = 0x4123
-write reg 20 value int 0x1234
-write reg 21 value int 4
-read reg 22 int
+write h-reg 20 value int 0x1234
+write h-reg 21 value int 4
+read h-reg 22 int
 # Forventet: 0x4123 (16675 decimal)
 
 # Test 2: ROR(0x0002, 1) = 0x0001
-write reg 20 value int 2
-write reg 21 value int 1
-read reg 22 int
+write h-reg 20 value int 2
+write h-reg 21 value int 1
+read h-reg 22 int
 # Forventet: 1
 
 # Test 3: ROR(0x0001, 1) = 0x8000 (LSB wraps to MSB)
-write reg 20 value int 1
-write reg 21 value int 1
-read reg 22 int
+write h-reg 20 value int 1
+write h-reg 21 value int 1
+read h-reg 22 int
 # Forventet: 0x8000 (32768 decimal)
 
 # Test 4: ROR(0xABCD, 8) = 0xCDAB (byte swap)
-write reg 20 value int 0xABCD
-write reg 21 value int 8
-read reg 22 int
+write h-reg 20 value int 0xABCD
+write h-reg 21 value int 8
+read h-reg 22 int
 # Forventet: 0xCDAB (52651 decimal)
 
 # Test 5: ROR(0xFF00, 4) = 0x0FF0
-write reg 20 value int 0xFF00
-write reg 21 value int 4
-read reg 22 int
+write h-reg 20 value int 0xFF00
+write h-reg 21 value int 4
+read h-reg 22 int
 # Forventet: 0x0FF0 (4080 decimal)
 ```
 
@@ -996,20 +996,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 = 5 → TRUE
-write reg 20 value int 5
-write reg 21 value int 5
+write h-reg 20 value int 5
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 = 3 → FALSE
-write reg 20 value int 5
-write reg 21 value int 3
+write h-reg 20 value int 5
+write h-reg 21 value int 3
 read coil 0
 # Forventet: 0
 
 # Test 3: 0 = 0 → TRUE
-write reg 20 value int 0
-write reg 21 value int 0
+write h-reg 20 value int 0
+write h-reg 21 value int 0
 read coil 0
 # Forventet: 1
 ```
@@ -1048,14 +1048,14 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 <> 3 → TRUE
-write reg 20 value int 5
-write reg 21 value int 3
+write h-reg 20 value int 5
+write h-reg 21 value int 3
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 <> 5 → FALSE
-write reg 20 value int 5
-write reg 21 value int 5
+write h-reg 20 value int 5
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 0
 ```
@@ -1093,20 +1093,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 3 < 5 → TRUE
-write reg 20 value int 3
-write reg 21 value int 5
+write h-reg 20 value int 3
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 < 3 → FALSE
-write reg 20 value int 5
-write reg 21 value int 3
+write h-reg 20 value int 5
+write h-reg 21 value int 3
 read coil 0
 # Forventet: 0
 
 # Test 3: 5 < 5 → FALSE
-write reg 20 value int 5
-write reg 21 value int 5
+write h-reg 20 value int 5
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 0
 ```
@@ -1145,20 +1145,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 > 3 → TRUE
-write reg 20 value int 5
-write reg 21 value int 3
+write h-reg 20 value int 5
+write h-reg 21 value int 3
 read coil 0
 # Forventet: 1
 
 # Test 2: 3 > 5 → FALSE
-write reg 20 value int 3
-write reg 21 value int 5
+write h-reg 20 value int 3
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 0
 
 # Test 3: 5 > 5 → FALSE
-write reg 20 value int 5
-write reg 21 value int 5
+write h-reg 20 value int 5
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 0
 ```
@@ -1197,20 +1197,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 3 <= 5 → TRUE
-write reg 20 value int 3
-write reg 21 value int 5
+write h-reg 20 value int 3
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 <= 5 → TRUE
-write reg 20 value int 5
-write reg 21 value int 5
+write h-reg 20 value int 5
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 3: 5 <= 3 → FALSE
-write reg 20 value int 5
-write reg 21 value int 3
+write h-reg 20 value int 5
+write h-reg 21 value int 3
 read coil 0
 # Forventet: 0
 ```
@@ -1249,20 +1249,20 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 5 >= 3 → TRUE
-write reg 20 value int 5
-write reg 21 value int 3
+write h-reg 20 value int 5
+write h-reg 21 value int 3
 read coil 0
 # Forventet: 1
 
 # Test 2: 5 >= 5 → TRUE
-write reg 20 value int 5
-write reg 21 value int 5
+write h-reg 20 value int 5
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 1
 
 # Test 3: 3 >= 5 → FALSE
-write reg 20 value int 3
-write reg 21 value int 5
+write h-reg 20 value int 3
+write h-reg 21 value int 5
 read coil 0
 # Forventet: 0
 ```
@@ -1301,18 +1301,18 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: ABS(-5) = 5
-write reg 20 value int -5
-read reg 21 int
+write h-reg 20 value int -5
+read h-reg 21 int
 # Forventet: 5
 
 # Test 2: ABS(10) = 10
-write reg 20 value int 10
-read reg 21 int
+write h-reg 20 value int 10
+read h-reg 21 int
 # Forventet: 10
 
 # Test 3: ABS(0) = 0
-write reg 20 value int 0
-read reg 21 int
+write h-reg 20 value int 0
+read h-reg 21 int
 # Forventet: 0
 ```
 
@@ -1350,21 +1350,21 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: MIN(5, 3) = 3
-write reg 20 value int 5
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 5
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 3
 
 # Test 2: MIN(-10, 5) = -10
-write reg 20 value int -10
-write reg 21 value int 5
-read reg 22 int
+write h-reg 20 value int -10
+write h-reg 21 value int 5
+read h-reg 22 int
 # Forventet: -10
 
 # Test 3: MIN(7, 7) = 7
-write reg 20 value int 7
-write reg 21 value int 7
-read reg 22 int
+write h-reg 20 value int 7
+write h-reg 21 value int 7
+read h-reg 22 int
 # Forventet: 7
 ```
 
@@ -1402,21 +1402,21 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: MAX(5, 3) = 5
-write reg 20 value int 5
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 5
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 5
 
 # Test 2: MAX(-10, 5) = 5
-write reg 20 value int -10
-write reg 21 value int 5
-read reg 22 int
+write h-reg 20 value int -10
+write h-reg 21 value int 5
+read h-reg 22 int
 # Forventet: 5
 
 # Test 3: MAX(7, 7) = 7
-write reg 20 value int 7
-write reg 21 value int 7
-read reg 22 int
+write h-reg 20 value int 7
+write h-reg 21 value int 7
+read h-reg 22 int
 # Forventet: 7
 ```
 
@@ -1452,23 +1452,23 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: SQRT(16.0) = 4.0
-write reg 20 value real 16.0
-read reg 22 real
+write h-reg 20 value real 16.0
+read h-reg 22 real
 # Forventet: 4.000000 (0x40800000)
 
 # Test 2: SQRT(2.0) ≈ 1.414
-write reg 20 value real 2.0
-read reg 22 real
+write h-reg 20 value real 2.0
+read h-reg 22 real
 # Forventet: 1.414214 (0x3FB504F3)
 
 # Test 3: SQRT(9.0) = 3.0
-write reg 20 value real 9.0
-read reg 22 real
+write h-reg 20 value real 9.0
+read h-reg 22 real
 # Forventet: 3.000000 (0x40400000)
 
 # Test 4: SQRT(0.0) = 0.0
-write reg 20 value real 0.0
-read reg 22 real
+write h-reg 20 value real 0.0
+read h-reg 22 real
 # Forventet: 0.000000 (0x00000000)
 ```
 
@@ -1505,23 +1505,23 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: ROUND(3.4) = 3
-write reg 20 value real 3.4
-read reg 22 int
+write h-reg 20 value real 3.4
+read h-reg 22 int
 # Forventet: 3
 
 # Test 2: ROUND(3.6) = 4
-write reg 20 value real 3.6
-read reg 22 int
+write h-reg 20 value real 3.6
+read h-reg 22 int
 # Forventet: 4
 
 # Test 3: ROUND(3.5) = 4 (banker's rounding eller 3?)
-write reg 20 value real 3.5
-read reg 22 int
+write h-reg 20 value real 3.5
+read h-reg 22 int
 # Forventet: 4 (or 3 depending on implementation)
 
 # Test 4: ROUND(-2.7) = -3
-write reg 20 value real -2.7
-read reg 22 int
+write h-reg 20 value real -2.7
+read h-reg 22 int
 # Forventet: -3
 ```
 
@@ -1558,18 +1558,18 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: TRUNC(3.9) = 3
-write reg 20 value real 3.9
-read reg 22 int
+write h-reg 20 value real 3.9
+read h-reg 22 int
 # Forventet: 3
 
 # Test 2: TRUNC(-3.9) = -3
-write reg 20 value real -3.9
-read reg 22 int
+write h-reg 20 value real -3.9
+read h-reg 22 int
 # Forventet: -3
 
 # Test 3: TRUNC(5.1) = 5
-write reg 20 value real 5.1
-read reg 22 int
+write h-reg 20 value real 5.1
+read h-reg 22 int
 # Forventet: 5
 ```
 
@@ -1605,18 +1605,18 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: FLOOR(3.9) = 3
-write reg 20 value real 3.9
-read reg 22 int
+write h-reg 20 value real 3.9
+read h-reg 22 int
 # Forventet: 3
 
 # Test 2: FLOOR(-3.1) = -4
-write reg 20 value real -3.1
-read reg 22 int
+write h-reg 20 value real -3.1
+read h-reg 22 int
 # Forventet: -4
 
 # Test 3: FLOOR(5.0) = 5
-write reg 20 value real 5.0
-read reg 22 int
+write h-reg 20 value real 5.0
+read h-reg 22 int
 # Forventet: 5
 ```
 
@@ -1652,18 +1652,18 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: CEIL(3.1) = 4
-write reg 20 value real 3.1
-read reg 22 int
+write h-reg 20 value real 3.1
+read h-reg 22 int
 # Forventet: 4
 
 # Test 2: CEIL(-3.9) = -3
-write reg 20 value real -3.9
-read reg 22 int
+write h-reg 20 value real -3.9
+read h-reg 22 int
 # Forventet: -3
 
 # Test 3: CEIL(5.0) = 5
-write reg 20 value real 5.0
-read reg 22 int
+write h-reg 20 value real 5.0
+read h-reg 22 int
 # Forventet: 5
 ```
 
@@ -1701,15 +1701,15 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: SUM(5, 3) = 8
-write reg 20 value int 5
-write reg 21 value int 3
-read reg 22 int
+write h-reg 20 value int 5
+write h-reg 21 value int 3
+read h-reg 22 int
 # Forventet: 8
 
 # Test 2: SUM(-10, 15) = 5
-write reg 20 value int -10
-write reg 21 value int 15
-read reg 22 int
+write h-reg 20 value int -10
+write h-reg 21 value int 15
+read h-reg 22 int
 # Forventet: 5
 ```
 
@@ -1750,24 +1750,24 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: LIMIT(0, -10, 100) = 0 (clamped to min)
-write reg 20 value int 0
-write reg 21 value int -10
-write reg 22 value int 100
-read reg 23 int
+write h-reg 20 value int 0
+write h-reg 21 value int -10
+write h-reg 22 value int 100
+read h-reg 23 int
 # Forventet: 0
 
 # Test 2: LIMIT(0, 150, 100) = 100 (clamped to max)
-write reg 20 value int 0
-write reg 21 value int 150
-write reg 22 value int 100
-read reg 23 int
+write h-reg 20 value int 0
+write h-reg 21 value int 150
+write h-reg 22 value int 100
+read h-reg 23 int
 # Forventet: 100
 
 # Test 3: LIMIT(0, 50, 100) = 50 (no clamping)
-write reg 20 value int 0
-write reg 21 value int 50
-write reg 22 value int 100
-read reg 23 int
+write h-reg 20 value int 0
+write h-reg 21 value int 50
+write h-reg 22 value int 100
+read h-reg 23 int
 # Forventet: 50
 ```
 
@@ -1806,17 +1806,17 @@ set logic 1 enabled:true
 
 **Test Cases:**
 ```bash
-write reg 20 value int 50
-write reg 21 value int 75
+write h-reg 20 value int 50
+write h-reg 21 value int 75
 
 # Test 1: SEL(FALSE, 50, 75) = 50
 write coil 0 value 0
-read reg 22 int
+read h-reg 22 int
 # Forventet: 50
 
 # Test 2: SEL(TRUE, 50, 75) = 75
 write coil 0 value 1
-read reg 22 int
+read h-reg 22 int
 # Forventet: 75
 ```
 
@@ -1857,33 +1857,33 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Setup input values
-write reg 21 value int 0
-write reg 22 value int 18
-write reg 23 value int 22
+write h-reg 21 value int 0
+write h-reg 22 value int 18
+write h-reg 23 value int 22
 
 # Test 1: MUX(0, 0, 18, 22) = 0 (select IN0)
-write reg 20 value int 0
-read reg 24 int
+write h-reg 20 value int 0
+read h-reg 24 int
 # Forventet: 0
 
 # Test 2: MUX(1, 0, 18, 22) = 18 (select IN1)
-write reg 20 value int 1
-read reg 24 int
+write h-reg 20 value int 1
+read h-reg 24 int
 # Forventet: 18
 
 # Test 3: MUX(2, 0, 18, 22) = 22 (select IN2)
-write reg 20 value int 2
-read reg 24 int
+write h-reg 20 value int 2
+read h-reg 24 int
 # Forventet: 22
 
 # Test 4: MUX(5, 0, 18, 22) = 0 (invalid selector → default IN0)
-write reg 20 value int 5
-read reg 24 int
+write h-reg 20 value int 5
+read h-reg 24 int
 # Forventet: 0
 
 # Test 5: MUX(-1, 0, 18, 22) = 0 (negative selector → default IN0)
-write reg 20 value int -1
-read reg 24 int
+write h-reg 20 value int -1
+read h-reg 24 int
 # Forventet: 0
 ```
 
@@ -1923,23 +1923,23 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: SIN(0) = 0.0
-write reg 20 value real 0.0
-read reg 22 real
+write h-reg 20 value real 0.0
+read h-reg 22 real
 # Forventet: 0.000000 (0x00000000)
 
 # Test 2: SIN(π/2) ≈ 1.0
-write reg 20 value real 1.5708
-read reg 22 real
+write h-reg 20 value real 1.5708
+read h-reg 22 real
 # Forventet: 1.000000 (0x3F800000)
 
 # Test 3: SIN(π) ≈ 0.0
-write reg 20 value real 3.1416
-read reg 22 real
+write h-reg 20 value real 3.1416
+read h-reg 22 real
 # Forventet: ~0.000000 (meget tæt på 0)
 
 # Test 4: SIN(π/6) = 0.5
-write reg 20 value real 0.5236
-read reg 22 real
+write h-reg 20 value real 0.5236
+read h-reg 22 real
 # Forventet: 0.500000 (0x3F000000)
 ```
 
@@ -1976,18 +1976,18 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: COS(0) = 1.0
-write reg 20 value real 0.0
-read reg 22 real
+write h-reg 20 value real 0.0
+read h-reg 22 real
 # Forventet: 1.000000 (0x3F800000)
 
 # Test 2: COS(π/2) ≈ 0.0
-write reg 20 value real 1.5708
-read reg 22 real
+write h-reg 20 value real 1.5708
+read h-reg 22 real
 # Forventet: ~0.000000 (meget tæt på 0)
 
 # Test 3: COS(π) ≈ -1.0
-write reg 20 value real 3.1416
-read reg 22 real
+write h-reg 20 value real 3.1416
+read h-reg 22 real
 # Forventet: -1.000000 (0xBF800000)
 ```
 
@@ -2023,13 +2023,13 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: TAN(0) = 0.0
-write reg 20 value real 0.0
-read reg 22 real
+write h-reg 20 value real 0.0
+read h-reg 22 real
 # Forventet: 0.000000 (0x00000000)
 
 # Test 2: TAN(π/4) ≈ 1.0
-write reg 20 value real 0.7854
-read reg 22 real
+write h-reg 20 value real 0.7854
+read h-reg 22 real
 # Forventet: 1.000000 (0x3F800000)
 ```
 
@@ -2066,13 +2066,13 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: INT_TO_REAL(10) = 10.0
-write reg 20 value int 10
-read reg 21 real
+write h-reg 20 value int 10
+read h-reg 21 real
 # Forventet: 10.000000 (0x41200000)
 
 # Test 2: INT_TO_REAL(-5) = -5.0
-write reg 20 value int -5
-read reg 21 real
+write h-reg 20 value int -5
+read h-reg 21 real
 # Forventet: -5.000000 (0xC0A00000)
 ```
 
@@ -2107,13 +2107,13 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: REAL_TO_INT(10.7) = 10
-write reg 20 value real 10.7
-read reg 22 int
+write h-reg 20 value real 10.7
+read h-reg 22 int
 # Forventet: 10
 
 # Test 2: REAL_TO_INT(-5.3) = -5
-write reg 20 value real -5.3
-read reg 22 int
+write h-reg 20 value real -5.3
+read h-reg 22 int
 # Forventet: -5
 ```
 
@@ -2149,12 +2149,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: BOOL_TO_INT(TRUE) = 1
 write coil 0 value 1
-read reg 20 int
+read h-reg 20 int
 # Forventet: 1
 
 # Test 2: BOOL_TO_INT(FALSE) = 0
 write coil 0 value 0
-read reg 20 int
+read h-reg 20 int
 # Forventet: 0
 ```
 
@@ -2189,17 +2189,17 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: INT_TO_BOOL(1) = TRUE
-write reg 20 value int 1
+write h-reg 20 value int 1
 read coil 0
 # Forventet: 1
 
 # Test 2: INT_TO_BOOL(0) = FALSE
-write reg 20 value int 0
+write h-reg 20 value int 0
 read coil 0
 # Forventet: 0
 
 # Test 3: INT_TO_BOOL(42) = TRUE (non-zero)
-write reg 20 value int 42
+write h-reg 20 value int 42
 read coil 0
 # Forventet: 1
 ```
@@ -2237,7 +2237,7 @@ set logic 1 enabled:true
 ```bash
 # Test 1: DWORD_TO_INT(1000) = 1000
 write HR20-103 = 1000 (DWORD format)
-read reg 24 uint
+read h-reg 24 uint
 # Forventet: 1000
 ```
 
@@ -2271,7 +2271,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: INT_TO_DWORD(1000) = 1000
-write reg 20 value int 1000
+write h-reg 20 value int 1000
 read HR21-104 → Forventet: 1000 (DWORD format)
 ```
 
@@ -2303,9 +2303,9 @@ read HR21-104 → Forventet: 1000 (DWORD format)
 set persist group test_gruppe add 100-105
 
 # Step 2: Skriv nogle testværdier til gruppen
-write reg 20 value uint 1234
-write reg 21 value uint 5678
-write reg 22 value uint 9999
+write h-reg 20 value uint 1234
+write h-reg 21 value uint 5678
+write h-reg 22 value uint 9999
 
 # Step 3: Verificer at gruppen er oprettet
 show persist
@@ -2339,18 +2339,18 @@ show persist
 ```bash
 # Test 1: Første SAVE (skal succeed)
 write coil 0 value 1
-read reg 40 int
+read h-reg 40 int
 # Forventet: 0 (success)
 # Console output: "✓ SAVE(0) completed: 1 groups saved to NVS"
 
 # Test 2: Nulstil trigger
 write coil 0 value 0
-read reg 40 int
+read h-reg 40 int
 # Forventet: stadig 0 (sidste result)
 
 # Test 3: SAVE igen indenfor 5 sekunder (rate limited)
 write coil 0 value 1
-read reg 40 int
+read h-reg 40 int
 # Forventet: -2 (rate limited)
 # Console output: "SAVE(0) rate limited (wait 5s between saves)"
 
@@ -2358,7 +2358,7 @@ read reg 40 int
 # Wait 6 seconds...
 write coil 0 value 0
 write coil 0 value 1
-read reg 40 int
+read h-reg 40 int
 # Forventet: 0 (success igen)
 ```
 
@@ -2389,12 +2389,12 @@ SAVE(0) rate limited (wait 5s between saves)
 set persist save-group test_gruppe
 
 # Step 2: Modificer register værdier (så vi kan se LOAD virker)
-write reg 20 value uint 0
-write reg 21 value uint 0
-write reg 22 value uint 0
+write h-reg 20 value uint 0
+write h-reg 21 value uint 0
+write h-reg 22 value uint 0
 
 # Step 3: Verificer at værdier er ændret
-read reg 20 3
+read h-reg 20 3
 # Forventet: alle 0
 ```
 
@@ -2421,24 +2421,24 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Verificer at registers er reset (fra prerequisites)
-read reg 20 3
+read h-reg 20 3
 # Forventet: 0, 0, 0
 
 # Test 2: Trigger LOAD operation
 write coil 0 value 1
-read reg 40 int
+read h-reg 40 int
 # Forventet: 0 (success)
 # Console output: "✓ LOAD(0) completed: 1 groups restored from NVS"
 
 # Test 3: Verificer at registers er restored
-read reg 20 3
+read h-reg 20 3
 # Forventet: 1234, 5678, 9999 (oprindelige værdier fra SAVE test)
 
 # Test 4: LOAD uden saved data (error)
 set persist delete-group test_gruppe
 write coil 0 value 0
 write coil 0 value 1
-read reg 40 int
+read h-reg 40 int
 # Forventet: -1 (error - gruppe ikke fundet)
 ```
 
@@ -2508,12 +2508,12 @@ set logic 1 enabled:true
 ```bash
 # 1. Lad counter køre i 2 sekunder (~200 cycles @ 10ms interval)
 # Wait 2 seconds...
-read reg 60 int
+read h-reg 60 int
 # Forventet: ~200
 
 # 2. Gem counter værdi
 write coil 10 value 1
-read reg 61 int
+read h-reg 61 int
 # Forventet: 0 (success)
 
 # 3. Nulstil trigger
@@ -2521,25 +2521,25 @@ write coil 10 value 0
 
 # 4. Lad counter fortsætte
 # Wait 2 seconds...
-read reg 60 int
+read h-reg 60 int
 # Forventet: ~400
 
 # 5. Reset counter til 0 (simulér restart)
 set logic 1 enabled:false
-write reg 60 value int 0
+write h-reg 60 value int 0
 set logic 1 enabled:true
 
 # 6. Verificer reset
-read reg 60 int
+read h-reg 60 int
 # Forventet: ~1-10 (lige startet)
 
 # 7. Load saved værdi
 write coil 11 value 1
-read reg 62 int
+read h-reg 62 int
 # Forventet: 0 (success)
 
 # 8. Verificer at counter er restored
-read reg 60 int
+read h-reg 60 int
 # Forventet: ~200 (originale gemte værdi + nye cycles)
 ```
 
@@ -2616,7 +2616,7 @@ read coil 14
 # Forventet: FALSE (output goes LOW immediately)
 
 # 6. Test dynamic delay change
-write reg 70 value int 500
+write h-reg 70 value int 500
 write coil 10 value 1
 # Wait 0.6 seconds...
 read coil 14
@@ -2766,7 +2766,7 @@ read coil 16
 # Forventet: FALSE (pulse completed, not retriggered)
 
 # 7. Test short pulse (100ms)
-write reg 72 value int 100
+write h-reg 72 value int 100
 write coil 12 value 0
 # Wait 0.2 seconds...
 write coil 12 value 1
@@ -3203,12 +3203,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: condition = TRUE
 write coil 0 value 1
-read reg 20 int
+read h-reg 20 int
 # Forventet: 100
 
 # Test 2: condition = FALSE
 write coil 0 value 0
-read reg 20 int
+read h-reg 20 int
 # Forventet: 100
 ```
 
@@ -3246,12 +3246,12 @@ set logic 1 enabled:true
 ```bash
 # Test 1: condition = TRUE
 write coil 0 value 1
-read reg 20 int
+read h-reg 20 int
 # Forventet: 100
 
 # Test 2: condition = FALSE
 write coil 0 value 0
-read reg 20 int
+read h-reg 20 int
 # Forventet: 200
 ```
 
@@ -3289,18 +3289,18 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: value = 5 (< 10)
-write reg 20 value int 5
-read reg 21 int
+write h-reg 20 value int 5
+read h-reg 21 int
 # Forventet: 1
 
 # Test 2: value = 15 (< 20 but not < 10)
-write reg 20 value int 15
-read reg 21 int
+write h-reg 20 value int 15
+read h-reg 21 int
 # Forventet: 2
 
 # Test 3: value = 25 (>= 20)
-write reg 20 value int 25
-read reg 21 int
+write h-reg 20 value int 25
+read h-reg 21 int
 # Forventet: 3
 ```
 
@@ -3342,23 +3342,23 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: selector = 1
-write reg 20 value int 1
-read reg 21 int
+write h-reg 20 value int 1
+read h-reg 21 int
 # Forventet: 100
 
 # Test 2: selector = 2
-write reg 20 value int 2
-read reg 21 int
+write h-reg 20 value int 2
+read h-reg 21 int
 # Forventet: 200
 
 # Test 3: selector = 3
-write reg 20 value int 3
-read reg 21 int
+write h-reg 20 value int 3
+read h-reg 21 int
 # Forventet: 300
 
 # Test 4: selector = 99 (no match)
-write reg 20 value int 99
-read reg 21 int
+write h-reg 20 value int 99
+read h-reg 21 int
 # Forventet: 999
 ```
 
@@ -3398,7 +3398,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 20 int
+read h-reg 20 int
 # Forventet: 55
 ```
 
@@ -3434,7 +3434,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Sum 0+2+4+6+8+10 = 30
-read reg 20 int
+read h-reg 20 int
 # Forventet: 30
 ```
 
@@ -3474,7 +3474,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 20 int
+read h-reg 20 int
 # Forventet: 55
 ```
 
@@ -3514,7 +3514,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Sum 1+2+3+...+10 = 55
-read reg 20 int
+read h-reg 20 int
 # Forventet: 55
 ```
 
@@ -3554,21 +3554,21 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: INT overflow (32767 + 1 = -32768)
-write reg 20 value int 32767
-write reg 21 value int 1
-read reg 22 int
+write h-reg 20 value int 32767
+write h-reg 21 value int 1
+read h-reg 22 int
 # Forventet: -32768
 
 # Test 2: INT underflow (-32768 - 1 = 32767)
-write reg 20 value int -32768
-write reg 21 value int -1
-read reg 22 int
+write h-reg 20 value int -32768
+write h-reg 21 value int -1
+read h-reg 22 int
 # Forventet: 32767
 
 # Test 3: Normal operation (100 + 200 = 300)
-write reg 20 value int 100
-write reg 21 value int 200
-read reg 22 int
+write h-reg 20 value int 100
+write h-reg 21 value int 200
+read h-reg 22 int
 # Forventet: 300
 ```
 
@@ -3607,22 +3607,22 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Large DINT values (100000 + 200000 = 300000)
-write reg 40 value dint 100000
-write reg 42 value dint 200000
+write h-reg 40 value dint 100000
+write h-reg 42 value dint 200000
 # Læs resultat (2 registers)
-read reg 44 2
+read h-reg 44 2
 # Forventet: HR44=4, HR45=37856 (LSW, MSW) = 300000
 
 # Test 2: DINT negative values (-500000 + 100 = -499900)
-write reg 40 value dint -500000
-write reg 42 value dint 100
-read reg 44 2
+write h-reg 40 value dint -500000
+write h-reg 42 value dint 100
+read h-reg 44 2
 # Forventet: HR44=24416, HR45=65527 (LSW, MSW) = -499900
 
 # Test 3: Simple DINT addition (1 + 3 = 4)
-write reg 40 value dint 1
-write reg 42 value dint 3
-read reg 44 2
+write h-reg 40 value dint 1
+write h-reg 42 value dint 3
+read h-reg 44 2
 # Forventet: HR44=4, HR45=0 (LSW, MSW) = 4
 ```
 
@@ -3633,7 +3633,7 @@ read reg 44 2
 ✅ Large positive values (100000 + 200000 = 300000)
 ✅ Negative DINT values work correctly (-500000 + 100 = -499900)
 ✅ Simple DINT addition works (1 + 3 = 4)
-✅ CLI command 'write reg <addr> value dint <value>' automatically calculates LSW/MSW
+✅ CLI command 'write h-reg <addr> value dint <value>' automatically calculates LSW/MSW
 ```
 
 ---
@@ -3664,15 +3664,15 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: INT (1000) + DINT (200000) = DINT (201000)
-write reg 50 value int 1000
-write reg 52 value dint 200000
-read reg 54 2
+write h-reg 50 value int 1000
+write h-reg 52 value dint 200000
+read h-reg 54 2
 # Forventet: HR54=4392, HR55=3 (LSW, MSW) = 201000
 
 # Test 2: INT (-100) + DINT (50000) = DINT (49900)
-write reg 50 value int -100
-write reg 52 value dint 50000
-read reg 54 2
+write h-reg 50 value int -100
+write h-reg 52 value dint 50000
+read h-reg 54 2
 # Forventet: HR54=49900, HR55=0 (LSW, MSW) = 49900
 ```
 
@@ -3683,7 +3683,7 @@ read reg 54 2
 ✅ Multi-register I/O works for DINT result (LSW first, MSW second)
 ✅ Positive INT + large DINT (1000 + 200000 = 201000)
 ✅ Negative INT + positive DINT (-100 + 50000 = 49900)
-✅ CLI command 'write reg <addr> value dint <value>' simplifies testing
+✅ CLI command 'write h-reg <addr> value dint <value>' simplifies testing
 ```
 
 ---
@@ -3727,11 +3727,11 @@ set logic 1 enabled:true
 delay 1000
 
 # Læs IR 220-251 (kun temp skal være synlig)
-read input-reg 220 1
+read i-reg 220 1
 # Forventet: IR220 = 42 (temp er EXPORT)
 
 # Verificer at internal IKKE er synlig i IR 221
-read input-reg 221 1
+read i-reg 221 1
 # Forventet: IR221 = 0 eller uændret (internal har INGEN EXPORT)
 
 # Vis Logic 1 info (skal vise ir_pool_offset og ir_pool_size)
@@ -3780,7 +3780,7 @@ set logic 1 enabled:true
 delay 1000
 
 # Læs IR pool (5 registers total: 1 + 2 + 2)
-read input-reg 220 5
+read i-reg 220 5
 
 # IR 220: int_var = 100 (1 register)
 # IR 221-222: real_var = 3.14 (2 registers, LSW first)
@@ -3867,7 +3867,7 @@ set logic 3 enabled:true
 delay 1000
 
 # Læs alle IR 220-251 (total 9 registers used: 3+4+2)
-read input-reg 220 9
+read i-reg 220 9
 
 # Logic 1: IR 220-222 (offset=0, size=3)
 #   IR220 = 10, IR221 = 20, IR222 = 30
@@ -3968,7 +3968,7 @@ show logic 3
 # Forventet: IR Pool: offset=4, size=2 (eller måske compacted til offset=2)
 
 # Læs IR for at verificere
-read input-reg 220 6
+read i-reg 220 6
 # IR220-221: Logic1 (1, 2)
 # IR222-223: Muligvis 0 (Logic2 slettet)
 # IR224-225: Logic3 (5, 6) eller compacted til IR222-223
@@ -4091,34 +4091,34 @@ set logic 1 bind actual reg:21 input
 set logic 1 bind kp reg:22 input
 set logic 1 bind output_limited reg:23 output
 set logic 1 enabled:true
-write reg 22 value int 2
+write h-reg 22 value int 2
 
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: setpoint=80, actual=70 → error=10, output=20
-write reg 20 value int 80
-write reg 21 value int 70
-read reg 23 int
+write h-reg 20 value int 80
+write h-reg 21 value int 70
+read h-reg 23 int
 # Forventet: 20
 
 # Test 2: setpoint=50, actual=60 → error=-10, output=-20 (limited to 0)
-write reg 20 value int 50
-write reg 21 value int 60
-read reg 23 int
+write h-reg 20 value int 50
+write h-reg 21 value int 60
+read h-reg 23 int
 # Forventet: 0
 
 # Test 3: setpoint=100, actual=50 → error=50, output=100
-write reg 20 value int 100
-write reg 21 value int 50
-read reg 23 int
+write h-reg 20 value int 100
+write h-reg 21 value int 50
+read h-reg 23 int
 # Forventet: 100
 
 # Test 4: setpoint=100, actual=0 → error=100, output=200 (limited to 100)
-write reg 20 value int 100
-write reg 21 value int 0
-read reg 23 int
+write h-reg 20 value int 100
+write h-reg 21 value int 0
+read h-reg 23 int
 # Forventet: 100
 ```
 
@@ -4163,27 +4163,27 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: temp=70, press=30 → Normal
-write reg 20 value int 70
-write reg 21 value int 30
-read reg 22 int
+write h-reg 20 value int 70
+write h-reg 21 value int 30
+read h-reg 22 int
 # Forventet: 0
 
 # Test 2: temp=90, press=30 → Warning
-write reg 20 value int 90
-write reg 21 value int 30
-read reg 22 int
+write h-reg 20 value int 90
+write h-reg 21 value int 30
+read h-reg 22 int
 # Forventet: 1
 
 # Test 3: temp=110, press=40 → High temp
-write reg 20 value int 110
-write reg 21 value int 40
-read reg 22 int
+write h-reg 20 value int 110
+write h-reg 21 value int 40
+read h-reg 22 int
 # Forventet: 2
 
 # Test 4: temp=110, press=60 → Critical
-write reg 20 value int 110
-write reg 21 value int 60
-read reg 22 int
+write h-reg 20 value int 110
+write h-reg 21 value int 60
+read h-reg 22 int
 # Forventet: 3
 ```
 
@@ -4228,19 +4228,19 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: Average of 10, 20, 30, 40 = 25
-write reg 20 value int 10
-write reg 21 value int 20
-write reg 22 value int 30
-write reg 23 value int 40
-read reg 24 int
+write h-reg 20 value int 10
+write h-reg 21 value int 20
+write h-reg 22 value int 30
+write h-reg 23 value int 40
+read h-reg 24 int
 # Forventet: 25
 
 # Test 2: Average of 0, 0, 0, 100 = 25
-write reg 20 value int 0
-write reg 21 value int 0
-write reg 22 value int 0
-write reg 23 value int 100
-read reg 24 int
+write h-reg 20 value int 0
+write h-reg 21 value int 0
+write h-reg 22 value int 0
+write h-reg 23 value int 100
+read h-reg 24 int
 # Forventet: 25
 ```
 
@@ -4279,34 +4279,34 @@ set logic 1 bind mode reg:20 input
 set logic 1 bind input reg:21 input
 set logic 1 bind output reg:22 output
 set logic 1 enabled:true
-write reg 21 value int -50
+write h-reg 21 value int -50
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: mode=1 (ABS)
-write reg 20 value int 1
-read reg 22 int
+write h-reg 20 value int 1
+read h-reg 22 int
 # Forventet: 50
 
 # Test 2: mode=2 (multiply by 2)
-write reg 20 value int 2
-read reg 22 int
+write h-reg 20 value int 2
+read h-reg 22 int
 # Forventet: -100
 
 # Test 3: mode=3 (divide by 2)
-write reg 20 value int 3
-read reg 22 int
+write h-reg 20 value int 3
+read h-reg 22 int
 # Forventet: -25
 
 # Test 4: mode=4 (MIN with 100)
-write reg 20 value int 4
-read reg 22 int
+write h-reg 20 value int 4
+read h-reg 22 int
 # Forventet: -50
 
 # Test 5: mode=99 (ELSE)
-write reg 20 value int 99
-read reg 22 int
+write h-reg 20 value int 99
+read h-reg 22 int
 # Forventet: -50
 ```
 
@@ -4350,17 +4350,17 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: threshold=50, count values 1-49 = 49
-write reg 20 value int 50
+write h-reg 20 value int 50
 write coil 0 value 1
 # Wait 100ms
-read reg 21 int
+read h-reg 21 int
 # Forventet: 49
 
 # Test 2: threshold=10, count values 1-9 = 9
-write reg 20 value int 10
+write h-reg 20 value int 10
 write coil 0 value 1
 # Wait 100ms
-read reg 21 int
+read h-reg 21 int
 # Forventet: 9
 ```
 
@@ -4408,7 +4408,7 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: target=50
-write reg 20 value int 50
+write h-reg 20 value int 50
 # Wait 100ms
 read HR21 → Forventet: ~6-7 iterations
 ```
@@ -4454,15 +4454,15 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: magnitude(3.0, 4.0) = 5.0
-write reg 20 value real 3.0
-write reg 22 value real 4.0
-read reg 24 real
+write h-reg 20 value real 3.0
+write h-reg 22 value real 4.0
+read h-reg 24 real
 # Forventet: 5.000000 (0x40A00000)
 
 # Test 2: magnitude(5.0, 12.0) = 13.0
-write reg 20 value real 5.0
-write reg 22 value real 12.0
-read reg 24 real
+write h-reg 20 value real 5.0
+write h-reg 22 value real 12.0
+read h-reg 24 real
 # Forventet: 13.000000 (0x41500000)
 ```
 
@@ -4504,18 +4504,18 @@ set logic 1 enabled:true
 **Test Cases:**
 ```bash
 # Test 1: 10 * 1.5 = 15
-write reg 20 value int 10
-read reg 21 uint
+write h-reg 20 value int 10
+read h-reg 21 uint
 # Forventet: 15
 
 # Test 2: 7 * 1.5 = 10.5 → 10
-write reg 20 value int 7
-read reg 21 uint
+write h-reg 20 value int 7
+read h-reg 21 uint
 # Forventet: 10
 
 # Test 3: 100 * 1.5 = 150
-write reg 20 value int 100
-read reg 21 uint
+write h-reg 20 value int 100
+read h-reg 21 uint
 # Forventet: 150
 ```
 
@@ -4556,25 +4556,25 @@ set logic 1 bind auto_value reg:20 input
 set logic 1 bind manual_value reg:21 input
 set logic 1 bind final_output reg:22 output
 set logic 1 enabled:true
-write reg 20 value int 75
-write reg 21 value int 50
+write h-reg 20 value int 75
+write h-reg 21 value int 50
 ```
 
 **Test Cases:**
 ```bash
 # Test 1: auto=TRUE, override=FALSE → mode_active=TRUE → auto_value
 write coil 0 value 1
-read reg 22 int
+read h-reg 22 int
 # Forventet: 75
 
 # Test 2: auto=TRUE, override=TRUE → mode_active=FALSE → manual_value
 write coil 0 value 1
-read reg 22 int
+read h-reg 22 int
 # Forventet: 50
 
 # Test 3: auto=FALSE, override=FALSE → mode_active=FALSE → manual_value
 write coil 0 value 0
-read reg 22 int
+read h-reg 22 int
 # Forventet: 50
 ```
 
@@ -4635,8 +4635,8 @@ set logic 1 bind motor_running coil:10 output
 set logic 1 bind alarm coil:11 output
 set logic 1 bind production_count reg:40 output
 set logic 1 enabled:true
-write reg 20 value int 50
-write reg 21 value real 25.0
+write h-reg 20 value int 50
+write h-reg 21 value real 25.0
 ```
 
 **Test Cases:**
@@ -4647,7 +4647,7 @@ read coil 10
 # Forventet: 1 (motor running)
 read coil 11
 # Forventet: 0 (no alarm)
-read reg 40 int
+read h-reg 40 int
 # Forventet: > 0 (production counting)
 
 # Test 2: Stop sequence
@@ -4656,7 +4656,7 @@ read coil 10
 # Forventet: 0 (motor stopped)
 
 # Test 3: Temperature alarm
-write reg 21 value real 90.0
+write h-reg 21 value real 90.0
 write coil 0 value 1
 read coil 10
 # Forventet: 0 (motor not starting)
@@ -4664,8 +4664,8 @@ read coil 11
 # Forventet: 1 (alarm active)
 
 # Test 4: Count alarm
-write reg 21 value real 25.0
-write reg 20 value int 1500
+write h-reg 21 value real 25.0
+write h-reg 20 value int 1500
 read coil 11
 # Forventet: 1 (alarm active)
 ```
@@ -4856,20 +4856,20 @@ Brug de indbyggede CLI kommandoer i stedet for Python helpers:
 
 ```bash
 # SKRIVE VÆRDIER
-write reg <addr> value int <value>     # 16-bit signed INT
-write reg <addr> value uint <value>    # 16-bit unsigned
-write reg <addr> value real <value>    # 32-bit REAL (2 registers)
+write h-reg <addr> value int <value>     # 16-bit signed INT
+write h-reg <addr> value uint <value>    # 16-bit unsigned
+write h-reg <addr> value real <value>    # 32-bit REAL (2 registers)
 
 # LÆSE VÆRDIER
-read reg <addr> int                    # Læs som signed INT
-read reg <addr> uint                   # Læs som unsigned
-read reg <addr> real                   # Læs som REAL (2 registers)
+read h-reg <addr> int                    # Læs som signed INT
+read h-reg <addr> uint                   # Læs som unsigned
+read h-reg <addr> real                   # Læs som REAL (2 registers)
 
 # EKSEMPLER
-write reg 20 value real 3.14159
-read reg 22 real
-write reg 20 value int -5
-read reg 20 int
+write h-reg 20 value real 3.14159
+read h-reg 22 real
+write h-reg 20 value int -5
+read h-reg 20 int
 ```
 
 ### Legacy Python Helpers (Deprecated)
@@ -4884,13 +4884,13 @@ import time
 import struct
 
 def write_real(client, address, value):
-    """DEPRECATED: Brug 'write reg X value real Y' CLI kommando"""
+    """DEPRECATED: Brug 'write h-reg X value real Y' CLI kommando"""
     bytes_val = struct.pack('!f', value)
     words = struct.unpack('!HH', bytes_val)
     client.write_registers(address, list(words))
 
 def read_real(client, address):
-    """DEPRECATED: Brug 'read reg X real' CLI kommando"""
+    """DEPRECATED: Brug 'read h-reg X real' CLI kommando"""
     result = client.read_holding_registers(address, 2)
     bytes_val = struct.pack('!HH', *result.registers)
     return struct.unpack('!f', bytes_val)[0]

@@ -18,9 +18,9 @@ Dette dokument beskriver **ALLE** Modbus registre, coils og discrete inputs som 
 
 **⚠️ VIGTIGT - CLI Kommandoer (v4.7.2+):**
 - Læs **Holding Registers (HR):** `read holding-reg <addr> <count>` (eller: `read reg`)
-- Læs **Input Registers (IR):** `read input-reg <addr> <count>` ⚠️ **Ikke "read reg"!**
+- Læs **Input Registers (IR):** `read i-reg <addr> <count>` ⚠️ **Ikke "read reg"!**
 - Skriv **Holding Registers:** `set holding-reg STATIC/DYNAMIC ...` (eller: `set reg`)
-- **ST Logic EXPORT variable VALUES** ligger i **IR 220-251** (ikke HR!) → Brug `read input-reg 220 32`
+- **ST Logic EXPORT variable VALUES** ligger i **IR 220-251** (ikke HR!) → Brug `read i-reg 220 32`
 - **v5.1.0:** Kun variabler markeret med `EXPORT` keyword i ST program er synlige i IR 220-251
 
 **Addressing:**
@@ -104,15 +104,15 @@ control2 = regs_to_float(result.registers)
 **CLI Kommandoer (ESP32 Terminal):**
 ```bash
 # Skriv til ST Program (INPUT)
-write reg 100 value real 25.5          # Sæt setpoint
-write reg 102 value real 40.0          # Sæt control output
+write h-reg 100 value real 25.5          # Sæt setpoint
+write h-reg 102 value real 40.0          # Sæt control output
 
 # Læs fra ST Program (OUTPUT)
-read input-reg 220 real                # Læs setpoint (auto IR)
-read input-reg 221 real                # Læs actual (auto IR)
-read input-reg 300 real                # Læs actual (manual IR)
-read input-reg 222 real                # Læs control (auto IR)
-read input-reg 302 real                # Læs control (manual IR)
+read i-reg 220 real                # Læs setpoint (auto IR)
+read i-reg 221 real                # Læs actual (auto IR)
+read i-reg 300 real                # Læs actual (manual IR)
+read i-reg 222 real                # Læs control (auto IR)
+read i-reg 302 real                # Læs control (manual IR)
 ```
 
 **Data Flow Diagram:**
@@ -276,7 +276,7 @@ set logic 1 bind large_data reg:240 input  # HR 238-255 også safe!
 set logic 1 bind large_value reg:40 input
 
 # Skriv DINT værdi (CLI håndterer automatisk LSW/MSW split)
-write reg 40 value dint 100000
+write h-reg 40 value dint 100000
 # Resultat: HR40=34464 (LSW), HR41=1 (MSW)
 ```
 
@@ -523,7 +523,7 @@ END_VAR
 ```bash
 # Ingen bind kommando nødvendig!
 # sensor er automatisk tilgængelig i IR 220-251 (read-only)
-read input-reg 220 1    # Læs sensor værdi
+read i-reg 220 1    # Læs sensor værdi
 ```
 
 **⚠️ ANBEFALING:** Brug IKKE IR 220-251 i manual bindings! De er allerede automatisk mappet.

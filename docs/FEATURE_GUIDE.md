@@ -341,14 +341,14 @@ set timer 1 mode 1 \
   ctrl-reg:50
 
 # Start timer via register
-write reg 50 value 1   # Bit 0 = START
+write h-reg 50 value 1   # Bit 0 = START
 # Timer 1 executes 3-phase sequence
 
 # Stop timer mid-sequence
-write reg 50 value 2   # Bit 1 = STOP
+write h-reg 50 value 2   # Bit 1 = STOP
 
 # Reset timer
-write reg 50 value 4   # Bit 2 = RESET
+write h-reg 50 value 4   # Bit 2 = RESET
 ```
 
 Mode 3 (Astable) med ctrl_reg:
@@ -360,13 +360,13 @@ set timer 3 mode 3 \
   enabled:0   # Don't auto-start
 
 # Start via ctrl_reg instead of auto-start
-write reg 60 value 1   # START
+write h-reg 60 value 1   # START
 
 # Stop blinking
-write reg 60 value 2   # STOP
+write h-reg 60 value 2   # STOP
 
 # Reset state
-write reg 60 value 4   # RESET
+write h-reg 60 value 4   # RESET
 ```
 
 **Use Cases:**
@@ -544,7 +544,7 @@ Automatisk måling af signal-frekvens.
 
 **Læsning:**
 ```
-read reg 12 1  # Læs freq-register for counter 1
+read h-reg 12 1  # Læs freq-register for counter 1
 ```
 
 #### Direction Control
@@ -642,7 +642,7 @@ clear counters
 set counter 1 mode 3 hw-gpio:19 prescaler:1 bit-width:32 scale:1.0
 set counter 1 control auto-start:on
 set counter 1 start
-read reg 10 5
+read h-reg 10 5
 ```
 
 ### TIMER KOMMANDOER
@@ -692,11 +692,11 @@ set coil STATIC <addr> Value <ON|OFF>            # Fast coil
 set coil DYNAMIC <addr> counter<id>:<func>       # Counter-bundet
 set coil DYNAMIC <addr> timer<id>:<func>         # Timer-bundet
 
-read reg <addr> [count]                # Læs registre
+read h-reg <addr> [count]                # Læs registre
 read coil <addr> [count]               # Læs coils
 read input <addr> [count]              # Læs diskrete inputs
 
-write reg <addr> value <value>         # Skriv register
+write h-reg <addr> value <value>         # Skriv register
 write coil <addr> value <ON|OFF>       # Skriv coil
 ```
 
@@ -711,7 +711,7 @@ set coil DYNAMIC 100 timer1:output     # Coil 100 = Timer 1's output
 set reg STATIC 30 Value 12345          # Fast værdi i register 30
 set coil STATIC 50 Value ON            # Fast ON i coil 50
 
-read reg 20 1
+read h-reg 20 1
 read coil 100 1
 ```
 
@@ -968,7 +968,7 @@ set counter 1 mode 3 hw-gpio:19 prescaler:1 bit-width:32 scale:1.0
 set counter 1 control auto-start:on
 
 # Læs værdier efter 10 sekunder (burde være ~10000)
-read reg 10 5
+read h-reg 10 5
 
 # Register 10 = index (skaleret)
 # Register 11 = raw (fra prescaler)
@@ -978,7 +978,7 @@ read reg 10 5
 
 # Nulstil tæller
 set counter 1 reset
-read reg 10 5  # Burde være ~0 nu
+read h-reg 10 5  # Burde være ~0 nu
 ```
 
 ### Eksempel 4: GPIO Kortlægning

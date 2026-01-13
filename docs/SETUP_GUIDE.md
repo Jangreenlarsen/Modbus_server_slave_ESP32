@@ -208,10 +208,10 @@ set counter 1 mode 3 hw-gpio:19 prescaler:1 bit-width:32 scale:1.0
 set counter 1 control auto-start:on
 
 # After 10 seconds with 1kHz signal:
-read reg 10 5  # Register 10 = counter value
+read h-reg 10 5  # Register 10 = counter value
 
 # Check frequency measurement
-read reg 12 1  # Register 12 = Hz
+read h-reg 12 1  # Register 12 = Hz
 ```
 
 ---

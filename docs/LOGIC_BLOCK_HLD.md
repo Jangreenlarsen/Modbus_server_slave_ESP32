@@ -502,7 +502,7 @@ typedef struct {
 │  │ show counters│      │ set gpio     │  │ show seq │  │ reset  │ │
 │  │ show logic   │      │ set register │  │ show vars│  │ reboot │ │
 │  │ show seqs    │      │ set baudrate │  │ set phase│  │ version│ │
-│  │ read reg     │      │ delete timer │  │ delete   │  │ help   │ │
+│  │ read h-reg     │      │ delete timer │  │ delete   │  │ help   │ │
 │  │ read coil    │      │ load defaults│  │ verify   │  │ exit   │ │
 │  │ monitor      │      └──────────────┘  │ show eval│  └────────┘ │
 │  │ config-mode ─┼────────────────────┐   └──────────┘              │
@@ -534,7 +534,7 @@ typedef struct {
 > show seqs                # List all sequences (brief)
 > show seq 1               # Sequence 1 details (phase, status, vars)
 > show seq 1 phase 2       # Sequence 1, Phase 2 details
-> read reg 0 10            # Read registers 0-10
+> read h-reg 0 10            # Read registers 0-10
 > read coil 0 16           # Read coils 0-16
 > monitor                  # Live update mode (all values)
 > help

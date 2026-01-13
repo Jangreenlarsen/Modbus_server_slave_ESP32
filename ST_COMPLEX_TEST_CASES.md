@@ -128,25 +128,25 @@ set logic 1 enabled:true
 # Test scenarios
 # Scenario 1: Cold start - needs heating
 write coil 0 value 1
-write reg 20 value real 50.0
-write reg 30 value real 25.0
-read reg 40
+write h-reg 20 value real 50.0
+write h-reg 30 value real 25.0
+read h-reg 40
 # Forventet: 250 → clamped to 100 (heating at max power)
 read coil 10
 # Forventet: 0 (alarm=FALSE, temp within range)
 
 # Scenario 2: Approaching setpoint
-write reg 30 value real 48.0
-read reg 40
+write h-reg 30 value real 48.0
+read h-reg 40
 # Forventet: 20 (proportional: (50-48)*10 = 20% power)
 
 # Scenario 3: Too hot - needs cooling
-write reg 30 value real 60.0
-read reg 40 int
+write h-reg 30 value real 60.0
+read h-reg 40 int
 # Forventet: -100 (max cooling, negative power)
 
 # Scenario 4: Temperature alarm (out of range)
-write reg 30 value real 95.0
+write h-reg 30 value real 95.0
 read coil 10
 # Forventet: 1 (alarm=TRUE, temp > 90°C)
 ```
@@ -261,29 +261,29 @@ set logic 2 enabled:true
 # Test scenarios
 # Scenario 1: All tanks empty - start fill
 write coil 0 value 1
-write reg 50 value real 10.0
-write reg 52 value real 10.0
-write reg 54 value real 10.0
+write h-reg 50 value real 10.0
+write h-reg 52 value real 10.0
+write h-reg 54 value real 10.0
 read coil 20 3
 # Forventet: 1 0 0 (pump1_on=TRUE, pump2_on=FALSE, pump3_on=FALSE)
 
 # Scenario 2: Tank1 full, Tank2 empty - cascade
-write reg 50 value real 75.0
-write reg 52 value real 20.0
-write reg 54 value real 30.0
+write h-reg 50 value real 75.0
+write h-reg 52 value real 20.0
+write h-reg 54 value real 30.0
 read coil 20 3
 # Forventet: 1 1 0 (pump1_on=TRUE, pump2_on=TRUE cascade, pump3_on=FALSE)
 
 # Scenario 3: Overflow condition
-write reg 50 value real 97.0
+write h-reg 50 value real 97.0
 read coil 23
 # Forventet: 1 (overflow_alarm=TRUE)
 read coil 20 3
 # Forventet: 0 0 0 (all pumps OFF on overflow)
 
 # Scenario 4: Underflow alarm
-write reg 50 value real 30.0
-write reg 52 value real 3.0
+write h-reg 50 value real 30.0
+write h-reg 52 value real 3.0
 read coil 24
 # Forventet: 1 (underflow_alarm=TRUE, tank2 < 5%)
 ```
@@ -395,27 +395,27 @@ set logic 3 enabled:true
 # Test scenarios
 # Scenario 1: Start production - good quality
 write coil 0 value 1
-write reg 60 value int 45
-write reg 61 value int 2
-read reg 70 real
+write h-reg 60 value int 45
+write h-reg 61 value int 2
+read h-reg 70 real
 # Forventet: 95.74% as REAL (45/(45+2)*100 = 95.74)
 
 # Scenario 2: Batch complete
-write reg 60 value int 97
-write reg 61 value int 3
+write h-reg 60 value int 97
+write h-reg 61 value int 3
 read coil 30
 # Forventet: 1 (batch_complete=TRUE, 100 parts reached)
-read reg 72
+read h-reg 72
 # Forventet: 1 (batch_number incremented)
 
 # Scenario 3: Poor quality alarm
 write coil 0 value 0
 write coil 0 value 1
-write reg 60 value int 15
-write reg 61 value int 10
+write h-reg 60 value int 15
+write h-reg 61 value int 10
 read coil 31
 # Forventet: 1 (quality_alarm=TRUE, 60% < 95%)
-read reg 70 real
+read h-reg 70 real
 # Forventet: 60.0% as REAL (15/25*100 = 60%)
 
 # Scenario 4: Reset
@@ -530,12 +530,12 @@ set logic 4 enabled:true
 # Scenario 1: All zones normal, avg < setpoint
 write coil 0 value 1
 write coil 1 value 0
-write reg 88 value real 22.0
-write reg 80 value real 20.0
-write reg 82 value real 21.0
-write reg 84 value real 19.0
-write reg 86 value real 20.0
-read reg 90 real
+write h-reg 88 value real 22.0
+write h-reg 80 value real 20.0
+write h-reg 82 value real 21.0
+write h-reg 84 value real 19.0
+write h-reg 86 value real 20.0
+read h-reg 90 real
 # Forventet: 20.0 as REAL (avg = (20+21+19+20)/4)
 read coil 40 2
 # Forventet: 1 0 (heating_on=TRUE, cooling_on=FALSE, 20 < 22-0.5)
@@ -546,17 +546,17 @@ read coil 40 2
 # Forventet: 0 0 (heating_on=FALSE, cooling_on=FALSE, 20 in deadband 22±2)
 
 # Scenario 3: Zone alarm (zone1 too cold)
-write reg 80 value real 12.0
+write h-reg 80 value real 12.0
 read coil 42
 # Forventet: 1 (zone1_alarm=TRUE, 12°C < 15°C)
 
 # Scenario 4: Too hot - cooling needed
 write coil 1 value 0
-write reg 80 value real 25.0
-write reg 82 value real 26.0
-write reg 84 value real 24.0
-write reg 86 value real 25.0
-read reg 90 real
+write h-reg 80 value real 25.0
+write h-reg 82 value real 26.0
+write h-reg 84 value real 24.0
+write h-reg 86 value real 25.0
+read h-reg 90 real
 # Forventet: 25.0 as REAL (avg = (25+26+24+25)/4)
 read coil 40 2
 # Forventet: 0 1 (heating_on=FALSE, cooling_on=TRUE, 25 > 22+0.5)
@@ -712,15 +712,15 @@ set logic 1 enabled:true
 write coil 0 value 1
 write coil 1 value 1
 write coil 2 value 0
-write reg 104 value real 100.0
-write reg 105 value real 60.0
-write reg 100 value real 0.0
-write reg 102 value real 20.0
+write h-reg 104 value real 100.0
+write h-reg 105 value real 60.0
+write h-reg 100 value real 0.0
+write h-reg 102 value real 20.0
 read coil 50
 # Forventet: 1 (fill_valve=TRUE, step=0 FILL)
 
 # Scenario 2: Weight reached - move to mix
-write reg 100 value real 100.0
+write h-reg 100 value real 100.0
 read coil 50 2
 # Forventet: 0 1 (fill_valve=FALSE, mix_motor=TRUE, step=1 MIX)
 
@@ -737,16 +737,16 @@ read coil 50 5
 
 # Scenario 5: Resume and complete
 write coil 1 value 1
-write reg 102 value real 65.0
+write h-reg 102 value real 65.0
 read coil 51 2
 # Forventet: 1 0 (mix_motor=TRUE, heater=FALSE, temp reached, step=3 COOL)
-write reg 102 value real 25.0
+write h-reg 102 value real 25.0
 read coil 51 2
 # Forventet: 0 1 (mix_motor=FALSE, cooler=TRUE, cooled down, step=4 DRAIN)
-write reg 100 value real 2.0
+write h-reg 100 value real 2.0
 read coil 54
 # Forventet: 1 (drain_valve=TRUE, draining)
-write reg 100 value real 0.0
+write h-reg 100 value real 0.0
 read coil 55
 # Forventet: 1 (batch_complete=TRUE, step=5 COMPLETE)
 ```

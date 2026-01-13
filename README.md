@@ -689,11 +689,11 @@ set counter <id> control auto-start:<on|off>                  # Start counter ve
 set counter <id> control running:<on|off>                     # Start/stop counter
 
 # Control via Modbus FC06 write to ctrl-reg
-write reg <ctrl-reg> value 0x0001      # Reset counter (bit 0, auto-clears)
-write reg <ctrl-reg> value 0x0002      # Start counter (bit 1, auto-clears)
+write h-reg <ctrl-reg> value 0x0001      # Reset counter (bit 0, auto-clears)
+write h-reg <ctrl-reg> value 0x0002      # Start counter (bit 1, auto-clears)
 
 # Read status flags from ctrl-reg
-read reg <ctrl-reg>                     # Read control register
+read h-reg <ctrl-reg>                     # Read control register
 # Bit 0: Reset command (write-only)
 # Bit 1: Start command (write-only)
 # Bit 2: Running status (read-only: 1=running, 0=stopped)
@@ -706,8 +706,8 @@ set counter <id> enable:<on|off>       # Enable/disable counter
 no set counter <id>                    # Delete counter (reset to defaults)
 
 # Read compare value from Modbus (v4.2.4 - BUG-030)
-read reg <base+11> <words>             # Counter 1: HR111, Counter 2: HR131, etc.
-write reg <base+11> value <threshold>  # Modify compare threshold runtime
+read h-reg <base+11> <words>             # Counter 1: HR111, Counter 2: HR131, etc.
+write h-reg <base+11> value <threshold>  # Modify compare threshold runtime
 ```
 
 **Register Layout (v4.2.4 - Smart Defaults, BUG-028):**
@@ -822,31 +822,33 @@ mb_success (BOOL)     (* TRUE if last operation succeeded *)
 **Register/Coil Direct Access:**
 ```bash
 # READ COMMANDS
-read reg <addr> [count] [int|uint|real]  # Read holding register(s)
-                                          # - int:  signed 16-bit (-32768 to 32767)
-                                          # - uint: unsigned 16-bit (0 to 65535, default)
-                                          # - real: 32-bit float (uses 2 consecutive registers)
-read input <addr>                        # Read input register
-read coil <addr>                         # Read coil
+read h-reg <addr> [count] [int|uint|real]  # Read holding register(s)
+                                            # - int:  signed 16-bit (-32768 to 32767)
+                                            # - uint: unsigned 16-bit (0 to 65535, default)
+                                            # - real: 32-bit float (uses 2 consecutive registers)
+read i-reg <addr> [count] [int|uint|real]  # Read input register(s)
+read input <addr>                          # Read discrete input
+read coil <addr>                           # Read coil
 
 # WRITE COMMANDS
-write reg <addr> value int <val>         # Write signed 16-bit INT (-32768 to 32767)
-write reg <addr> value uint <val>        # Write unsigned 16-bit (0 to 65535)
-write reg <addr> value dint <val>        # Write signed 32-bit DINT (-2147483648 to 2147483647, uses 2 registers)
-write reg <addr> value dword <val>       # Write unsigned 32-bit DWORD (0 to 4294967295, uses 2 registers)
-write reg <addr> value real <val>        # Write 32-bit REAL/float (uses 2 consecutive registers)
-write coil <addr> value <on|off>         # Write coil
+write h-reg <addr> value int <val>         # Write signed 16-bit INT (-32768 to 32767)
+write h-reg <addr> value uint <val>        # Write unsigned 16-bit (0 to 65535)
+write h-reg <addr> value dint <val>        # Write signed 32-bit DINT (-2147483648 to 2147483647, uses 2 registers)
+write h-reg <addr> value dword <val>       # Write unsigned 32-bit DWORD (0 to 4294967295, uses 2 registers)
+write h-reg <addr> value real <val>        # Write 32-bit REAL/float (uses 2 consecutive registers)
+write coil <addr> value <on|off>           # Write coil
 
 # EXAMPLES
-read reg 100 int                         # Read reg 100 as signed INT
-read reg 100 5 uint                      # Read 5 registers from 100 as unsigned
-read reg 100 real                        # Read reg 100-101 as REAL (32-bit float)
+read h-reg 100 int                         # Read reg 100 as signed INT
+read h-reg 100 5 uint                      # Read 5 registers from 100 as unsigned
+read h-reg 100 real                        # Read reg 100-101 as REAL (32-bit float)
+read i-reg 220 int                         # Read input register 220 as signed INT
 
-write reg 100 value int -500             # Write -500 as signed INT
-write reg 100 value uint 65000           # Write 65000 as unsigned
-write reg 100 value dint 100000          # Write 100000 as DINT (reg 100-101, LSW first)
-write reg 100 value dword 3000000000     # Write 3000000000 as DWORD (reg 100-101, LSW first)
-write reg 100 value real 3.14159         # Write 3.14159 as REAL (reg 100-101)
+write h-reg 100 value int -500             # Write -500 as signed INT
+write h-reg 100 value uint 65000           # Write 65000 as unsigned
+write h-reg 100 value dint 100000          # Write 100000 as DINT (reg 100-101, LSW first)
+write h-reg 100 value dword 3000000000     # Write 3000000000 as DWORD (reg 100-101, LSW first)
+write h-reg 100 value real 3.14159         # Write 3.14159 as REAL (reg 100-101)
 ```
 
 **System Commands:**
@@ -1018,9 +1020,9 @@ Persistence system DISABLED
 > set persist group "recipe" add 150-152
 
 # 2. Write values to registers
-> write reg 150 value 250   # Temperature setpoint
-> write reg 151 value 80    # Pressure setpoint
-> write reg 152 value 30    # Flow rate setpoint
+> write h-reg 150 value 250   # Temperature setpoint
+> write h-reg 151 value 80    # Pressure setpoint
+> write h-reg 152 value 30    # Flow rate setpoint
 
 # 3. Save group (snapshot to RAM)
 > save registers group "recipe"
@@ -1583,13 +1585,13 @@ Current Values:
   Frequency: 1523 Hz
 
 # Read registers via Modbus
-> read reg 20    # Scaled value
-> read reg 30    # Prescaled value
-> read reg 35    # Frequency in Hz
+> read h-reg 20    # Scaled value
+> read h-reg 30    # Prescaled value
+> read h-reg 35    # Frequency in Hz
 
 # Reset counter
-> write reg 40 value 1
-> read reg 40    # Should show 0 (auto-cleared)
+> write h-reg 40 value 1
+> read h-reg 40    # Should show 0 (auto-cleared)
 ```
 
 ### Example 2: Astable Timer (LED Blink)
@@ -1601,7 +1603,7 @@ Current Values:
 > set timer 1 enable on
 
 # Start blinking
-> write reg 45 value 2    # Bit 1 = START
+> write h-reg 45 value 2    # Bit 1 = START
 
 # Check status
 > show timer 1
@@ -1615,7 +1617,7 @@ Output Coil: 50
 Control Register: 45
 
 # Stop blinking
-> write reg 45 value 4    # Bit 2 = STOP
+> write h-reg 45 value 4    # Bit 2 = STOP
 
 # Read coil status
 > read coil 50
@@ -1683,14 +1685,14 @@ Variables:
   alarm (OUTPUT) → Reg 103
 
 # Write setpoint via Modbus
-> write reg 101 value 75
+> write h-reg 101 value 75
 
 # Simulate sensor reading
-> write reg 100 value 68    # Below setpoint → heater ON
-> read reg 102              # Should show 1 (heater ON)
+> write h-reg 100 value 68    # Below setpoint → heater ON
+> read h-reg 102              # Should show 1 (heater ON)
 
-> write reg 100 value 82    # Above setpoint → heater OFF
-> read reg 102              # Should show 0 (heater OFF)
+> write h-reg 100 value 82    # Above setpoint → heater OFF
+> read h-reg 102              # Should show 0 (heater OFF)
 ```
 
 ### Example 4: Wi-Fi & Telnet Setup
@@ -1799,14 +1801,14 @@ END
 > set logic 1 enabled:true
 
 # Write calibration values
-> write reg 200 value 42    # Set offset
-> write reg 201 value 100   # Set scale
+> write h-reg 200 value 42    # Set offset
+> write h-reg 201 value 100   # Set scale
 
 # Trigger save from ST Logic
-> write reg 202 value 1     # Trigger SAVE()
+> write h-reg 202 value 1     # Trigger SAVE()
 
 # Check save result
-> read reg 204 1
+> read h-reg 204 1
 Result: 0 (success)
 
 # View persistence status
@@ -1830,10 +1832,10 @@ Group "calibration" (3 registers)
 > reboot
 
 # After reboot, check if values restored
-> read reg 200 1
+> read h-reg 200 1
 Result: 42 ✓ (restored from NVS)
 
-> read reg 201 1
+> read h-reg 201 1
 Result: 100 ✓ (restored from NVS)
 ```
 
@@ -2376,10 +2378,10 @@ output_val := input_val * 2;
 > set logic 1 enabled:true
 
 # Test med Modbus write
-> write reg 200 value int 42
+> write h-reg 200 value int 42
 
 # Verificer output
-> read reg 201 1
+> read h-reg 201 1
 Result: 84 ✓ (42 * 2)
 
 # Se bytecode (debug)
@@ -2400,8 +2402,8 @@ Result: 84 ✓ (42 * 2)
 > set persist group 1 add 200 10
 
 # Write calibration values
-> write reg 200 value int 100
-> write reg 201 value int 250
+> write h-reg 200 value int 100
+> write h-reg 201 value int 250
 
 # Save to NVS
 > persist save 1
@@ -2416,7 +2418,7 @@ Result: 84 ✓ (42 * 2)
 # Test: Reboot og verificer auto-load
 > reboot
 [After boot]
-> read reg 200 1
+> read h-reg 200 1
 Result: 100 ✓ (restored from NVS)
 ```
 
@@ -3245,10 +3247,11 @@ empty := CTD(dispense, reload, 50);              (* Count down from 50 *)
 
 - **v4.7.2** (2026-01-04) - 📋 CLI Consistency & Documentation - Holding-Reg vs Input-Reg Naming
   - **CLI Naming Standardization:**
-    - All commands now consistently use `holding-reg` vs `input-reg` terminology
-    - Read Holding Registers: `read holding-reg <addr> <count>` (alias: `read reg`)
-    - Read Input Registers: `read input-reg <addr> <count>` ⚠️ **Not "read reg"!**
-    - Set Holding Registers: `set holding-reg STATIC/DYNAMIC ...` (alias: `set reg`)
+    - All commands now consistently use `h-reg` vs `i-reg` shorthand (Build #1051)
+    - Read Holding Registers: `read h-reg <addr> [count] [type]` (alias: `read reg`, `read holding-reg`)
+    - Read Input Registers: `read i-reg <addr> [count] [type]` (alias: `read input-reg`) ⚠️ **Not "read reg"!**
+    - Write Holding Registers: `write h-reg <addr> value <type> <val>` (alias: `write reg`)
+    - Set Holding Registers: `set h-reg STATIC/DYNAMIC ...` (alias: `set reg`)
   - **Bug Fixes:**
     - **BUG-144:** Fixed confusing CLI - ST variable VALUES are in IR, not HR
     - **BUG-145:** Fixed missing "read input-reg" option in help message

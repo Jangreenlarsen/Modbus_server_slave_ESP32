@@ -3205,7 +3205,7 @@ Compare-match flag (ctrl_reg bit4) sættes **kontinuerligt** hver loop-iteration
 ```bash
 Counter: 876885, Compare: 2500, Bit4: 1 (0x90)
 
-> read reg 110 1
+> read h-reg 110 1
 FC03 reset-on-read: Counter 1 compare bit cleared  ← Debug message
 Result: HR110 = 0x90 (144)  ❌ Bit4 STADIG sat!
 
@@ -3282,8 +3282,8 @@ runtime->last_value = counter_value;
 
 1. Konfigurér counter med compare: `set counter 1 mode 2 compare:on compare-value:2500 compare-mode:0`
 2. Lad counter nå 3000 (over threshold)
-3. Check ctrl-reg: `read reg 110 1` → Bit4=1 ✓
-4. Read igen: `read reg 110 1` → Bit4=0 ✓ (cleared og forbliver cleared)
+3. Check ctrl-reg: `read h-reg 110 1` → Bit4=1 ✓
+4. Read igen: `read h-reg 110 1` → Bit4=0 ✓ (cleared og forbliver cleared)
 5. Reset counter under 2500, lad den nå 2500 igen → Bit4=1 ✓ (trigger igen)
 
 **Test output:**
@@ -3428,7 +3428,7 @@ debug_println("    HR111-114: Compare value (1-4 words, runtime modifiable)");
 ### Test Plan
 
 1. Konfigurér counter: `set counter 1 mode 2 bit-width:32 compare:on compare-value:2500`
-2. Check initial: `read reg 111 2` → 2500 ✓
+2. Check initial: `read h-reg 111 2` → 2500 ✓
 3. Write new value via Modbus FC16: HR111-112 = 5000
 4. Verify compare uses new value: Counter når 5000 → bit4=1 ✓
 5. Verify persistence: CLI `show counter 1` → compare-value stadig 2500 (config unchanged, register value wins)
@@ -4136,7 +4136,7 @@ if (map->input_type == 1) {
 > write coil 20 value on
 Coil 20 = 1 (ON)
 
-> read reg 85 1
+> read h-reg 85 1
 Reg[85]: 50  ← SEL() virker IKKE (læser fra discrete input, ikke coil)
 ```
 
@@ -4148,7 +4148,7 @@ Reg[85]: 50  ← SEL() virker IKKE (læser fra discrete input, ikke coil)
 > write coil 20 value on
 Coil 20 = 1 (ON)
 
-> read reg 85 1
+> read h-reg 85 1
 Reg[85]: 75  ← SEL() virker! (læser korrekt fra coil)
 ```
 
@@ -4449,18 +4449,18 @@ return st_vm_push_typed(vm, result, return_type);
 **Før fix (Build #711):**
 ```
 > set logic 2 var test := INT_TO_REAL(angle_deg) * 2.0
-> read reg 85 1
+> read h-reg 85 1
 Reg[85]: 65535    ← GARBAGE
 ```
 
 **Efter fix (Build #712):**
 ```
 > set logic 2 var test := INT_TO_REAL(angle_deg) * 2.0
-> read reg 85 1
+> read h-reg 85 1
 Reg[85]: 180      ← CORRECT (angle_deg=90 * 2.0 = 180)
 
 > set logic 2 var angle_rad := INT_TO_REAL(angle_deg) * PI / 180.0
-> read reg 86 1
+> read h-reg 86 1
 Reg[86]: 1570     ← CORRECT (90 degrees = ~1.57 radians * 1000)
 ```
 
@@ -5058,7 +5058,7 @@ Counter engine og CLI kommandoer brugte forkert byte order for multi-register v�
 
 **Symptomer:**
 ```bash
-> read reg 100 2
+> read h-reg 100 2
 Reg[100]: 1      # CLI læste MSW først (forkert)
 Reg[101]: 34464  # CLI læste LSW anden (forkert)
 # Skulle være: HR100=34464 (LSW), HR101=1 (MSW)
@@ -5108,8 +5108,8 @@ registers_set_holding_register(addr + 1, high_word);  // MSW at base+1
 
 **Test verification:**
 ```bash
-write reg 100 value dint 100000
-read reg 100 2
+write h-reg 100 value dint 100000
+read h-reg 100 2
 # Output: HR100=34464 (LSW), HR101=1 (MSW) ✓
 ```
 
@@ -5134,9 +5134,9 @@ ST Logic variable INPUT/OUTPUT bindings brugte forkert byte order for 32-bit typ
 
 **Symptomer:**
 ```bash
-write reg 110 value dint 1     # a = 1
-write reg 112 value dint 3     # b = 3
-read reg 114 2                 # result
+write h-reg 110 value dint 1     # a = 1
+write h-reg 112 value dint 3     # b = 3
+read h-reg 114 2                 # result
 # FØR FIX: HR114=4, HR115=-27680 ❌
 # EFTER FIX: HR114=4, HR115=0 ✅
 ```
@@ -5207,21 +5207,21 @@ registers_set_holding_register(map->coil_reg + 1, high_word);  // MSW at base+1
 **Test verification:**
 ```bash
 # Test 1: Simple addition (1 + 3 = 4)
-write reg 110 value dint 1
-write reg 112 value dint 3
-read reg 114 2
+write h-reg 110 value dint 1
+write h-reg 112 value dint 3
+read h-reg 114 2
 # Output: HR114=4, HR115=0 ✓
 
 # Test 2: Large values (100000 + 200000 = 300000)
-write reg 110 value dint 100000
-write reg 112 value dint 200000
-read reg 114 2
+write h-reg 110 value dint 100000
+write h-reg 112 value dint 200000
+read h-reg 114 2
 # Output: HR114=37856, HR115=4 ✓ (0x000493E0)
 
 # Test 3: Negative values (-500000 + 100 = -499900)
-write reg 110 value dint -500000
-write reg 112 value dint 100
-read reg 114 2
+write h-reg 110 value dint -500000
+write h-reg 112 value dint 100
+read h-reg 114 2
 # Output: HR114=24388, HR115=65528 ✓ (0xFFF85F44)
 ```
 
@@ -5668,11 +5668,11 @@ Efter opdagelse af BUG-131 og BUG-132 blev alle SET kommandoer systematisk genne
 **Current Limitation:**
 ```bash
 # Runtime: Fungerer perfekt med 5 typer
-write reg 100 value uint 1234      # ✅ 16-bit unsigned
-write reg 100 value int -500       # ✅ 16-bit signed
-write reg 100 value dint 100000    # ✅ 32-bit signed (2 regs)
-write reg 100 value dword 500000   # ✅ 32-bit unsigned (2 regs)
-write reg 100 value real 3.14159   # ✅ 32-bit float (2 regs)
+write h-reg 100 value uint 1234      # ✅ 16-bit unsigned
+write h-reg 100 value int -500       # ✅ 16-bit signed
+write h-reg 100 value dint 100000    # ✅ 32-bit signed (2 regs)
+write h-reg 100 value dword 500000   # ✅ 32-bit unsigned (2 regs)
+write h-reg 100 value real 3.14159   # ✅ 32-bit float (2 regs)
 
 # Persistent: Kun uint16_t
 set reg STATIC 100 Value 1234      # ✅ Kun uint16_t
@@ -5692,8 +5692,8 @@ set reg STATIC 100 Value dint 100000  # ❌ UNSUPPORTED
 **Current Workaround (manual init efter hver reboot):**
 ```bash
 # Efter reboot:
-write reg 200 value dint 500000    # Set tank max kapacitet
-write reg 202 value dint 250000    # Set tank current niveau
+write h-reg 200 value dint 500000    # Set tank max kapacitet
+write h-reg 202 value dint 250000    # Set tank current niveau
 # Disse værdier tabes ved næste reboot
 ```
 
@@ -5710,11 +5710,11 @@ save
 
 **`write reg` (runtime, ikke persistent):**
 ```
-write reg <addr> value uint <0-65535>
-write reg <addr> value int <-32768-32767>
-write reg <addr> value dint <value>
-write reg <addr> value dword <value>
-write reg <addr> value real <value>
+write h-reg <addr> value uint <0-65535>
+write h-reg <addr> value int <-32768-32767>
+write h-reg <addr> value dint <value>
+write h-reg <addr> value dword <value>
+write h-reg <addr> value real <value>
 ```
 
 **`set reg STATIC` (persistent, kun uint16_t):**
@@ -5748,7 +5748,7 @@ void cli_cmd_set_reg_static(uint8_t argc, char* argv[]) {
 
 **Ny syntax (backward compatible):**
 ```bash
-# Option 1: Explicit type (matching write reg syntax)
+# Option 1: Explicit type (matching write h-reg syntax)
 set reg STATIC 100 Value uint 1234
 set reg STATIC 100 Value int -500
 set reg STATIC 100 Value dint 100000    # Auto-allocates HR100-101
@@ -5932,7 +5932,7 @@ bool allocate_static_register(uint16_t base_addr, uint8_t type) {
 set reg STATIC 100 Value 1234
 save
 reboot
-read reg 100 1
+read h-reg 100 1
 # Expected: HR100=1234 ✓
 ```
 
@@ -5941,7 +5941,7 @@ read reg 100 1
 set reg STATIC 200 Value dint 100000
 save
 reboot
-read reg 200 2
+read h-reg 200 2
 # Expected: HR200=34464 (LSW), HR201=1 (MSW) ✓
 ```
 
@@ -5950,7 +5950,7 @@ read reg 200 2
 set reg STATIC 300 Value real 3.14159
 save
 reboot
-read reg 300 2
+read h-reg 300 2
 # Expected: IEEE 754 float split across HR300-301 ✓
 ```
 
