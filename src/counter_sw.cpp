@@ -111,25 +111,13 @@ void counter_sw_loop(uint8_t id) {
     if (cfg.direction == COUNTER_DIR_UP) {
       state->counter_value++;
     } else {
-      // DOWN counting: decrement with underflow handling
+      // BUG-181 FIX: DOWN counting: decrement with underflow wrap to start_value (not max_val!)
       if (state->counter_value > 0) {
         state->counter_value--;
       } else {
-        // Underflow: wrap to max_val
-        uint64_t max_val = 0xFFFFFFFFFFFFFFFFULL;
-        switch (cfg.bit_width) {
-          case 8:
-            max_val = 0xFFULL;
-            break;
-          case 16:
-            max_val = 0xFFFFULL;
-            break;
-          case 32:
-            max_val = 0xFFFFFFFFULL;
-            break;
-        }
-        state->counter_value = max_val;
-        state->overflow_flag = 1;  // Set overflow on underflow too
+        // Underflow: wrap to start_value (consistent with UP mode wrapping)
+        state->counter_value = cfg.start_value;
+        state->overflow_flag = 1;  // Set overflow flag on underflow wrap
       }
     }
 

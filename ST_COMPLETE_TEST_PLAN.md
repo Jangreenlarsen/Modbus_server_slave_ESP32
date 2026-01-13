@@ -3149,6 +3149,7 @@ set logic 1 enabled:true
 # Configure counter 1 for GPIO25 (hardware pulse counter)
 set counter 1 mode:hw pin:25 scale:1 prescale:1 enabled:true
 set counter 1 mode 1 hw-mode:hw edge:risingprescaler:16 start-value:1000 bit-width:16 direction:up hw-gpio:25 enable:on 
+set counter 1 control running:on
 
 # Counter 1 registers (default):
 # HR20-101: Index (scaled value, 2 words for 32-bit)

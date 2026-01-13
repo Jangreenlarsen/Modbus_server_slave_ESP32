@@ -90,8 +90,18 @@ static void pcnt_poll_task(void* pvParameters) {
         // Apply delta
         if (delta > 0) {
           state->pcnt_value += (uint64_t)delta;
-        } else if (delta < 0 && state->pcnt_value >= (uint64_t)(-delta)) {
-          state->pcnt_value -= (uint64_t)(-delta);
+        } else if (delta < 0) {
+          // BUG-181 FIX: DOWN counting with underflow wrapping to start_value
+          uint64_t abs_delta = (uint64_t)(-delta);
+          if (state->pcnt_value >= abs_delta) {
+            state->pcnt_value -= abs_delta;
+          } else {
+            // Underflow: wrap to start_value and continue counting
+            // Example: value=2, delta=-5, start=1000 → (2 - 5) = -3 → wrap to 1000 - 3 = 997
+            uint64_t underflow = abs_delta - state->pcnt_value;
+            state->pcnt_value = cfg.start_value - underflow;
+            state->overflow_count++;  // Set overflow flag on underflow
+          }
         }
 
         state->last_count = hw_count;

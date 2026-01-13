@@ -156,6 +156,7 @@
 | BUG-178 | EXPORT variables ikke skrevet til IR 220-251 | ✅ FIXED | 🔴 CRITICAL | v5.1.1 | EXPORT keyword allokerede pool men skrev aldrig værdier til IR → Modbus read viste altid 0 (ir_pool_manager.cpp:166-236, st_logic_engine.cpp:108-110) (Build #1044) |
 | BUG-179 | CLI read i-reg mangler type parameter support | ✅ FIXED | 🟠 MEDIUM | v5.1.2 | "read i-reg 220 int/dint/dword/real" fejlede med "antal skal være større end 0" fordi type blev parset som count → atoi("int")=0 (cli_show.cpp:2687-2960) (Build #1048) |
 | BUG-180 | Counter overflow mister ekstra counts ved wraparound | ✅ FIXED | 🟡 HIGH | v5.1.3 | Ved overflow fra 65535 → 0, mistedes ekstra counts. Nu bevares overflow: start_value + (pcnt_value - max_val - 1) (counter_hw.cpp:118-123, counter_sw.cpp:156-161, counter_sw_isr.cpp:190-195) (Build #1052) |
+| BUG-181 | DOWN mode underflow wrapper til max_val i stedet for start_value | ✅ FIXED | 🔴 CRITICAL | v5.1.4 | DOWN counting wrapper fejlagtigt til 65535 i stedet for start_value ved underflow (0-1). UP mode: wrap til start_value ✓. DOWN mode: burde wrappe til start_value også! Fixet i alle 3 modes: SW/SW_ISR/HW (counter_sw.cpp:114-122, counter_sw_isr.cpp:39+54-60+77-84+101-107+124-130+236-237, counter_hw.cpp:93-105) (Build #1061) |
 
 ## Feature Requests / Enhancements
 
@@ -265,6 +266,9 @@
 - **BUG-167:** No timeout i lexer comment parsing (FIXED Build #1019)
 - **BUG-168:** Missing validation af CASE branch count (FIXED Build #1019)
 - **BUG-179:** CLI read i-reg mangler type parameter support (FIXED Build #1048)
+
+### 🔴 CRITICAL Priority (MUST FIX)
+- **BUG-181:** DOWN mode underflow wrapper til max_val i stedet for start_value (FIXED Build #1061)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-180:** Counter overflow mister ekstra counts ved wraparound (FIXED Build #1052)
