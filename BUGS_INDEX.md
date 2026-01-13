@@ -154,6 +154,7 @@
 | BUG-176 | HYSTERESIS function med inverterede thresholds | ✅ FIXED | 🔵 LOW | v4.8.2 | Ingen validation af high > low (st_builtin_signal.cpp:69-76) (Build #1019) |
 | BUG-177 | strcpy uden bounds check i lexer operators | ✅ FIXED | 🔵 LOW | v5.1.1 | strcpy → strncpy for 2-char operators (:=, <>, <=, >=, **) (st_lexer.cpp:412-445) (Build #1038) |
 | BUG-178 | EXPORT variables ikke skrevet til IR 220-251 | ✅ FIXED | 🔴 CRITICAL | v5.1.1 | EXPORT keyword allokerede pool men skrev aldrig værdier til IR → Modbus read viste altid 0 (ir_pool_manager.cpp:166-236, st_logic_engine.cpp:108-110) (Build #1044) |
+| BUG-179 | CLI read input-reg mangler type parameter support | ✅ FIXED | 🟠 MEDIUM | v5.1.2 | "read input-reg 220 int/dint/dword/real" fejlede med "antal skal være større end 0" fordi type blev parset som count → atoi("int")=0 (cli_show.cpp:2687-2960) (Build #1048) |
 
 ## Feature Requests / Enhancements
 
@@ -262,6 +263,7 @@
 - **BUG-165:** Missing input validation i BLINK function (FIXED Build #1019)
 - **BUG-167:** No timeout i lexer comment parsing (FIXED Build #1019)
 - **BUG-168:** Missing validation af CASE branch count (FIXED Build #1019)
+- **BUG-179:** CLI read input-reg mangler type parameter support (FIXED Build #1048)
 
 ### 🔵 LOW Priority (COSMETIC)
 - **BUG-006:** Counter wrapping at 65535

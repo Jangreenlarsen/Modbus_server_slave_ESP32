@@ -3096,14 +3096,16 @@ VAR
   led3: BOOL;
   led4: BOOL;
   state: INT;
-  counter: INT;
+  counter: INT EXPORT;
 END_VAR
 BEGIN
   counter := counter + 1;
-  IF counter >= 30 THEN counter := 0;
-  state := state + 1;
-  IF state > 3 THEN state := 0;
+  IF counter >= 300 THEN 
+    counter := 0;
   END_IF;
+  state := state + 1;
+  IF state > 3 THEN 
+    state := 0;
   END_IF;
   led1 := (state = 0);
   led2 := (state = 1);

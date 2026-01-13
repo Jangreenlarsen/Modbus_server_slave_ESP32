@@ -2685,17 +2685,76 @@ void cli_cmd_read_reg(uint8_t argc, char* argv[]) {
  * ============================================================================ */
 
 void cli_cmd_read_input_reg(uint8_t argc, char* argv[]) {
-  // read input-reg <start> [count] - Read Input Registers (0-1023)
+  // read input-reg <start> [count] [int|uint|dint|dword|real] - Read Input Registers (0-1023)
   if (argc < 1) {
     debug_println("READ INPUT-REG: manglende parametre");
-    debug_println("  Brug: read input-reg <start> [count]");
-    debug_println("  Eksempel: read input-reg 252     (l\u00e6ser 1 register)");
-    debug_println("  Eksempel: read input-reg 252 8   (ST Logic stats)");
+    debug_println("  Brug: read input-reg <id> [antal] [int|uint|dint|dword|real]");
+    debug_println("  Eksempel: read input-reg 220           (l\u00e6ser 1 register som uint)");
+    debug_println("  Eksempel: read input-reg 220 10        (l\u00e6ser 10 registre som uint)");
+    debug_println("  Eksempel: read input-reg 220 1 int     (l\u00e6ser 1 register som signed int)");
+    debug_println("  Eksempel: read input-reg 220 5 uint    (l\u00e6ser 5 registre som unsigned int)");
+    debug_println("  Eksempel: read input-reg 220 int       (l\u00e6ser 1 register som signed int)");
+    debug_println("  Eksempel: read input-reg 220 dint      (l\u00e6ser 2 registre som DINT/32-bit signed)");
+    debug_println("  Eksempel: read input-reg 220 dword     (l\u00e6ser 2 registre som DWORD/32-bit unsigned)");
+    debug_println("  Eksempel: read input-reg 220 real      (l\u00e6ser 2 registre som REAL/float)");
     return;
   }
 
   uint16_t start_addr = atoi(argv[0]);
-  uint16_t count = (argc >= 2) ? atoi(argv[1]) : 1;  // Default: 1 register
+  uint16_t count = 1;  // Default: 1 register
+  bool display_as_signed = false;  // Default: unsigned
+  bool display_as_real = false;     // REAL type support
+  bool display_as_dint = false;     // DINT (32-bit signed) support
+  bool display_as_dword = false;    // DWORD (32-bit unsigned) support
+
+  // Parse count (argv[1])
+  if (argc >= 2) {
+    // Check if argv[1] is a type keyword or a number
+    if (strcasecmp(argv[1], "int") == 0) {
+      display_as_signed = true;
+    } else if (strcasecmp(argv[1], "uint") == 0) {
+      display_as_signed = false;
+    } else if (strcasecmp(argv[1], "real") == 0) {
+      display_as_real = true;
+    } else if (strcasecmp(argv[1], "dint") == 0) {
+      display_as_dint = true;
+    } else if (strcasecmp(argv[1], "dword") == 0) {
+      display_as_dword = true;
+    } else {
+      count = atoi(argv[1]);
+    }
+  }
+
+  // Parse type (argv[2])
+  if (argc >= 3) {
+    if (strcasecmp(argv[2], "int") == 0) {
+      display_as_signed = true;
+      display_as_real = false;
+      display_as_dint = false;
+      display_as_dword = false;
+    } else if (strcasecmp(argv[2], "uint") == 0) {
+      display_as_signed = false;
+      display_as_real = false;
+      display_as_dint = false;
+      display_as_dword = false;
+    } else if (strcasecmp(argv[2], "real") == 0) {
+      display_as_real = true;
+      display_as_signed = false;
+      display_as_dint = false;
+      display_as_dword = false;
+    } else if (strcasecmp(argv[2], "dint") == 0) {
+      display_as_dint = true;
+      display_as_signed = false;
+      display_as_real = false;
+      display_as_dword = false;
+    } else if (strcasecmp(argv[2], "dword") == 0) {
+      display_as_dword = true;
+      display_as_signed = false;
+      display_as_real = false;
+      display_as_dint = false;
+    }
+  }
+
   uint16_t *input_regs = registers_get_input_regs();
 
   // Validate parameters (input registers can be larger than holding regs)
@@ -2717,13 +2776,159 @@ void cli_cmd_read_input_reg(uint8_t argc, char* argv[]) {
     debug_println(" registre");
   }
 
-  // Read and display input registers
+  // BUG-179 FIX: REAL type requires 2 consecutive registers
+  if (display_as_real) {
+    // Validate that we have enough registers available (count REAL values = count * 2 registers)
+    if (start_addr + (count * 2) > 1024) {
+      debug_print("READ INPUT-REG: REAL kræver ");
+      debug_print_uint(count * 2);
+      debug_println(" registre, adresse udenfor område");
+      return;
+    }
+
+    debug_println("\n=== LÆSNING AF INPUT REGISTERS ===");
+    debug_print("Adresse ");
+    debug_print_uint(start_addr);
+    debug_print("-");
+    debug_print_uint(start_addr + (count * 2) - 1);
+    debug_println(" (REAL/float):\n");
+
+    // Read count REAL values (each REAL = 2 registers)
+    for (uint16_t i = 0; i < count; i++) {
+      uint16_t addr = start_addr + (i * 2);
+
+      // BUG-125 FIX: ST Logic writes LSW first, MSW second (little-endian register order)
+      uint16_t low_word = input_regs[addr];          // LSW at base address
+      uint16_t high_word = input_regs[addr + 1];     // MSW at base+1
+      uint32_t bits = ((uint32_t)high_word << 16) | low_word;
+      float real_value;
+      memcpy(&real_value, &bits, sizeof(float));
+
+      debug_print("IR[");
+      debug_print_uint(addr);
+      debug_print("-");
+      debug_print_uint(addr + 1);
+      debug_print("]: ");
+
+      // Display float with 6 decimal precision
+      char float_str[32];
+      snprintf(float_str, sizeof(float_str), "%.6f", real_value);
+      debug_print(float_str);
+      debug_print(" (0x");
+      char hex_str[16];
+      snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
+      debug_print(hex_str);
+      debug_println(")");
+    }
+    debug_println("");
+    return;
+  }
+
+  // DINT type (32-bit signed integer, 2 consecutive registers)
+  if (display_as_dint) {
+    // Validate that we have enough registers available (count DINT values = count * 2 registers)
+    if (start_addr + (count * 2) > 1024) {
+      debug_print("READ INPUT-REG: DINT kræver ");
+      debug_print_uint(count * 2);
+      debug_println(" registre, adresse udenfor område");
+      return;
+    }
+
+    debug_println("\n=== LÆSNING AF INPUT REGISTERS ===");
+    debug_print("Adresse ");
+    debug_print_uint(start_addr);
+    debug_print("-");
+    debug_print_uint(start_addr + (count * 2) - 1);
+    debug_println(" (DINT/32-bit signed):\n");
+
+    // Read count DINT values (each DINT = 2 registers)
+    for (uint16_t i = 0; i < count; i++) {
+      uint16_t addr = start_addr + (i * 2);
+
+      // BUG-125 FIX: ST Logic writes LSW first, MSW second (little-endian register order)
+      uint16_t low_word = input_regs[addr];          // LSW at base address
+      uint16_t high_word = input_regs[addr + 1];     // MSW at base+1
+      uint32_t unsigned_val = ((uint32_t)high_word << 16) | low_word;
+      int32_t dint_value = (int32_t)unsigned_val;
+
+      debug_print("IR[");
+      debug_print_uint(addr);
+      debug_print("-");
+      debug_print_uint(addr + 1);
+      debug_print("]: ");
+
+      // Display signed 32-bit value
+      char dint_str[16];
+      snprintf(dint_str, sizeof(dint_str), "%ld", (long)dint_value);
+      debug_print(dint_str);
+      debug_print(" (0x");
+      char hex_str[16];
+      snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
+      debug_print(hex_str);
+      debug_println(")");
+    }
+    debug_println("");
+    return;
+  }
+
+  // DWORD type (32-bit unsigned integer, 2 consecutive registers)
+  if (display_as_dword) {
+    // Validate that we have enough registers available (count DWORD values = count * 2 registers)
+    if (start_addr + (count * 2) > 1024) {
+      debug_print("READ INPUT-REG: DWORD kræver ");
+      debug_print_uint(count * 2);
+      debug_println(" registre, adresse udenfor område");
+      return;
+    }
+
+    debug_println("\n=== LÆSNING AF INPUT REGISTERS ===");
+    debug_print("Adresse ");
+    debug_print_uint(start_addr);
+    debug_print("-");
+    debug_print_uint(start_addr + (count * 2) - 1);
+    debug_println(" (DWORD/32-bit unsigned):\n");
+
+    // Read count DWORD values (each DWORD = 2 registers)
+    for (uint16_t i = 0; i < count; i++) {
+      uint16_t addr = start_addr + (i * 2);
+
+      // BUG-125 FIX: ST Logic writes LSW first, MSW second (little-endian register order)
+      uint16_t low_word = input_regs[addr];          // LSW at base address
+      uint16_t high_word = input_regs[addr + 1];     // MSW at base+1
+      uint32_t dword_value = ((uint32_t)high_word << 16) | low_word;
+
+      debug_print("IR[");
+      debug_print_uint(addr);
+      debug_print("-");
+      debug_print_uint(addr + 1);
+      debug_print("]: ");
+
+      // Display unsigned 32-bit value
+      char dword_str[16];
+      snprintf(dword_str, sizeof(dword_str), "%lu", (unsigned long)dword_value);
+      debug_print(dword_str);
+      debug_print(" (0x");
+      char hex_str[16];
+      snprintf(hex_str, sizeof(hex_str), "%04X%04X", high_word, low_word);
+      debug_print(hex_str);
+      debug_println(")");
+    }
+    debug_println("");
+    return;
+  }
+
+  // INT/UINT type (16-bit, default display)
   debug_println("\n=== LÆSNING AF INPUT REGISTERS ===");
   debug_print("Adresse ");
   debug_print_uint(start_addr);
   debug_print(" til ");
   debug_print_uint(start_addr + count - 1);
-  debug_println(":\n");
+
+  if (display_as_signed) {
+    debug_println(" (signed int):\n");
+  } else {
+    debug_println(":\n");
+  }
 
   for (uint16_t i = 0; i < count; i++) {
     uint16_t addr = start_addr + i;
@@ -2732,7 +2937,17 @@ void cli_cmd_read_input_reg(uint8_t argc, char* argv[]) {
     debug_print("IR[");
     debug_print_uint(addr);
     debug_print("]: ");
-    debug_print_uint(value);
+
+    if (display_as_signed) {
+      // Display as signed 16-bit integer
+      int16_t signed_value = (int16_t)value;
+      char int_str[8];
+      snprintf(int_str, sizeof(int_str), "%d", signed_value);
+      debug_print(int_str);
+    } else {
+      // Display as unsigned 16-bit integer (default)
+      debug_print_uint(value);
+    }
 
     // Special info for ST Logic stats registers
     if (addr >= 252 && addr <= 293) {
