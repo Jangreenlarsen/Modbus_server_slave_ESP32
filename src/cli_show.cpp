@@ -167,9 +167,9 @@ void cli_cmd_show_config(void) {
       if (cfg.ctrl_reg < 1000) debug_print_uint(cfg.ctrl_reg);
       else debug_print("n/a");
 
-      // start value
+      // start value (BUG-183 FIX: use 64-bit print)
       debug_print(" start:");
-      debug_print_uint((uint32_t)cfg.start_value);
+      debug_print_ulong(cfg.start_value);
 
       // debounce
       debug_print(" debounce:");
@@ -930,9 +930,9 @@ void cli_cmd_show_config(void) {
       debug_print(" scale:");
       debug_print_float(cfg.scale_factor);
 
-      // Start value
+      // Start value (BUG-183 FIX: use 64-bit print)
       debug_print(" start:");
-      debug_print_uint((uint32_t)cfg.start_value);
+      debug_print_ulong(cfg.start_value);
 
       // Debounce
       debug_print(" debounce:");
@@ -1481,16 +1481,17 @@ void cli_cmd_show_counter(uint8_t id, bool verbose) {
   uint64_t raw_prescaled = raw_value / cfg.prescaler;
   uint32_t freq = counter_frequency_get(id);
 
+  // BUG-183 FIX: Use 64-bit print for all counter values
   debug_print("  Raw Value: ");
-  debug_print_uint((unsigned int)raw_value);
+  debug_print_ulong(raw_value);
   debug_println("");
 
   debug_print("  Prescaled Value: ");
-  debug_print_uint((unsigned int)raw_prescaled);
+  debug_print_ulong(raw_prescaled);
   debug_println("");
 
   debug_print("  Scaled Value: ");
-  debug_print_uint((unsigned int)scaled_value);
+  debug_print_ulong(scaled_value);
   debug_println("");
 
   debug_print("  Frequency: ");
@@ -1502,7 +1503,7 @@ void cli_cmd_show_counter(uint8_t id, bool verbose) {
     debug_println("");
     debug_println("Compare Feature: ENABLED");
     debug_print("  Threshold: ");
-    debug_print_uint((unsigned int)cfg.compare_value);
+    debug_print_ulong(cfg.compare_value);  // BUG-183 FIX: 64-bit print
     debug_println("");
 
     const char* cmp_mode = "unknown";

@@ -121,10 +121,10 @@ void cli_cmd_set_counter(uint8_t argc, char* argv[]) {
       debug_println("  Use smart defaults instead (no manual overload-reg allowed)");
       continue;
     } else if (!strcmp(key, "start-value")) {
-      // BUG-182 FIX: Use strtoul (unsigned) instead of atol (signed)
-      // atol() max = 2147483647 (signed 32-bit)
+      // BUG-183 FIX: Use strtoull (unsigned 64-bit) for full 64-bit counter support
       // strtoul() max = 4294967295 (unsigned 32-bit)
-      cfg.start_value = strtoul(value, NULL, 10);
+      // strtoull() max = 18446744073709551615 (unsigned 64-bit)
+      cfg.start_value = strtoull(value, NULL, 10);
     } else if (!strcmp(key, "scale")) {
       cfg.scale_factor = atof(value);
     } else if (!strcmp(key, "bit-width")) {

@@ -79,7 +79,7 @@ typedef struct __attribute__((packed)) {
   //   Bit 7: Direction indicator (read-only: 0=up, 1=down)
 
   // Mode-specific
-  uint16_t start_value;   // For reset-on-read
+  uint64_t start_value;   // BUG-183 FIX: Changed from uint16_t to uint64_t for 32/64-bit counter support
   uint8_t debounce_enabled;
   uint16_t debounce_ms;
 
