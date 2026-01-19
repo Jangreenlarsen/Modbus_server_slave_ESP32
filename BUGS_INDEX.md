@@ -158,7 +158,7 @@
 | BUG-180 | Counter overflow mister ekstra counts ved wraparound | ✅ FIXED | 🟡 HIGH | v5.1.3 | Ved overflow fra 65535 → 0, mistedes ekstra counts. Nu bevares overflow: start_value + (pcnt_value - max_val - 1) (counter_hw.cpp:118-123, counter_sw.cpp:156-161, counter_sw_isr.cpp:190-195) (Build #1052) |
 | BUG-181 | DOWN mode underflow wrapper til max_val i stedet for start_value | ✅ FIXED | 🔴 CRITICAL | v5.1.4 | DOWN counting wrapper fejlagtigt til 65535 i stedet for start_value ved underflow (0-1). UP mode: wrap til start_value ✓. DOWN mode: burde wrappe til start_value også! Fixet i alle 3 modes: SW/SW_ISR/HW (counter_sw.cpp:114-122, counter_sw_isr.cpp:39+54-60+77-84+101-107+124-130+236-237, counter_hw.cpp:93-105) (Build #1063) |
 | BUG-182 | PCNT signed overflow ved 32768 + atol/atoll signed parsing | ✅ FIXED | 🔴 CRITICAL | v5.1.5 | DOBBELT BUG: (1) PCNT hardware er signed 16-bit (-32768 til 32767), men vi vil have unsigned (0-65535). Hardware events disabled. (2) atol()/atoll() parser signed værdier → 32-bit counter med start_value > 2.1B får negativt tal! Fix: strtoul/strtoull for unsigned parsing (cli_commands.cpp:124-127+171-174, pcnt_driver.cpp:69-99) (Build #1069) |
-| BUG-183 | start_value kun uint16_t - begrænser 32/64-bit counters | ✅ FIXED | 🔴 CRITICAL | v5.1.6 | CounterConfig.start_value var uint16_t (0-65535), men counters kan være 32-bit eller 64-bit. CLI brugte strtoul (32-bit). CLI display brugte (unsigned int) cast → trunkering. FIX: start_value → uint64_t, strtoul → strtoull, debug_print_uint → debug_print_ulong (types.h:82, cli_commands.cpp:124-127, cli_show.cpp:172+935+1485-1494+1506) (Build #1072) |
+| BUG-183 | start_value kun uint16_t - begrænser 32/64-bit counters | ✅ FIXED | 🔴 CRITICAL | v5.1.6 | CounterConfig.start_value var uint16_t (0-65535), men counters kan være 32-bit eller 64-bit. CLI brugte strtoul (32-bit). CLI display brugte (unsigned int) cast → trunkering. FIX: start_value → uint64_t, strtoul → strtoull, debug_print_uint → debug_print_ulong (types.h:82, cli_commands.cpp:124-127, cli_show.cpp:172+935+1485-1494+1506) (Build #1077) |
 | BUG-184 | Frequency measurement giver forkerte resultater for DOWN counting | ✅ FIXED | 🟡 HIGH | v5.1.7 | Frequency algoritme antog altid UP counting. For DOWN: current_value < last_count er normalt, men koden gik i wrap-around branch og beregnede kæmpe forkert delta. FIX: Direction-aware delta beregning (counter_frequency.cpp:92-138) (Build #1074) |
 | BUG-185 | Timer Mode 2 trigger_level parameter ikke brugt | ✔️ DESIGN | 🔵 LOW | v5.1.7 | trigger_level er legacy parameter - Mode 2 (Monostable) triggeres via Modbus ctrl_reg, ikke input-niveau. Dokumenteret som design choice |
 | BUG-186 | Timer Mode 1 duration=0 kører hele sekvensen på én iteration | ✔️ DESIGN | 🔵 LOW | v5.1.7 | Hvis alle 3 phase durationer er 0, springer timer igennem alle faser på én loop iteration. Intentional "instant sequence" feature |
@@ -223,7 +223,7 @@
 - **BUG-156:** Manglende validation af function argument count (FIXED Build #1018)
 - **BUG-157:** Stack overflow risk i parser recursion (FIXED Build #1018)
 - **BUG-158:** NULL pointer dereference i st_vm_exec_call_builtin (FIXED Build #1018)
-- **BUG-183:** start_value kun uint16_t - begrænser 32/64-bit counters (FIXED Build #1072)
+- **BUG-183:** start_value kun uint16_t - begrænser 32/64-bit counters (FIXED Build #1077)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
