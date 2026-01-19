@@ -5372,8 +5372,410 @@ set counter 1 mode 1 parameter hw-mode:hw edge:both hw-gpio:23 enable:on
 
 ---
 
-**Version:** 1.1
-**Last Updated:** 2026-01-17
-**Status:** ✅ Ready for Execution (59+9 tests = 68 tests total)
+## 1.20 ST Logic Debugger (FEAT-008)
+
+**Feature:** v5.3.0 - Interactive debugging af ST Logic programmer med pause, single-step, breakpoints og variable inspection.
+
+**Formål:**
+- Verificer pause/continue/step/stop funktionalitet
+- Verificer breakpoint add/remove/clear
+- Verificer variable inspection når paused
+- Verificer snapshot ved halt/error
+
+**Dokumentation:** Se [ST_DEBUG_GUIDE.md](ST_DEBUG_GUIDE.md) for komplet guide.
+
+---
+
+### Test 1.20.1: Basis Pause og Step
+
+**Formål:** Verificer at pause og single-step fungerer korrekt
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM debug_test
+VAR
+  counter : INT EXPORT;
+  running : BOOL;
+END_VAR
+BEGIN
+  running := TRUE;
+  counter := counter + 1;
+  IF counter > 100 THEN
+    counter := 0;
+  END_IF;
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 enabled:true
+```
+
+**Test Cases:**
+```bash
+# Vent lidt så programmet kører
+delay 500
+
+# Pause programmet
+set logic 1 debug pause
+# FORVENTET: "[OK] Logic1 debug: PAUSE requested"
+
+# Vis debug state
+show logic 1 debug
+# FORVENTET: Mode: PAUSED, PC vises, Pause Reason: pause command
+
+# Vis variable værdier
+show logic 1 debug vars
+# FORVENTET: counter = <nogen værdi>, running = TRUE
+
+# Single-step én instruktion
+set logic 1 debug step
+show logic 1 debug
+# FORVENTET: PC incrementeret, Mode: PAUSED
+
+# Vis nye variable værdier
+show logic 1 debug vars
+# FORVENTET: Variabler opdateret
+
+# Stop debugging
+set logic 1 debug stop
+# FORVENTET: "[OK] Logic1 debug: STOPPED"
+```
+
+**Forventet Resultat:**
+- Pause sætter mode til PAUSED
+- Step eksekverer én instruktion og pauser igen
+- Variable inspection viser korrekte værdier
+- Stop returnerer til normal execution
+
+---
+
+### Test 1.20.2: Breakpoints
+
+**Formål:** Verificer breakpoint funktionalitet
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+# Vis bytecode for at finde PC adresser
+show logic 1 bytecode
+# Note: Find PC for interessant instruktion
+
+# Tilføj breakpoint ved PC=5
+set logic 1 debug break 5
+# FORVENTET: "[OK] Logic1: Breakpoint at PC=5 added"
+
+# Vis breakpoints
+show logic 1 debug
+# FORVENTET: Breakpoints (1): [0] PC=5
+
+# Start debugging
+set logic 1 debug pause
+set logic 1 debug continue
+# FORVENTET: Program stopper ved PC=5
+
+# Vent til breakpoint
+delay 500
+show logic 1 debug
+# FORVENTET: Mode: PAUSED, Pause Reason: breakpoint, Hit Breakpoint PC: 5
+
+# Fjern breakpoint
+set logic 1 debug clear 5
+# FORVENTET: "[OK] Logic1: Breakpoint at PC=5 removed"
+
+# Continue igen - skal køre frit nu
+set logic 1 debug continue
+delay 100
+set logic 1 debug pause
+show logic 1 debug
+# FORVENTET: PC ikke nødvendigvis 5 længere
+```
+
+**Forventet Resultat:**
+- Breakpoint tilføjes og vises korrekt
+- Program stopper ved breakpoint
+- Breakpoint kan fjernes
+- Continue kører videre
+
+---
+
+### Test 1.20.3: Multiple Breakpoints
+
+**Formål:** Verificer at multiple breakpoints fungerer (max 8)
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+# Tilføj 8 breakpoints
+set logic 1 debug break 0
+set logic 1 debug break 2
+set logic 1 debug break 4
+set logic 1 debug break 6
+set logic 1 debug break 8
+set logic 1 debug break 10
+set logic 1 debug break 12
+set logic 1 debug break 14
+# FORVENTET: Alle 8 tilføjet
+
+# Forsøg at tilføje en 9. breakpoint
+set logic 1 debug break 16
+# FORVENTET: "ERROR: Max breakpoints reached (8)"
+
+# Vis alle breakpoints
+show logic 1 debug
+# FORVENTET: Breakpoints (8): [0-7] listet
+
+# Clear alle
+set logic 1 debug clear
+# FORVENTET: "[OK] Logic1: All breakpoints cleared"
+
+show logic 1 debug
+# FORVENTET: Breakpoints (0)
+```
+
+**Forventet Resultat:**
+- Max 8 breakpoints per program
+- Error ved 9. breakpoint
+- Clear fjerner alle
+
+---
+
+### Test 1.20.4: Error Snapshot
+
+**Formål:** Verificer at runtime error gemmer snapshot
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM error_test
+VAR
+  x : INT EXPORT;
+  y : INT;
+END_VAR
+BEGIN
+  x := x + 1;
+  y := 0;
+  x := x / y;  // Division by zero!
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 enabled:true
+
+# Start debugging
+set logic 1 debug pause
+set logic 1 debug continue
+
+# Vent på error
+delay 500
+
+# Vis debug state
+show logic 1 debug
+# FORVENTET: Mode: PAUSED, Pause Reason: runtime error
+# FORVENTET: Error message vises
+
+# Vis variable værdier ved error
+show logic 1 debug vars
+# FORVENTET: x = 1, y = 0
+```
+
+**Forventet Resultat:**
+- Division by zero trigger error
+- Snapshot gemmes med REASON_ERROR
+- Variable values tilgængelige efter error
+
+---
+
+### Test 1.20.5: Halt Snapshot
+
+**Formål:** Verificer at program halt gemmer snapshot
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM halt_test
+VAR
+  x : INT EXPORT;
+END_VAR
+BEGIN
+  x := 42;
+  // Program halter naturligt ved end
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 enabled:true
+
+# Start debugging
+set logic 1 debug pause
+set logic 1 debug continue
+
+# Vent på halt (program er kort)
+delay 500
+
+show logic 1 debug
+# FORVENTET: Mode: PAUSED, Pause Reason: program halt
+
+show logic 1 debug vars
+# FORVENTET: x = 42
+```
+
+**Forventet Resultat:**
+- Program halter normalt
+- Snapshot gemmes med REASON_HALT
+- Final variable values tilgængelige
+
+---
+
+### Test 1.20.6: Debug Statistics
+
+**Formål:** Verificer debug statistik
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 delete
+set logic 1 upload
+PROGRAM stats_test
+VAR
+  x : INT;
+END_VAR
+BEGIN
+  x := x + 1;
+END_PROGRAM
+END_UPLOAD
+
+set logic 1 enabled:true
+
+# Start debugging og step flere gange
+set logic 1 debug pause
+
+# Step 5 gange
+set logic 1 debug step
+set logic 1 debug step
+set logic 1 debug step
+set logic 1 debug step
+set logic 1 debug step
+
+# Tilføj breakpoint og hit det
+set logic 1 debug break 0
+set logic 1 debug continue
+delay 500
+
+# Vis stats
+show logic 1 debug
+# FORVENTET: Total Steps Debugged: > 5
+# FORVENTET: Breakpoints Hit: >= 1
+```
+
+**Forventet Resultat:**
+- Total Steps Debugged tælles korrekt
+- Breakpoints Hit tælles korrekt
+- Stats kun tælles i debug mode (BUG-190 fix)
+
+---
+
+### Test 1.20.7: Debug Across Programs
+
+**Formål:** Verificer at debug state er uafhængig per program
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+# Setup program 1
+set logic 1 delete
+set logic 1 upload
+PROGRAM prog1
+VAR x : INT EXPORT; END_VAR
+BEGIN x := 1; END_PROGRAM
+END_UPLOAD
+set logic 1 enabled:true
+
+# Setup program 2
+set logic 2 delete
+set logic 2 upload
+PROGRAM prog2
+VAR y : INT EXPORT; END_VAR
+BEGIN y := 2; END_PROGRAM
+END_UPLOAD
+set logic 2 enabled:true
+
+# Pause kun program 1
+set logic 1 debug pause
+
+delay 500
+
+# Vis begge states
+show logic 1 debug
+# FORVENTET: Mode: PAUSED
+
+show logic 2 debug
+# FORVENTET: Mode: OFF (ikke paused)
+
+# Tilføj breakpoint på program 2
+set logic 2 debug break 0
+show logic 2 debug
+# FORVENTET: Breakpoints (1): PC=0
+
+# Cleanup
+set logic 1 debug stop
+set logic 2 debug clear
+```
+
+**Forventet Resultat:**
+- Hvert program har uafhængig debug state
+- Pause på ét program påvirker ikke andre
+- Breakpoints er per-program
+
+---
+
+### Test 1.20.8: Invalid Commands
+
+**Formål:** Verificer error handling for invalid debug commands
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+# Ugyldigt program ID
+set logic 5 debug pause
+# FORVENTET: "ERROR: Invalid program ID 5"
+
+# Break uden PC
+set logic 1 debug break
+# FORVENTET: "SET LOGIC DEBUG BREAK: missing PC address"
+
+# Break på ikke-compiled program
+set logic 4 delete
+set logic 4 debug break 0
+# FORVENTET: "ERROR: Program not compiled"
+
+# Continue uden at være i debug mode
+set logic 1 debug stop
+set logic 1 debug continue
+# FORVENTET: "ERROR: Debug mode is OFF"
+
+# Break ud over instruction count
+set logic 1 debug break 9999
+# FORVENTET: "ERROR: PC 9999 out of range"
+```
+
+**Forventet Resultat:**
+- Alle fejlmeddelelser vises korrekt
+- Ingen crash eller undefined behavior
+
+---
+
+### Debug Test Cleanup
+
+**CLI Kommandoer (Copy/Paste):**
+```bash
+set logic 1 debug stop
+set logic 1 debug clear
+set logic 2 debug stop
+set logic 2 debug clear
+set logic 1 delete
+set logic 2 delete
+```
+
+---
+
+**Version:** 1.2
+**Last Updated:** 2026-01-19
+**Status:** ✅ Ready for Execution (59+9+8 tests = 76 tests total)
 
 **God test! 🚀**

@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v5.1.0 | **Build:** #1032 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v5.3.0 | **Build:** #1083 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, telnet CLI interface, og komplet Modbus register dokumentation.
 
@@ -535,6 +535,23 @@ Hver timer har **4 modes:**
   - `set logic stats reset [all|cycle|1-4]` - Reset statistics
   - `set logic interval:X` - Change execution interval dynamically
 - **Modbus Access:** Read statistics from IR 252-293, control interval via HR 236-237
+
+**Debugger (v5.3.0 - FEAT-008):** ⭐ NEW
+- **Pause/Continue:** Stop and resume program execution at any time
+- **Single-Step:** Execute one bytecode instruction at a time
+- **Breakpoints:** Set up to 8 breakpoints per program at PC addresses
+- **Variable Inspection:** View all variable values when paused
+- **Instruction View:** See current instruction at PC
+- **CLI Commands:**
+  - `set logic <id> debug pause` - Pause at next instruction
+  - `set logic <id> debug continue` - Continue until breakpoint/halt
+  - `set logic <id> debug step` - Execute one instruction
+  - `set logic <id> debug stop` - Stop debugging
+  - `set logic <id> debug break <pc>` - Add breakpoint
+  - `set logic <id> debug clear [<pc>]` - Clear breakpoint(s)
+  - `show logic <id> debug` - Show debug state
+  - `show logic <id> debug vars` - Show variable values
+- **Documentation:** See [ST_DEBUG_GUIDE.md](ST_DEBUG_GUIDE.md) for detailed usage
 
 **Variable I/O Binding:**
 ```
@@ -3199,6 +3216,52 @@ empty := CTD(dispense, reload, 50);              (* Count down from 50 *)
 ---
 
 ## 📝 Version History
+
+- **v5.3.0** (2026-01-19) - 🔧 ST Logic Debugger (FEAT-008)
+  - **NEW FEATURE: Interactive Debugger**
+    - Pause/continue program execution at any time
+    - Single-step through bytecode instructions
+    - Breakpoints at PC addresses (up to 8 per program)
+    - Variable inspection when program is paused
+    - Instruction disassembly at current PC
+    - Halt/error snapshot capture for post-mortem debugging
+  - **CLI Commands:**
+    - `set logic <id> debug pause` - Pause at next instruction
+    - `set logic <id> debug continue` - Continue until breakpoint/halt
+    - `set logic <id> debug step` - Execute one instruction
+    - `set logic <id> debug stop` - Stop debugging, resume normal execution
+    - `set logic <id> debug break <pc>` - Add breakpoint at PC address
+    - `set logic <id> debug clear [<pc>]` - Clear breakpoint(s)
+    - `show logic <id> debug` - Show debug state
+    - `show logic <id> debug vars` - Show all variable values
+    - `show logic <id> debug stack` - Show stack depth
+  - **New Files:**
+    - `include/st_debug.h` - Debug state structures and enums
+    - `src/st_debug.cpp` - Debug API and display functions
+  - **Bug Fixes:**
+    - **BUG-190:** total_steps_debugged counter now only counts in debug mode
+    - **BUG-191:** Snapshot saved on halt/error during debugging
+  - **Documentation:**
+    - New: [ST_DEBUG_GUIDE.md](ST_DEBUG_GUIDE.md) - Complete debugger usage guide
+    - Updated: README.md, BUGS_INDEX.md, ST_COMPLETE_TEST_PLAN.md
+  - **Build:** #1082-1083
+
+- **v5.2.0** (2026-01-18) - ⏱️ TIME Literal Support (FEAT-006)
+  - **NEW FEATURE: IEC 61131-3 TIME Literals**
+    - Native TIME syntax: `T#5s`, `T#100ms`, `T#1h30m`
+    - Compound TIME: `T#1h30m5s100ms` for complex durations
+    - Stored internally as DINT milliseconds
+    - Use with timers: `TON(enable, T#5s)` instead of `TON(enable, 5000)`
+  - **Supported Units:**
+    - `d` - days (× 86400000 ms)
+    - `h` - hours (× 3600000 ms)
+    - `m` - minutes (× 60000 ms)
+    - `s` - seconds (× 1000 ms)
+    - `ms` - milliseconds
+  - **Implementation:**
+    - ST Lexer: TIME literal parsing (st_lexer.cpp)
+    - ST Parser: TIME token to DINT AST conversion (st_parser.cpp)
+  - **Build:** #1075-1081
 
 - **v5.1.0** (2026-01-11) - 🎯 EXPORT Keyword & Dynamic IR Pool Allocation (BUG-143 RESOLVED)
   - **NEW FEATURE: EXPORT Keyword (IEC 61131-3 compliant)**

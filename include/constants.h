@@ -298,10 +298,28 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "5.1.0"
+#define PROJECT_VERSION     "5.3.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v5.3.0 (2026-01-19): FEAT-008 ST Logic Debugger - Single-step, Breakpoints, Variable Inspection
+ *                      - FEAT: Pause/continue/step/stop program execution
+ *                      - FEAT: Breakpoints at PC addresses (max 8 per program)
+ *                      - FEAT: Variable inspection when paused
+ *                      - FEAT: Instruction disassembly at current PC
+ *                      - NEW: st_debug.h/cpp - Debug state management and display
+ *                      - CLI: set logic <id> debug pause/continue/step/stop
+ *                      - CLI: set logic <id> debug break <pc> / clear [<pc>]
+ *                      - CLI: show logic <id> debug [vars|stack]
+ *                      - BUG-190: Fixed step counter (only in debug mode)
+ *                      - BUG-191: Fixed halt/error snapshot saving
+ *                      - Build #1082-1083
+ * v5.2.0 (2026-01-18): FEAT-006 TIME Literal Support (T#5s, T#100ms, T#1h30m)
+ *                      - FEAT: Native IEC 61131-3 TIME literals in ST programs
+ *                      - Lexer: T#<value><unit> parsing (ms, s, m, h, d)
+ *                      - Compound TIME: T#1h30m5s100ms supported
+ *                      - Stored as DINT milliseconds internally
+ *                      - Build #1075-1081
  * v5.1.0 (2026-01-11): EXPORT Keyword & Dynamic IR Pool Allocation (BUG-143 RESOLVED)
  *                      - FEAT: EXPORT keyword for ST variable visibility control (IEC 61131-3 compliant)
  *                      - FEAT: Dynamic IR 220-251 pool allocation (32 regs shared flexibly across 4 programs)

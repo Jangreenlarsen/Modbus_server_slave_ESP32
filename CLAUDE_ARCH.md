@@ -170,6 +170,7 @@ st_logic_engine.cpp/h    ← Execution loop, scheduler (MAIN)
   ├→ st_parser.cpp/h           (ST syntax parser)
   ├→ st_lexer.cpp/h            (ST tokenizer)
   ├→ st_vm.cpp/h               (Virtual machine executor)
+  ├→ st_debug.cpp/h            (Debugger: breakpoints, step, inspect) ⭐ v5.3.0
   └→ cli_commands_logic.cpp    (CLI interface)
 
 gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
@@ -181,6 +182,7 @@ gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
 - 3-Phase I/O: Read inputs → Execute → Write outputs
 - Type-safe variable bindings (BOOL/INT/REAL)
 - Unified mapping system (ST vars ↔ Modbus registers/coils)
+- **Interactive Debugger (v5.3.0):** Pause, step, breakpoints, variable inspection
 
 **Registers:**
 - IR 200-203: Status (enabled, compiled, error)
@@ -266,6 +268,7 @@ gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
 | `st_builtins.cpp/h` | Built-in ST functions (ABS, MIN, MAX, etc.) |
 | `st_builtin_persist.cpp/h` | Persistent ST variable storage |
 | `st_builtin_signal.cpp/h` | Signal processing (SCALE, HYSTERESIS, BLINK, FILTER) v4.8 |
+| `st_debug.cpp/h` | Debugger: pause, step, breakpoints, variable inspection (v5.3.0) |
 
 ---
 
@@ -441,6 +444,7 @@ pio clean && pio run # Clean rebuild
 - **BUGS.md** - Detailed bug analysis
 - **TIMING_ANALYSIS.md** - ST Logic timing deep dive
 - **MODBUS_REGISTER_MAP.md** - Complete register reference
+- **ST_DEBUG_GUIDE.md** - ST Logic Debugger usage guide (v5.3.0)
 - **CHANGELOG.md** - Version history
 
 ---

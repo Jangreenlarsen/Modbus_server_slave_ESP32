@@ -165,8 +165,8 @@
 | BUG-187 | Timer ctrl_reg ikke initialiseret i defaults | ✅ FIXED | 🟠 MEDIUM | v5.1.7 | timer_config_defaults() satte ikke ctrl_reg, default var 0 → overlap med andre subsystemer. FIX: Smart defaults Timer 1→HR180, Timer 2→HR185, etc. (timer_config.cpp:64-67) (Build #1074) |
 | BUG-188 | ISR underflow wrapper vs HW mode inkonsistens | ✔️ DESIGN | 🔵 LOW | v5.1.7 | SW/SW_ISR er edge-triggered (delta=1 altid), HW kan have delta>1. Simpel wrap er korrekt for ISR, kompleks wrap med overflow_amt er korrekt for HW |
 | BUG-189 | Timer Mode 4 læser fra COIL i stedet for Discrete Input | ✔️ DESIGN | 🔵 LOW | v5.1.7 | Parameter hedder input_dis men koden læser registers_get_coil(). Bevidst design: tillader Modbus-triggered timer control. Dokumenteret |
-| BUG-190 | ST Debug: total_steps_debugged tæller i OFF mode | ✅ FIXED | 🔵 LOW | v5.2.0 | FEAT-008 bugfix: Counter incrementeredes for alle steps, ikke kun debug mode. FIX: Kun tæl når mode != ST_DEBUG_OFF (st_logic_engine.cpp:100-103) (Build #1083) |
-| BUG-191 | ST Debug: Ingen snapshot ved halt/error | ✅ FIXED | 🟠 MEDIUM | v5.2.0 | FEAT-008 bugfix: Når program haltede/fejlede under debugging blev ingen snapshot gemt → bruger kunne ikke se final state. FIX: Gem snapshot med REASON_HALT/REASON_ERROR (st_logic_engine.cpp:111-120) (Build #1083) |
+| BUG-190 | ST Debug: total_steps_debugged tæller i OFF mode | ✅ FIXED | 🔵 LOW | v5.3.0 | FEAT-008 bugfix: Counter incrementeredes for alle steps, ikke kun debug mode. FIX: Kun tæl når mode != ST_DEBUG_OFF (st_logic_engine.cpp:100-103) (Build #1083) |
+| BUG-191 | ST Debug: Ingen snapshot ved halt/error | ✅ FIXED | 🟠 MEDIUM | v5.3.0 | FEAT-008 bugfix: Når program haltede/fejlede under debugging blev ingen snapshot gemt → bruger kunne ikke se final state. FIX: Gem snapshot med REASON_HALT/REASON_ERROR (st_logic_engine.cpp:111-120) (Build #1083) |
 
 ## Feature Requests / Enhancements
 
@@ -179,7 +179,7 @@
 | FEAT-005 | ST Logic STRING type support | ❌ OPEN | 🟠 MEDIUM | v6.0.0 | IEC 61131-3 STRING type med LEN(), CONCAT(), LEFT(), RIGHT(), MID() funktioner. Kræver: heap allocation, garbage collection overvejelser. Nyttigt til logging, protokol parsing |
 | FEAT-006 | ST Logic TIME literal support | ✅ DONE | 🟠 MEDIUM | v5.2.0 | Native TIME literals: `T#5s`, `T#100ms`, `T#1h30m`. Lexer parser, gemmes som DINT millisekunder. (st_types.h, st_lexer.cpp, st_parser.cpp) |
 | FEAT-007 | ST Logic inter-program variable sharing | ❌ OPEN | 🟡 HIGH | v5.2.0 | Deling af variable mellem Logic1-4 programmer. Implementering via shared memory pool eller GLOBAL_VAR deklarationer. Tillader modulær programmering |
-| FEAT-008 | ST Logic debugging/single-step mode | ✅ DONE | 🔵 LOW | v5.2.0 | CLI: `set logic <id> debug pause/step/continue`, breakpoints, variable inspection. Build #1082, bugfixes Build #1083 (BUG-190, BUG-191). (st_debug.h, st_debug.cpp) |
+| FEAT-008 | ST Logic debugging/single-step mode | ✅ DONE | 🔵 LOW | v5.3.0 | CLI: `set logic <id> debug pause/step/continue`, breakpoints, variable inspection. Build #1082, bugfixes Build #1083 (BUG-190, BUG-191). (st_debug.h, st_debug.cpp) |
 | FEAT-009 | ST Logic STRUCT type support | ❌ OPEN | 🔵 LOW | v6.0.0 | Brugerdefinerede strukturer: `TYPE MyStruct: STRUCT x: INT; y: REAL; END_STRUCT END_TYPE`. Avanceret - lav prioritet |
 | FEAT-010 | ST Logic program prioriteter/scheduling | ❌ OPEN | 🔵 LOW | v6.0.0 | Differenteret execution interval per program, interrupt-drevet high-priority execution. Nyttigt til real-time krav |
 
