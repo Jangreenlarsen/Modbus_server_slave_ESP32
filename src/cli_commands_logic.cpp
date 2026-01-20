@@ -1280,12 +1280,24 @@ int cli_cmd_set_logic_debug_pause(st_logic_engine_state_t *logic_state, uint8_t 
     return -1;
   }
 
+  if (!prog->enabled) {
+    debug_println("ERROR: Program not enabled. Use 'set logic X enabled:true' first.");
+    return -1;
+  }
+
   st_debug_state_t *debug = &logic_state->debugger[program_id];
   st_debug_pause(debug);
 
-  debug_printf("[OK] Logic%d debug: PAUSE requested\n", program_id + 1);
-  debug_println("     Program will pause at next instruction.");
+  // Execute synchronously - pause will trigger after one instruction
+  st_logic_execute_program(logic_state, program_id);
+
+  debug_printf("[OK] Logic%d debug: PAUSED\n", program_id + 1);
+
+  if (debug->snapshot_valid) {
+    debug_printf("     PC: %u / %u\n", debug->snapshot.pc, prog->bytecode.instr_count);
+  }
   debug_println("     Use 'show logic X debug' to inspect state.");
+  debug_println("     Use 'set logic X debug step' to single-step.");
   return 0;
 }
 
@@ -1296,6 +1308,12 @@ int cli_cmd_set_logic_debug_continue(st_logic_engine_state_t *logic_state, uint8
     return -1;
   }
 
+  st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
+  if (!prog || !prog->compiled) {
+    debug_println("ERROR: Program not compiled.");
+    return -1;
+  }
+
   st_debug_state_t *debug = &logic_state->debugger[program_id];
 
   if (debug->mode == ST_DEBUG_OFF) {
@@ -1303,10 +1321,32 @@ int cli_cmd_set_logic_debug_continue(st_logic_engine_state_t *logic_state, uint8
     return -1;
   }
 
+  // If program was halted, invalidate debug VM so it restarts from PC=0
+  if (debug->snapshot_valid && debug->snapshot.halted) {
+    g_shared_debug_vm.valid = false;  // Force restart from beginning
+  }
+
   st_debug_continue(debug);
 
-  debug_printf("[OK] Logic%d debug: CONTINUE\n", program_id + 1);
-  debug_println("     Execution will continue until breakpoint or halt.");
+  // Execute synchronously - run until breakpoint or halt
+  st_logic_execute_program(logic_state, program_id);
+
+  debug_printf("[OK] Logic%d debug: ", program_id + 1);
+
+  if (debug->snapshot_valid) {
+    if (debug->pause_reason == ST_DEBUG_REASON_BREAKPOINT) {
+      debug_printf("BREAKPOINT at PC=%u\n", debug->snapshot.pc);
+    } else if (debug->snapshot.halted) {
+      debug_println("HALTED");
+    } else if (debug->snapshot.error) {
+      debug_printf("ERROR: %s\n", debug->snapshot.error_msg);
+    } else {
+      debug_printf("PAUSED at PC=%u\n", debug->snapshot.pc);
+    }
+  } else {
+    debug_println("CONTINUE");
+  }
+
   return 0;
 }
 
@@ -1323,12 +1363,31 @@ int cli_cmd_set_logic_debug_step(st_logic_engine_state_t *logic_state, uint8_t p
     return -1;
   }
 
+  if (!prog->enabled) {
+    debug_println("ERROR: Program not enabled. Use 'set logic X enabled:true' first.");
+    return -1;
+  }
+
   st_debug_state_t *debug = &logic_state->debugger[program_id];
+
+  // Set step mode
   st_debug_step(debug);
 
-  debug_printf("[OK] Logic%d debug: STEP\n", program_id + 1);
-  debug_println("     Will execute one instruction.");
-  debug_println("     Use 'show logic X debug' to see result.");
+  // Execute synchronously - run ONE instruction immediately instead of waiting for scheduler
+  st_logic_execute_program(logic_state, program_id);
+
+  // Show result immediately
+  debug_printf("[OK] Logic%d debug: STEP executed\n", program_id + 1);
+
+  if (debug->snapshot_valid) {
+    debug_printf("     PC: %u / %u\n", debug->snapshot.pc, prog->bytecode.instr_count);
+    if (debug->snapshot.halted) {
+      debug_println("     Program HALTED.");
+    } else if (debug->snapshot.error) {
+      debug_printf("     ERROR: %s\n", debug->snapshot.error_msg);
+    }
+  }
+
   return 0;
 }
 
@@ -1358,6 +1417,54 @@ int cli_cmd_set_logic_debug_breakpoint(st_logic_engine_state_t *logic_state, uin
   }
 
   debug_printf("[OK] Logic%d: Breakpoint added at PC=%u\n", program_id + 1, pc);
+  return 0;
+}
+
+int cli_cmd_set_logic_debug_breakpoint_line(st_logic_engine_state_t *logic_state, uint8_t program_id, uint16_t line) {
+  if (!logic_state) return -1;
+  if (program_id >= 4) {
+    debug_println("ERROR: Invalid program ID (0-3)");
+    return -1;
+  }
+
+  st_logic_program_config_t *prog = st_logic_get_program(logic_state, program_id);
+  if (!prog || !prog->compiled) {
+    debug_println("ERROR: Program not compiled. Upload source code first.");
+    return -1;
+  }
+
+  // Check if line map is valid and matches this program
+  if (!g_line_map.valid) {
+    debug_println("ERROR: Line map not available. Re-compile the program first.");
+    return -1;
+  }
+
+  if (g_line_map.program_id != program_id) {
+    debug_printf("ERROR: Line map is for Logic%d, not Logic%d. Re-compile this program.\n",
+                 g_line_map.program_id + 1, program_id + 1);
+    return -1;
+  }
+
+  // Get PC for this line
+  uint16_t pc = st_line_map_get_pc(line);
+  if (pc == 0xFFFF) {
+    debug_printf("ERROR: No code at line %u (valid range: 1-%u)\n", line, g_line_map.max_line);
+    return -1;
+  }
+
+  if (pc >= prog->bytecode.instr_count) {
+    debug_printf("ERROR: Line %u maps to invalid PC=%u\n", line, pc);
+    return -1;
+  }
+
+  st_debug_state_t *debug = &logic_state->debugger[program_id];
+
+  if (!st_debug_add_breakpoint(debug, pc)) {
+    debug_println("ERROR: Max breakpoints reached (8) or already exists");
+    return -1;
+  }
+
+  debug_printf("[OK] Logic%d: Breakpoint added at line %u (PC=%u)\n", program_id + 1, line, pc);
   return 0;
 }
 

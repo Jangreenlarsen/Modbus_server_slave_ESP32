@@ -15,6 +15,17 @@
 #include <stdio.h>
 
 /* ============================================================================
+ * LINE MAP (for source-level debugging breakpoints)
+ * ============================================================================ */
+
+// Global line map - regenerated on each compilation
+st_line_map_t g_line_map = {
+  .program_id = 0xFF,
+  .max_line = 0,
+  .valid = false
+};
+
+/* ============================================================================
  * COMPILER INITIALIZATION
  * ============================================================================ */
 
@@ -35,6 +46,13 @@ void st_compiler_init(st_compiler_t *compiler) {
   compiler->hysteresis_instance_count = 0;  // v4.8: Signal processing
   compiler->blink_instance_count = 0;
   compiler->filter_instance_count = 0;
+
+  // Initialize line map (invalidate old mapping)
+  g_line_map.valid = false;
+  g_line_map.max_line = 0;
+  for (int i = 0; i < ST_LINE_MAP_MAX; i++) {
+    g_line_map.pc_for_line[i] = 0xFFFF;  // No code at this line
+  }
 }
 
 /* ============================================================================
@@ -895,6 +913,18 @@ bool st_compiler_compile_node(st_compiler_t *compiler, st_ast_node_t *node) {
   // BUG-171 FIX: Track current line for error reporting
   compiler->current_line = node->line;
 
+  // FEAT-008: Update line map for source-level breakpoints
+  // Only map lines that generate code (statements, not expressions)
+  if (node->line > 0 && node->line < ST_LINE_MAP_MAX) {
+    // Only set if not already mapped (first instruction for this line)
+    if (g_line_map.pc_for_line[node->line] == 0xFFFF) {
+      g_line_map.pc_for_line[node->line] = compiler->bytecode_ptr;
+    }
+    if (node->line > g_line_map.max_line) {
+      g_line_map.max_line = node->line;
+    }
+  }
+
   switch (node->type) {
     case ST_AST_ASSIGNMENT:
       if (!st_compiler_compile_assignment(compiler, node)) return false;
@@ -1048,10 +1078,37 @@ st_bytecode_program_t *st_compiler_compile(st_compiler_t *compiler, st_program_t
   if (compiler->error_count > 0) {
     if (bytecode->stateful) free(bytecode->stateful);
     free(bytecode);
+    g_line_map.valid = false;  // Invalidate line map on error
     return NULL;
   }
 
+  // FEAT-008: Mark line map as valid (program_id set by caller in st_logic_compile)
+  g_line_map.valid = true;
+
   return bytecode;
+}
+
+/* ============================================================================
+ * LINE MAP FUNCTIONS (for source-level debugging)
+ * ============================================================================ */
+
+uint16_t st_line_map_get_pc(uint16_t line) {
+  if (!g_line_map.valid) return 0xFFFF;
+  if (line == 0 || line >= ST_LINE_MAP_MAX) return 0xFFFF;
+  return g_line_map.pc_for_line[line];
+}
+
+uint16_t st_line_map_get_line(uint16_t pc) {
+  if (!g_line_map.valid) return 0;
+
+  // Find the line that corresponds to this PC
+  // (reverse lookup - find line where pc_for_line[line] <= pc < pc_for_line[next_line])
+  for (uint16_t line = g_line_map.max_line; line > 0; line--) {
+    if (g_line_map.pc_for_line[line] != 0xFFFF && g_line_map.pc_for_line[line] <= pc) {
+      return line;
+    }
+  }
+  return 0;
 }
 
 /* ============================================================================

@@ -9,6 +9,41 @@
 #include "st_logic_config.h"
 #include "debug.h"
 #include <string.h>
+#include <stdlib.h>
+
+/* ============================================================================
+ * SHARED DEBUG VM (dynamically allocated to save RAM when not debugging)
+ * ============================================================================ */
+
+st_shared_debug_vm_t g_shared_debug_vm = {
+  .vm = nullptr,
+  .program_id = 0xFF,
+  .valid = false
+};
+
+bool st_debug_alloc_vm(void) {
+  if (g_shared_debug_vm.vm != nullptr) {
+    return true;  // Already allocated
+  }
+
+  g_shared_debug_vm.vm = (st_vm_t*)malloc(sizeof(st_vm_t));
+  if (g_shared_debug_vm.vm == nullptr) {
+    debug_println("ERROR: Failed to allocate debug VM");
+    return false;
+  }
+
+  memset(g_shared_debug_vm.vm, 0, sizeof(st_vm_t));
+  return true;
+}
+
+void st_debug_free_vm(void) {
+  if (g_shared_debug_vm.vm != nullptr) {
+    free(g_shared_debug_vm.vm);
+    g_shared_debug_vm.vm = nullptr;
+  }
+  g_shared_debug_vm.valid = false;
+  g_shared_debug_vm.program_id = 0xFF;
+}
 
 /* ============================================================================
  * INITIALIZATION
@@ -25,6 +60,7 @@ void st_debug_init(st_debug_state_t *debug) {
   debug->hit_breakpoint_pc = 0;
   debug->total_steps_debugged = 0;
   debug->breakpoints_hit_count = 0;
+  debug->owns_debug_vm = false;
 
   // Initialize all breakpoints as disabled
   for (int i = 0; i < ST_DEBUG_MAX_BREAKPOINTS; i++) {
@@ -69,6 +105,12 @@ void st_debug_step(st_debug_state_t *debug) {
 
 void st_debug_stop(st_debug_state_t *debug) {
   if (!debug) return;
+
+  // Release and free shared debug VM if we own it
+  if (debug->owns_debug_vm) {
+    st_debug_free_vm();
+    debug->owns_debug_vm = false;
+  }
 
   debug->mode = ST_DEBUG_OFF;
   debug->snapshot_valid = false;

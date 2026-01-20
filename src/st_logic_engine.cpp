@@ -56,7 +56,41 @@ bool st_logic_execute_program(st_logic_engine_state_t *state, uint8_t program_id
 
   // Create VM and initialize with bytecode
   st_vm_t vm;
-  st_vm_init(&vm, &prog->bytecode);
+
+  // FEAT-008: Use shared debug VM if this program owns it (preserves PC/stack between steps)
+  if (debug->owns_debug_vm && g_shared_debug_vm.valid &&
+      g_shared_debug_vm.vm != nullptr &&
+      g_shared_debug_vm.program_id == program_id &&
+      (debug->mode == ST_DEBUG_STEP || debug->mode == ST_DEBUG_RUN)) {
+    // Restore VM state from shared debug VM
+    memcpy(&vm, g_shared_debug_vm.vm, sizeof(st_vm_t));
+    // Re-link program pointer (was cleared by memcpy or might be stale)
+    vm.program = &prog->bytecode;
+
+    // If VM was halted but user wants to continue/step, reset to start new cycle
+    if (vm.halted) {
+      st_vm_init(&vm, &prog->bytecode);
+    }
+  } else {
+    // Normal initialization
+    st_vm_init(&vm, &prog->bytecode);
+
+    // If starting debug, allocate and claim the shared VM
+    if (debug->mode == ST_DEBUG_STEP || debug->mode == ST_DEBUG_RUN) {
+      // Allocate debug VM if needed
+      if (!st_debug_alloc_vm()) {
+        // Allocation failed - disable debug mode
+        debug->mode = ST_DEBUG_OFF;
+      } else {
+        // Release any other program's claim
+        if (g_shared_debug_vm.valid && g_shared_debug_vm.program_id != program_id) {
+          g_shared_debug_vm.valid = false;
+        }
+        debug->owns_debug_vm = true;
+        g_shared_debug_vm.program_id = program_id;
+      }
+    }
+  }
 
   // BUG-153 FIX: Update cycle time in stateful storage before execution
   if (prog->bytecode.stateful) {
@@ -120,6 +154,17 @@ bool st_logic_execute_program(st_logic_engine_state_t *state, uint8_t program_id
       st_debug_save_snapshot(debug, &vm, ST_DEBUG_REASON_HALT);
       debug->mode = ST_DEBUG_PAUSED;
     }
+  }
+
+  // FEAT-008: Save VM state to shared debug VM for next step
+  if (debug->mode == ST_DEBUG_PAUSED && debug->owns_debug_vm && g_shared_debug_vm.vm != nullptr) {
+    memcpy(g_shared_debug_vm.vm, &vm, sizeof(st_vm_t));
+    g_shared_debug_vm.valid = true;
+    g_shared_debug_vm.program_id = program_id;
+  } else if (debug->mode == ST_DEBUG_OFF && debug->owns_debug_vm) {
+    // Release and free shared debug VM when debugging is stopped
+    st_debug_free_vm();
+    debug->owns_debug_vm = false;
   }
 
   // Check final state

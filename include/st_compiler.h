@@ -206,4 +206,39 @@ void st_bytecode_print(st_bytecode_program_t *bytecode);
  */
 const char *st_opcode_to_string(st_opcode_t opcode);
 
+/* ============================================================================
+ * LINE MAP (for source-level debugging breakpoints)
+ * Generated during compilation, used by debugger.
+ * ============================================================================ */
+
+#define ST_LINE_MAP_MAX 128  // Max source lines tracked
+
+/**
+ * @brief Line-to-PC mapping (generated during compilation)
+ * Allows setting breakpoints by source line number instead of PC.
+ */
+typedef struct {
+  uint8_t program_id;                    // Which program this map belongs to
+  uint16_t pc_for_line[ST_LINE_MAP_MAX]; // PC for each source line (0xFFFF = no code)
+  uint16_t max_line;                     // Highest line number with code
+  bool valid;                            // Is this map current?
+} st_line_map_t;
+
+// Global line map (shared between programs, regenerated on each compile)
+extern st_line_map_t g_line_map;
+
+/**
+ * @brief Get PC address for a source line number
+ * @param line Source line number (1-based)
+ * @return PC address, or 0xFFFF if line has no code
+ */
+uint16_t st_line_map_get_pc(uint16_t line);
+
+/**
+ * @brief Get source line number for a PC address
+ * @param pc PC address
+ * @return Source line number, or 0 if not found
+ */
+uint16_t st_line_map_get_line(uint16_t pc);
+
 #endif // ST_COMPILER_H

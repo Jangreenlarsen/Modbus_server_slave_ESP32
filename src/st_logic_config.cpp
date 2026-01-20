@@ -6,6 +6,7 @@
 #include "st_logic_config.h"
 #include "st_parser.h"
 #include "st_compiler.h"
+#include "st_debug.h"  // FEAT-008: Reset debug state on delete/compile
 #include "register_allocator.h"
 #include "ir_pool_manager.h"  // v5.1.0 - IR pool management
 #include "debug.h"
@@ -221,6 +222,11 @@ bool st_logic_upload(st_logic_engine_state_t *state, uint8_t program_id,
 bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
   if (program_id >= 4) return false;
 
+  // FEAT-008: Reset debug state before recompiling (old snapshot is now invalid)
+  st_debug_state_t *debug = &state->debugger[program_id];
+  st_debug_stop(debug);
+  st_debug_init(debug);
+
   st_logic_program_config_t *prog = &state->programs[program_id];
 
   // Get source code from pool
@@ -254,6 +260,9 @@ bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
   prog->compiled = 1;
   prog->execution_count = 0;
   prog->error_count = 0;
+
+  // FEAT-008: Set program_id in line map for source-level breakpoints
+  g_line_map.program_id = program_id;
 
   // v5.1.0 - Allocate IR pool for EXPORT variables
   // Free old allocation if recompiling
@@ -322,6 +331,11 @@ bool st_logic_set_enabled(st_logic_engine_state_t *state, uint8_t program_id, ui
 
 bool st_logic_delete(st_logic_engine_state_t *state, uint8_t program_id) {
   if (program_id >= 4) return false;
+
+  // FEAT-008: Reset debug state before deleting program
+  st_debug_state_t *debug = &state->debugger[program_id];
+  st_debug_stop(debug);
+  st_debug_init(debug);
 
   // Free pool allocations
   st_logic_pool_free(state, program_id);

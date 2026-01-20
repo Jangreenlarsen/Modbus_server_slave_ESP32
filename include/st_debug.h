@@ -107,7 +107,34 @@ typedef struct {
   uint32_t total_steps_debugged;
   uint32_t breakpoints_hit_count;
 
+  // Flag: Does this program own the shared debug VM?
+  bool owns_debug_vm;
+
 } st_debug_state_t;
+
+/* ============================================================================
+ * SHARED DEBUG VM (dynamically allocated to save RAM when not debugging)
+ * ============================================================================ */
+
+typedef struct {
+  st_vm_t *vm;             // Pointer to dynamically allocated VM (NULL when not debugging)
+  uint8_t program_id;      // Which program owns it (0-3, or 0xFF = none)
+  bool valid;              // Is VM state valid?
+} st_shared_debug_vm_t;
+
+// Global shared debug VM (declared in st_debug.cpp)
+extern st_shared_debug_vm_t g_shared_debug_vm;
+
+/**
+ * @brief Allocate shared debug VM (call when starting debug)
+ * @return true if allocated successfully
+ */
+bool st_debug_alloc_vm(void);
+
+/**
+ * @brief Free shared debug VM (call when stopping debug)
+ */
+void st_debug_free_vm(void);
 
 /* ============================================================================
  * INITIALIZATION

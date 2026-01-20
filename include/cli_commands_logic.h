@@ -153,6 +153,12 @@ int cli_cmd_set_logic_debug_step(st_logic_engine_state_t *logic_state, uint8_t p
 int cli_cmd_set_logic_debug_breakpoint(st_logic_engine_state_t *logic_state, uint8_t program_id, uint16_t pc);
 
 /**
+ * @brief set logic <id> debug break line <line>
+ * Add breakpoint at source line number
+ */
+int cli_cmd_set_logic_debug_breakpoint_line(st_logic_engine_state_t *logic_state, uint8_t program_id, uint16_t line);
+
+/**
  * @brief set logic <id> debug clear [<pc>]
  * Clear breakpoint at PC, or all breakpoints if no PC given
  */

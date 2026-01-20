@@ -107,101 +107,123 @@ static uint8_t tokenize(char* line, char* argv[], uint8_t max_argv) {
  * ALIAS NORMALIZATION
  * ============================================================================ */
 
+/**
+ * @brief Case-insensitive string comparison
+ * @param a First string
+ * @param b Second string
+ * @return true if strings match (ignoring case)
+ */
+static bool str_eq_i(const char* a, const char* b) {
+  if (!a || !b) return false;
+  while (*a && *b) {
+    char ca = *a;
+    char cb = *b;
+    // Convert to uppercase for comparison
+    if (ca >= 'a' && ca <= 'z') ca -= 32;
+    if (cb >= 'a' && cb <= 'z') cb -= 32;
+    if (ca != cb) return false;
+    a++;
+    b++;
+  }
+  return (*a == *b);  // Both must be at null terminator
+}
+
 static const char* normalize_alias(const char* s) {
   if (!s) return "";
 
-  // Verbs
-  if (!strcmp(s, "SHOW") || !strcmp(s, "show") || !strcmp(s, "SH") || !strcmp(s, "sh") || !strcmp(s, "S") || !strcmp(s, "s")) return "SHOW";
-  if (!strcmp(s, "SET") || !strcmp(s, "set") || !strcmp(s, "CONF") || !strcmp(s, "conf")) return "SET";
-  if (!strcmp(s, "NO") || !strcmp(s, "no")) return "NO";
-  if (!strcmp(s, "RESET") || !strcmp(s, "reset") || !strcmp(s, "RST") || !strcmp(s, "rst")) return "RESET";
-  if (!strcmp(s, "CLEAR") || !strcmp(s, "clear") || !strcmp(s, "CLR") || !strcmp(s, "clr")) return "CLEAR";
-  if (!strcmp(s, "SAVE") || !strcmp(s, "save") || !strcmp(s, "SV") || !strcmp(s, "sv")) return "SAVE";
-  if (!strcmp(s, "LOAD") || !strcmp(s, "load") || !strcmp(s, "LD") || !strcmp(s, "ld")) return "LOAD";
-  if (!strcmp(s, "DEFAULTS") || !strcmp(s, "defaults") || !strcmp(s, "DEF") || !strcmp(s, "def")) return "DEFAULTS";
-  if (!strcmp(s, "REBOOT") || !strcmp(s, "reboot") || !strcmp(s, "RST") || !strcmp(s, "rst") || !strcmp(s, "RESTART") || !strcmp(s, "restart")) return "REBOOT";
-  if (!strcmp(s, "EXIT") || !strcmp(s, "exit") || !strcmp(s, "QUIT") || !strcmp(s, "quit") || !strcmp(s, "Q") || !strcmp(s, "q")) return "EXIT";
-  if (!strcmp(s, "CONNECT") || !strcmp(s, "connect") || !strcmp(s, "CONN") || !strcmp(s, "conn") || !strcmp(s, "CON") || !strcmp(s, "con")) return "CONNECT";
-  if (!strcmp(s, "DISCONNECT") || !strcmp(s, "disconnect") || !strcmp(s, "DISC") || !strcmp(s, "disc") || !strcmp(s, "DC") || !strcmp(s, "dc")) return "DISCONNECT";
-  if (!strcmp(s, "HELP") || !strcmp(s, "help") || !strcmp(s, "?") || !strcmp(s, "H") || !strcmp(s, "h")) return "HELP";
-  if (!strcmp(s, "READ") || !strcmp(s, "read") || !strcmp(s, "RD") || !strcmp(s, "rd") || !strcmp(s, "R") || !strcmp(s, "r")) return "READ";
-  if (!strcmp(s, "WRITE") || !strcmp(s, "write") || !strcmp(s, "WR") || !strcmp(s, "wr") || !strcmp(s, "W") || !strcmp(s, "w")) return "WRITE";
-  if (!strcmp(s, "COMMANDS") || !strcmp(s, "commands") || !strcmp(s, "CMDS") || !strcmp(s, "cmds")) return "COMMANDS";
+  // Verbs (all case-insensitive)
+  if (str_eq_i(s, "SHOW") || str_eq_i(s, "SH") || str_eq_i(s, "S")) return "SHOW";
+  if (str_eq_i(s, "SET") || str_eq_i(s, "CONF")) return "SET";
+  if (str_eq_i(s, "NO")) return "NO";
+  if (str_eq_i(s, "RESET") || str_eq_i(s, "RST")) return "RESET";
+  if (str_eq_i(s, "CLEAR") || str_eq_i(s, "CLR")) return "CLEAR";
+  if (str_eq_i(s, "SAVE") || str_eq_i(s, "SV")) return "SAVE";
+  if (str_eq_i(s, "LOAD") || str_eq_i(s, "LD")) return "LOAD";
+  if (str_eq_i(s, "DEFAULTS") || str_eq_i(s, "DEF")) return "DEFAULTS";
+  if (str_eq_i(s, "REBOOT") || str_eq_i(s, "RESTART")) return "REBOOT";
+  if (str_eq_i(s, "EXIT") || str_eq_i(s, "QUIT") || str_eq_i(s, "Q")) return "EXIT";
+  if (str_eq_i(s, "CONNECT") || str_eq_i(s, "CONN") || str_eq_i(s, "CON")) return "CONNECT";
+  if (str_eq_i(s, "DISCONNECT") || str_eq_i(s, "DISC") || str_eq_i(s, "DC")) return "DISCONNECT";
+  if (str_eq_i(s, "HELP") || !strcmp(s, "?") || str_eq_i(s, "H")) return "HELP";
+  if (str_eq_i(s, "READ") || str_eq_i(s, "RD") || str_eq_i(s, "R")) return "READ";
+  if (str_eq_i(s, "WRITE") || str_eq_i(s, "WR") || str_eq_i(s, "W")) return "WRITE";
+  if (str_eq_i(s, "COMMANDS") || str_eq_i(s, "CMDS")) return "COMMANDS";
 
   // Nouns
-  if (!strcmp(s, "COUNTER") || !strcmp(s, "counter") || !strcmp(s, "CNT") || !strcmp(s, "cnt") || !strcmp(s, "CNTR") || !strcmp(s, "cntr")) return "COUNTER";
-  if (!strcmp(s, "COUNTERS") || !strcmp(s, "counters") || !strcmp(s, "CNTS") || !strcmp(s, "cnts")) return "COUNTERS";
-  if (!strcmp(s, "TIMER") || !strcmp(s, "timer") || !strcmp(s, "TMR") || !strcmp(s, "tmr")) return "TIMER";
-  if (!strcmp(s, "TIMERS") || !strcmp(s, "timers") || !strcmp(s, "TMRS") || !strcmp(s, "tmrs")) return "TIMERS";
-  if (!strcmp(s, "LOGIC") || !strcmp(s, "logic") || !strcmp(s, "LOG") || !strcmp(s, "log")) return "LOGIC";
-  if (!strcmp(s, "CONFIG") || !strcmp(s, "config") || !strcmp(s, "CFG") || !strcmp(s, "cfg")) return "CONFIG";
-  if (!strcmp(s, "REGISTERS") || !strcmp(s, "registers") || !strcmp(s, "REGS") || !strcmp(s, "regs")) return "REGISTERS";
-  if (!strcmp(s, "COILS") || !strcmp(s, "coils")) return "COILS";
-  if (!strcmp(s, "INPUTS") || !strcmp(s, "inputs") || !strcmp(s, "INS") || !strcmp(s, "ins")) return "INPUTS";
-  if (!strcmp(s, "INPUT") || !strcmp(s, "input") || !strcmp(s, "IN") || !strcmp(s, "in")) return "INPUT";
-  if (!strcmp(s, "INPUT-REG") || !strcmp(s, "input-reg") || !strcmp(s, "INPUT_REG") || !strcmp(s, "input_reg") ||
-      !strcmp(s, "I-REG") || !strcmp(s, "i-reg") || !strcmp(s, "IREG") || !strcmp(s, "ireg")) return "I-REG";
-  if (!strcmp(s, "VERSION") || !strcmp(s, "version") || !strcmp(s, "VER") || !strcmp(s, "ver") || !strcmp(s, "V") || !strcmp(s, "v")) return "VERSION";
-  if (!strcmp(s, "GPIO") || !strcmp(s, "gpio")) return "GPIO";
-  if (!strcmp(s, "ECHO") || !strcmp(s, "echo")) return "ECHO";
-  if (!strcmp(s, "DEBUG") || !strcmp(s, "debug") || !strcmp(s, "DBG") || !strcmp(s, "dbg")) return "DEBUG";
-  if (!strcmp(s, "WATCHDOG") || !strcmp(s, "watchdog") || !strcmp(s, "WDG") || !strcmp(s, "wdg")) return "WATCHDOG";
-  if (!strcmp(s, "VERBOSE") || !strcmp(s, "verbose") || !strcmp(s, "VERB") || !strcmp(s, "verb")) return "VERBOSE";
+  if (str_eq_i(s, "COUNTER") || str_eq_i(s, "CNT") || str_eq_i(s, "CNTR")) return "COUNTER";
+  if (str_eq_i(s, "COUNTERS") || str_eq_i(s, "CNTS")) return "COUNTERS";
+  if (str_eq_i(s, "TIMER") || str_eq_i(s, "TMR")) return "TIMER";
+  if (str_eq_i(s, "TIMERS") || str_eq_i(s, "TMRS")) return "TIMERS";
+  if (str_eq_i(s, "LOGIC") || str_eq_i(s, "LOG")) return "LOGIC";
+  if (str_eq_i(s, "CONFIG") || str_eq_i(s, "CFG")) return "CONFIG";
+  if (str_eq_i(s, "REGISTERS") || str_eq_i(s, "REGS")) return "REGISTERS";
+  if (str_eq_i(s, "COILS")) return "COILS";
+  if (str_eq_i(s, "INPUTS") || str_eq_i(s, "INS")) return "INPUTS";
+  if (str_eq_i(s, "INPUT") || str_eq_i(s, "IN")) return "INPUT";
+  if (str_eq_i(s, "INPUT-REG") || str_eq_i(s, "INPUT_REG") || str_eq_i(s, "I-REG") || str_eq_i(s, "IREG")) return "I-REG";
+  if (str_eq_i(s, "VERSION") || str_eq_i(s, "VER") || str_eq_i(s, "V")) return "VERSION";
+  if (str_eq_i(s, "GPIO")) return "GPIO";
+  if (str_eq_i(s, "ECHO")) return "ECHO";
+  if (str_eq_i(s, "DEBUG") || str_eq_i(s, "DBG")) return "DEBUG";
+  if (str_eq_i(s, "WATCHDOG") || str_eq_i(s, "WDG")) return "WATCHDOG";
+  if (str_eq_i(s, "VERBOSE") || str_eq_i(s, "VERB")) return "VERBOSE";
+
   // Modbus Master/Slave commands
-  if (!strcmp(s, "MODBUS-MASTER") || !strcmp(s, "modbus-master") || !strcmp(s, "MB-MASTER") || !strcmp(s, "mb-master")) return "MODBUS-MASTER";
-  if (!strcmp(s, "MODBUS-SLAVE") || !strcmp(s, "modbus-slave") || !strcmp(s, "MB-SLAVE") || !strcmp(s, "mb-slave")) return "MODBUS-SLAVE";
-  if (!strcmp(s, "ENABLED") || !strcmp(s, "enabled")) return "ENABLED";
-  if (!strcmp(s, "SLAVE-ID") || !strcmp(s, "slave-id") || !strcmp(s, "SLAVEID") || !strcmp(s, "slaveid") || !strcmp(s, "ID") || !strcmp(s, "id")) return "SLAVE-ID";
-  if (!strcmp(s, "BAUDRATE") || !strcmp(s, "baudrate") || !strcmp(s, "BAUD") || !strcmp(s, "baud")) return "BAUDRATE";
-  if (!strcmp(s, "PARITY") || !strcmp(s, "parity")) return "PARITY";
-  if (!strcmp(s, "STOP-BITS") || !strcmp(s, "stop-bits") || !strcmp(s, "stopbits")) return "STOP-BITS";
-  if (!strcmp(s, "TIMEOUT") || !strcmp(s, "timeout")) return "TIMEOUT";
-  if (!strcmp(s, "INTER-FRAME-DELAY") || !strcmp(s, "inter-frame-delay") || !strcmp(s, "DELAY") || !strcmp(s, "delay")) return "INTER-FRAME-DELAY";
-  if (!strcmp(s, "MAX-REQUESTS") || !strcmp(s, "max-requests") || !strcmp(s, "maxrequests")) return "MAX-REQUESTS";
+  if (str_eq_i(s, "MODBUS-MASTER") || str_eq_i(s, "MB-MASTER")) return "MODBUS-MASTER";
+  if (str_eq_i(s, "MODBUS-SLAVE") || str_eq_i(s, "MB-SLAVE")) return "MODBUS-SLAVE";
+  if (str_eq_i(s, "ENABLED")) return "ENABLED";
+  if (str_eq_i(s, "SLAVE-ID") || str_eq_i(s, "SLAVEID") || str_eq_i(s, "ID")) return "SLAVE-ID";
+  if (str_eq_i(s, "BAUDRATE") || str_eq_i(s, "BAUD")) return "BAUDRATE";
+  if (str_eq_i(s, "PARITY")) return "PARITY";
+  if (str_eq_i(s, "STOP-BITS") || str_eq_i(s, "STOPBITS")) return "STOP-BITS";
+  if (str_eq_i(s, "TIMEOUT")) return "TIMEOUT";
+  if (str_eq_i(s, "INTER-FRAME-DELAY") || str_eq_i(s, "DELAY")) return "INTER-FRAME-DELAY";
+  if (str_eq_i(s, "MAX-REQUESTS") || str_eq_i(s, "MAXREQUESTS")) return "MAX-REQUESTS";
 
   // Logic subcommands
-  if (!strcmp(s, "PROGRAM") || !strcmp(s, "program")) return "PROGRAM";
-  if (!strcmp(s, "PROGRAMS") || !strcmp(s, "programs")) return "PROGRAM";
-  if (!strcmp(s, "STATS") || !strcmp(s, "stats") || !strcmp(s, "ST-STATS") || !strcmp(s, "st-stats")) return "STATS";
-  if (!strcmp(s, "ERRORS") || !strcmp(s, "errors")) return "ERRORS";
-  if (!strcmp(s, "ALL") || !strcmp(s, "all")) return "ALL";
-  if (!strcmp(s, "CODE") || !strcmp(s, "code")) return "CODE";
-  if (!strcmp(s, "BYTECODE") || !strcmp(s, "bytecode")) return "BYTECODE";
-  if (!strcmp(s, "TIMING") || !strcmp(s, "timing")) return "TIMING";
+  if (str_eq_i(s, "PROGRAM") || str_eq_i(s, "PROGRAMS")) return "PROGRAM";
+  if (str_eq_i(s, "STATS") || str_eq_i(s, "ST-STATS")) return "STATS";
+  if (str_eq_i(s, "ERRORS")) return "ERRORS";
+  if (str_eq_i(s, "ALL")) return "ALL";
+  if (str_eq_i(s, "CODE")) return "CODE";
+  if (str_eq_i(s, "BYTECODE")) return "BYTECODE";
+  if (str_eq_i(s, "TIMING")) return "TIMING";
+  if (str_eq_i(s, "ST")) return "ST";
 
   // System commands (for SET context)
-  if (!strcmp(s, "REG") || !strcmp(s, "reg") ||
-      !strcmp(s, "HOLDING-REG") || !strcmp(s, "holding-reg") ||
-      !strcmp(s, "HOLDING_REG") || !strcmp(s, "holding_reg") ||
-      !strcmp(s, "H-REG") || !strcmp(s, "h-reg") ||
-      !strcmp(s, "HREG") || !strcmp(s, "hreg")) return "H-REG";
-  if (!strcmp(s, "COIL") || !strcmp(s, "coil")) return "COIL";
-  if (!strcmp(s, "GPIO") || !strcmp(s, "gpio")) return "GPIO";
-  if (!strcmp(s, "ID") || !strcmp(s, "id")) return "ID";
-  if (!strcmp(s, "HOSTNAME") || !strcmp(s, "hostname")) return "HOSTNAME";
-  if (!strcmp(s, "BAUD") || !strcmp(s, "baud")) return "BAUD";
-  if (!strcmp(s, "WIFI") || !strcmp(s, "wifi")) return "WIFI";
-  if (!strcmp(s, "ENABLE") || !strcmp(s, "enable")) return "ENABLE";
-  if (!strcmp(s, "DISABLE") || !strcmp(s, "disable")) return "DISABLE";
-  if (!strcmp(s, "PERSIST") || !strcmp(s, "persist")) return "PERSIST";
-  if (!strcmp(s, "GROUP") || !strcmp(s, "group")) return "GROUP";
-  if (!strcmp(s, "ADD") || !strcmp(s, "add")) return "ADD";
-  if (!strcmp(s, "REMOVE") || !strcmp(s, "remove")) return "REMOVE";
-  if (!strcmp(s, "AUTO-LOAD") || !strcmp(s, "auto-load") || !strcmp(s, "AUTOLOAD") || !strcmp(s, "autoload")) return "AUTO-LOAD";
-  if (!strcmp(s, "RESET") || !strcmp(s, "reset")) return "RESET";
-  if (!strcmp(s, "CLEAR") || !strcmp(s, "clear")) return "CLEAR";
+  if (str_eq_i(s, "REG") || str_eq_i(s, "HOLDING-REG") || str_eq_i(s, "HOLDING_REG") ||
+      str_eq_i(s, "H-REG") || str_eq_i(s, "HREG")) return "H-REG";
+  if (str_eq_i(s, "COIL")) return "COIL";
+  if (str_eq_i(s, "HOSTNAME")) return "HOSTNAME";
+  if (str_eq_i(s, "WIFI")) return "WIFI";
+  if (str_eq_i(s, "ENABLE")) return "ENABLE";
+  if (str_eq_i(s, "DISABLE")) return "DISABLE";
+  if (str_eq_i(s, "PERSIST")) return "PERSIST";
+  if (str_eq_i(s, "GROUP")) return "GROUP";
+  if (str_eq_i(s, "ADD")) return "ADD";
+  if (str_eq_i(s, "REMOVE")) return "REMOVE";
+  if (str_eq_i(s, "AUTO-LOAD") || str_eq_i(s, "AUTOLOAD")) return "AUTO-LOAD";
 
   // Boolean values
-  if (!strcmp(s, "ON") || !strcmp(s, "on")) return "ON";
-  if (!strcmp(s, "OFF") || !strcmp(s, "off")) return "OFF";
-  if (!strcmp(s, "TRUE") || !strcmp(s, "true")) return "TRUE";
-  if (!strcmp(s, "FALSE") || !strcmp(s, "false")) return "FALSE";
+  if (str_eq_i(s, "ON")) return "ON";
+  if (str_eq_i(s, "OFF")) return "OFF";
+  if (str_eq_i(s, "TRUE")) return "TRUE";
+  if (str_eq_i(s, "FALSE")) return "FALSE";
 
   // Logic Mode subcommands
-  if (!strcmp(s, "UPLOAD") || !strcmp(s, "upload")) return "UPLOAD";
-  if (!strcmp(s, "BIND") || !strcmp(s, "bind")) return "BIND";
-  if (!strcmp(s, "DELETE") || !strcmp(s, "delete")) return "DELETE";
-  if (!strcmp(s, "ENABLED") || !strcmp(s, "enabled")) return "ENABLED";
+  if (str_eq_i(s, "UPLOAD")) return "UPLOAD";
+  if (str_eq_i(s, "BIND")) return "BIND";
+  if (str_eq_i(s, "DELETE")) return "DELETE";
+
+  // Debug subcommands (FEAT-008)
+  if (str_eq_i(s, "PAUSE")) return "PAUSE";
+  if (str_eq_i(s, "CONTINUE") || str_eq_i(s, "CONT")) return "CONTINUE";
+  if (str_eq_i(s, "STEP")) return "STEP";
+  if (str_eq_i(s, "BREAK") || str_eq_i(s, "BP")) return "BREAK";
+  if (str_eq_i(s, "STOP")) return "STOP";
+  if (str_eq_i(s, "VARS") || str_eq_i(s, "VARIABLES")) return "VARS";
+  if (str_eq_i(s, "STACK")) return "STACK";
+  if (str_eq_i(s, "LINE") || str_eq_i(s, "LN")) return "LINE";
 
   return s;  // Return as-is if not an alias
 }
@@ -1084,7 +1106,22 @@ bool cli_parser_execute(char* line) {
 
         const char* debug_cmd = normalize_alias(argv[4]);
 
-        if (!strcmp(debug_cmd, "PAUSE")) {
+        // Help request
+        if (!strcmp(debug_cmd, "HELP") || !strcmp(argv[4], "?")) {
+          debug_println("\nST Logic Debug Commands:");
+          debug_println("  set logic <id> debug pause         - Pause at next instruction");
+          debug_println("  set logic <id> debug continue      - Continue until breakpoint/halt");
+          debug_println("  set logic <id> debug step          - Execute one instruction");
+          debug_println("  set logic <id> debug break <pc>    - Set breakpoint at PC address");
+          debug_println("  set logic <id> debug break line <n>- Set breakpoint at source line");
+          debug_println("  set logic <id> debug clear [pc]    - Clear breakpoint(s)");
+          debug_println("  set logic <id> debug stop          - Stop debugging, resume normal");
+          debug_println("\nShow Commands:");
+          debug_println("  show logic <id> debug              - Show debug state");
+          debug_println("  show logic <id> debug vars         - Show variable values");
+          debug_println("");
+          return true;
+        } else if (!strcmp(debug_cmd, "PAUSE")) {
           cli_cmd_set_logic_debug_pause(st_logic_get_state(), prog_idx);
           return true;
         } else if (!strcmp(debug_cmd, "CONTINUE")) {
@@ -1095,12 +1132,28 @@ bool cli_parser_execute(char* line) {
           return true;
         } else if (!strcmp(debug_cmd, "BREAK")) {
           if (argc < 6) {
-            debug_println("SET LOGIC DEBUG BREAK: missing PC address");
+            debug_println("SET LOGIC DEBUG BREAK: missing address");
             debug_println("  Usage: set logic <id> debug break <pc>");
+            debug_println("         set logic <id> debug break line <line_number>");
             return false;
           }
-          uint16_t pc = atoi(argv[5]);
-          cli_cmd_set_logic_debug_breakpoint(st_logic_get_state(), prog_idx, pc);
+
+          // Check for "line" keyword
+          const char* break_arg = normalize_alias(argv[5]);
+          if (!strcmp(break_arg, "LINE")) {
+            // Breakpoint by source line number
+            if (argc < 7) {
+              debug_println("SET LOGIC DEBUG BREAK LINE: missing line number");
+              debug_println("  Usage: set logic <id> debug break line <line_number>");
+              return false;
+            }
+            uint16_t line = atoi(argv[6]);
+            cli_cmd_set_logic_debug_breakpoint_line(st_logic_get_state(), prog_idx, line);
+          } else {
+            // Breakpoint by PC address
+            uint16_t pc = atoi(argv[5]);
+            cli_cmd_set_logic_debug_breakpoint(st_logic_get_state(), prog_idx, pc);
+          }
           return true;
         } else if (!strcmp(debug_cmd, "CLEAR")) {
           int pc = -1;  // Default: clear all
