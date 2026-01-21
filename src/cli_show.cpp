@@ -28,6 +28,7 @@
 #include "st_logic_config.h"
 #include "network_manager.h"
 #include "network_config.h"
+#include "http_server.h"
 #include <WiFi.h>
 #include "debug_flags.h"
 #include "debug.h"
@@ -2385,6 +2386,92 @@ void cli_cmd_show_wifi(void) {
   debug_println("  set wifi telnet-port <port>");
   debug_println("  connect wifi");
   debug_println("  disconnect wifi");
+  debug_println("  save (to persist changes)\n");
+}
+
+/* ============================================================================
+ * SHOW HTTP (v6.0.0+)
+ * ============================================================================ */
+
+void cli_cmd_show_http(void) {
+  debug_println("\n=== HTTP REST API STATUS ===");
+
+  // Server status
+  debug_print("Server Status: ");
+  if (http_server_is_running()) {
+    debug_println("RUNNING");
+  } else {
+    debug_println("STOPPED");
+  }
+
+  // Configuration
+  debug_println("\n--- Configuration ---");
+  debug_print("Enabled: ");
+  debug_println(g_persist_config.network.http.enabled ? "YES" : "NO");
+
+  debug_print("Port: ");
+  debug_print_uint(g_persist_config.network.http.port);
+  debug_println("");
+
+  debug_print("Auth: ");
+  debug_println(g_persist_config.network.http.auth_enabled ? "ENABLED" : "DISABLED");
+
+  if (g_persist_config.network.http.auth_enabled) {
+    debug_print("Username: ");
+    debug_println(g_persist_config.network.http.username);
+    debug_println("Password: ***");
+  }
+
+  // Statistics
+  const HttpServerStats *stats = http_server_get_stats();
+  if (stats) {
+    debug_println("\n--- Statistics ---");
+    debug_print("Total Requests: ");
+    debug_print_uint(stats->total_requests);
+    debug_println("");
+
+    debug_print("Successful (2xx): ");
+    debug_print_uint(stats->successful_requests);
+    debug_println("");
+
+    debug_print("Client Errors (4xx): ");
+    debug_print_uint(stats->client_errors);
+    debug_println("");
+
+    debug_print("Server Errors (5xx): ");
+    debug_print_uint(stats->server_errors);
+    debug_println("");
+
+    if (g_persist_config.network.http.auth_enabled) {
+      debug_print("Auth Failures: ");
+      debug_print_uint(stats->auth_failures);
+      debug_println("");
+    }
+  }
+
+  // API Endpoints
+  debug_println("\n--- API Endpoints ---");
+  debug_println("  GET  /api/status           - System info");
+  debug_println("  GET  /api/counters         - All counters");
+  debug_println("  GET  /api/counters/{1-4}   - Single counter");
+  debug_println("  GET  /api/timers           - All timers");
+  debug_println("  GET  /api/timers/{1-4}     - Single timer");
+  debug_println("  GET  /api/registers/hr/{addr}  - Read holding register");
+  debug_println("  POST /api/registers/hr/{addr}  - Write holding register");
+  debug_println("  GET  /api/registers/ir/{addr}  - Read input register");
+  debug_println("  GET  /api/registers/coils/{addr} - Read coil");
+  debug_println("  POST /api/registers/coils/{addr} - Write coil");
+  debug_println("  GET  /api/registers/di/{addr}  - Read discrete input");
+  debug_println("  GET  /api/logic            - ST Logic programs");
+  debug_println("  GET  /api/logic/{1-4}      - Single program");
+
+  // Commands
+  debug_println("\nCommands:");
+  debug_println("  set http enabled <on|off>");
+  debug_println("  set http port <port>");
+  debug_println("  set http auth <on|off>");
+  debug_println("  set http username <user>");
+  debug_println("  set http password <pass>");
   debug_println("  save (to persist changes)\n");
 }
 

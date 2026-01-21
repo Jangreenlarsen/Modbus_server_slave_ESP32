@@ -2,7 +2,7 @@
  * @file network_manager.cpp
  * @brief Network subsystem orchestration implementation
  *
- * Coordinates Wi-Fi driver, TCP server, and Telnet protocol.
+ * Coordinates Wi-Fi driver, TCP server, Telnet protocol, and HTTP REST API.
  */
 
 #include <string.h>
@@ -16,6 +16,7 @@
 #include "wifi_driver.h"
 #include "tcp_server.h"
 #include "telnet_server.h"
+#include "http_server.h"
 #include "network_config.h"
 #include "constants.h"
 #include "debug.h"
@@ -65,6 +66,12 @@ int network_manager_init(void)
   if (!network_mgr.telnet_server) {
     ESP_LOGE(TAG, "Failed to create Telnet server");
     return -1;
+  }
+
+  // Initialize HTTP REST API server (v6.0.0+)
+  if (http_server_init() != 0) {
+    ESP_LOGE(TAG, "Failed to initialize HTTP server");
+    // Non-fatal - continue without HTTP
   }
 
   network_mgr.initialized = 1;
@@ -124,6 +131,16 @@ int network_manager_connect(const NetworkConfig *config)
     ESP_LOGI(TAG, "Telnet server started on port %d", TELNET_PORT);
   }
 
+  // Start HTTP REST API server (v6.0.0+)
+  if (config->http.enabled) {
+    if (http_server_start(&config->http) != 0) {
+      ESP_LOGE(TAG, "Failed to start HTTP server");
+      // Non-fatal - continue without HTTP
+    } else {
+      ESP_LOGI(TAG, "HTTP server started on port %d", config->http.port);
+    }
+  }
+
   // Connect to Wi-Fi
   if (debug && debug->wifi_connect) {
     ESP_LOGI(TAG, "Calling wifi_driver_connect('%s', ...)", config->ssid);
@@ -144,6 +161,9 @@ int network_manager_stop(void)
   if (!network_mgr.initialized) {
     return -1;
   }
+
+  // Stop HTTP REST API server (v6.0.0+)
+  http_server_stop();
 
   // Stop Telnet server
   if (network_mgr.telnet_server) {
@@ -316,6 +336,16 @@ void network_manager_print_status(void)
 
   if (network_mgr.telnet_server) {
     debug_printf("Telnet Port:  %d\n", TELNET_PORT);
+  }
+
+  // HTTP REST API status (v6.0.0+)
+  debug_printf("HTTP API:     %s\n", http_server_is_running() ? "Running" : "Stopped");
+  if (http_server_is_running()) {
+    const HttpConfig *http_cfg = http_server_get_config();
+    if (http_cfg) {
+      debug_printf("HTTP Port:    %d\n", http_cfg->port);
+      debug_printf("HTTP Auth:    %s\n", http_cfg->auth_enabled ? "Enabled" : "Disabled");
+    }
   }
 
   debug_printf("\n");

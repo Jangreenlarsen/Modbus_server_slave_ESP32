@@ -285,6 +285,20 @@ typedef struct __attribute__((packed)) {
 } WatchdogState;
 
 /* ============================================================================
+ * HTTP REST API CONFIGURATION (v6.0.0+)
+ * ============================================================================ */
+
+typedef struct __attribute__((packed)) {
+  uint8_t enabled;                              // HTTP server enabled (1) or disabled (0)
+  uint16_t port;                                // HTTP port (default 80)
+  uint8_t auth_enabled;                         // Basic auth enabled (1) or disabled (0)
+  char username[HTTP_AUTH_USERNAME_MAX_LEN];    // Basic auth username
+  char password[HTTP_AUTH_PASSWORD_MAX_LEN];    // Basic auth password
+  uint8_t tls_enabled;                          // Future: HTTPS (currently unused)
+  uint8_t reserved[5];                          // Alignment/future use
+} HttpConfig;
+
+/* ============================================================================
  * NETWORK CONFIGURATION (v3.0+)
  * ============================================================================ */
 
@@ -308,8 +322,11 @@ typedef struct __attribute__((packed)) {
   char telnet_username[32];                     // Telnet username (max 31 chars + null)
   char telnet_password[64];                     // Telnet password (max 63 chars + null)
 
+  // HTTP REST API configuration (v6.0.0+)
+  HttpConfig http;                              // HTTP server configuration
+
   // Reserved for future (SSH, mDNS, etc.)
-  uint8_t reserved[8];                          // Future: SSH, certificates, mDNS
+  uint8_t reserved[4];                          // Future: SSH, certificates, mDNS (reduced from 8)
 } NetworkConfig;
 
 /* ============================================================================

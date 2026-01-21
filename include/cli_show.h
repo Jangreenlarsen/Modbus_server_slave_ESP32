@@ -111,6 +111,11 @@ void cli_cmd_show_echo(void);
 void cli_cmd_show_wifi(void);
 
 /**
+ * @brief Handle "show http" command (HTTP REST API status) (v6.0.0+)
+ */
+void cli_cmd_show_http(void);
+
+/**
  * @brief Handle "show debug" command (Debug flags status)
  */
 void cli_cmd_show_debug(void);

@@ -215,6 +215,28 @@ bool config_load_from_nvs(PersistConfig* out) {
 
       debug_println("CONFIG LOAD: Migration 8→9 complete");
       // Note: CRC will be invalid, but we'll recalculate on next save
+      // Fall through to v9→v10 migration
+    }
+
+    if (out->schema_version == 9) {
+      debug_println("CONFIG LOAD: Migrating schema 9 → 10 (HTTP REST API support)");
+
+      // Initialize HTTP config with defaults (new field in NetworkConfig)
+      out->network.http.enabled = 1;                  // HTTP enabled by default
+      out->network.http.port = HTTP_SERVER_PORT;      // Port 80
+      out->network.http.auth_enabled = 0;             // No auth by default
+      strncpy(out->network.http.username, "admin", sizeof(out->network.http.username) - 1);
+      out->network.http.username[sizeof(out->network.http.username) - 1] = '\0';
+      strncpy(out->network.http.password, "modbus123", sizeof(out->network.http.password) - 1);
+      out->network.http.password[sizeof(out->network.http.password) - 1] = '\0';
+      out->network.http.tls_enabled = 0;
+      memset(out->network.http.reserved, 0, sizeof(out->network.http.reserved));
+
+      // Update schema version
+      out->schema_version = 10;
+
+      debug_println("CONFIG LOAD: Migration 9→10 complete");
+      // Note: CRC will be invalid, but we'll recalculate on next save
     } else if (out->schema_version != CONFIG_SCHEMA_VERSION) {
       debug_print("ERROR: Unsupported schema version (stored=");
       debug_print_uint(out->schema_version);

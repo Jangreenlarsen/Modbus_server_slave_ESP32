@@ -48,6 +48,17 @@ void network_config_init_defaults(NetworkConfig *config)
   strncpy(config->telnet_password, "telnet123", sizeof(config->telnet_password) - 1);
   config->telnet_password[sizeof(config->telnet_password) - 1] = '\0';
 
+  // Default HTTP REST API configuration (v6.0.0+)
+  config->http.enabled = 1;                       // HTTP enabled by default
+  config->http.port = HTTP_SERVER_PORT;           // Port 80
+  config->http.auth_enabled = 0;                  // No auth by default (for ease of testing)
+  strncpy(config->http.username, "admin", sizeof(config->http.username) - 1);
+  config->http.username[sizeof(config->http.username) - 1] = '\0';
+  strncpy(config->http.password, "modbus123", sizeof(config->http.password) - 1);
+  config->http.password[sizeof(config->http.password) - 1] = '\0';
+  config->http.tls_enabled = 0;                   // Future: HTTPS
+  memset(config->http.reserved, 0, sizeof(config->http.reserved));
+
   // Default static IP (192.168.1.100)
   config->static_ip = htonl(0xC0A80164);       // 192.168.1.100
   config->static_gateway = htonl(0xC0A80101);  // 192.168.1.1
@@ -118,6 +129,19 @@ uint8_t network_config_validate(const NetworkConfig *config)
   if (config->telnet_port < 1 || config->telnet_port > 65535) {
     ESP_LOGE(TAG, "Invalid Telnet port: %d", config->telnet_port);
     return 0;
+  }
+
+  // Validate HTTP port (v6.0.0+)
+  if (config->http.enabled) {
+    if (config->http.port < 1 || config->http.port > 65535) {
+      ESP_LOGE(TAG, "Invalid HTTP port: %d", config->http.port);
+      return 0;
+    }
+    // Check port conflict with Telnet
+    if (config->telnet_enabled && config->http.port == config->telnet_port) {
+      ESP_LOGE(TAG, "HTTP port conflicts with Telnet port: %d", config->http.port);
+      return 0;
+    }
   }
 
   return 1;

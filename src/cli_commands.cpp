@@ -2094,6 +2094,98 @@ void cli_cmd_set_wifi(uint8_t argc, char* argv[]) {
   debug_println("Hint: Use 'save' to persist configuration to NVS");
 }
 
+/* ============================================================================
+ * HTTP REST API COMMANDS (v6.0.0+)
+ * ============================================================================ */
+
+void cli_cmd_set_http(uint8_t argc, char* argv[]) {
+  if (argc < 2) {
+    debug_println("SET HTTP: missing parameters");
+    debug_println("  Usage: set http <option> <value>");
+    debug_println("");
+    debug_println("  Options:");
+    debug_println("    enabled <on|off>    - Enable/disable HTTP REST API");
+    debug_println("    port <port>         - Set HTTP port (default: 80)");
+    debug_println("    auth <on|off>       - Enable/disable Basic Auth");
+    debug_println("    username <user>     - Set HTTP username");
+    debug_println("    password <pass>     - Set HTTP password");
+    debug_println("");
+    debug_println("  Note: Use 'save' to persist settings to NVS");
+    return;
+  }
+
+  const char* option = argv[0];
+  const char* value = argv[1];
+
+  if (!strcmp(option, "enabled") || !strcmp(option, "enable")) {
+    if (!strcmp(value, "on") || !strcmp(value, "ON") || !strcmp(value, "1")) {
+      g_persist_config.network.http.enabled = 1;
+      debug_println("HTTP REST API enabled");
+    } else if (!strcmp(value, "off") || !strcmp(value, "OFF") || !strcmp(value, "0")) {
+      g_persist_config.network.http.enabled = 0;
+      debug_println("HTTP REST API disabled");
+    } else {
+      debug_println("SET HTTP ENABLED: invalid value (use: on|off)");
+    }
+
+  } else if (!strcmp(option, "port")) {
+    uint16_t port = atoi(value);
+    if (port < 1 || port > 65535) {
+      debug_println("SET HTTP PORT: invalid port (1-65535)");
+      return;
+    }
+    g_persist_config.network.http.port = port;
+    debug_print("HTTP port set to: ");
+    debug_print_uint(port);
+    debug_println("");
+
+  } else if (!strcmp(option, "auth")) {
+    if (!strcmp(value, "on") || !strcmp(value, "ON") || !strcmp(value, "1")) {
+      g_persist_config.network.http.auth_enabled = 1;
+      debug_println("HTTP Basic Auth enabled");
+    } else if (!strcmp(value, "off") || !strcmp(value, "OFF") || !strcmp(value, "0")) {
+      g_persist_config.network.http.auth_enabled = 0;
+      debug_println("HTTP Basic Auth disabled");
+    } else {
+      debug_println("SET HTTP AUTH: invalid value (use: on|off)");
+    }
+
+  } else if (!strcmp(option, "username") || !strcmp(option, "user")) {
+    if (!value || value[0] == '\0') {
+      debug_println("SET HTTP USERNAME: missing username");
+      return;
+    }
+    if (strlen(value) > HTTP_AUTH_USERNAME_MAX_LEN - 1) {
+      debug_println("SET HTTP USERNAME: username too long (max 31 chars)");
+      return;
+    }
+    strncpy(g_persist_config.network.http.username, value, HTTP_AUTH_USERNAME_MAX_LEN - 1);
+    g_persist_config.network.http.username[HTTP_AUTH_USERNAME_MAX_LEN - 1] = '\0';
+    debug_print("HTTP username set to: ");
+    debug_println(g_persist_config.network.http.username);
+
+  } else if (!strcmp(option, "password") || !strcmp(option, "pass")) {
+    if (!value || value[0] == '\0') {
+      debug_println("SET HTTP PASSWORD: missing password");
+      return;
+    }
+    if (strlen(value) > HTTP_AUTH_PASSWORD_MAX_LEN - 1) {
+      debug_println("SET HTTP PASSWORD: password too long (max 63 chars)");
+      return;
+    }
+    strncpy(g_persist_config.network.http.password, value, HTTP_AUTH_PASSWORD_MAX_LEN - 1);
+    g_persist_config.network.http.password[HTTP_AUTH_PASSWORD_MAX_LEN - 1] = '\0';
+    debug_println("HTTP password set (hidden for security)");
+
+  } else {
+    debug_print("SET HTTP: unknown option '");
+    debug_print(option);
+    debug_println("' (use: enabled, port, auth, username, password)");
+  }
+
+  debug_println("Hint: Use 'save' to persist configuration to NVS");
+}
+
 void cli_cmd_connect_wifi(void) {
   if (!g_persist_config.network.enabled) {
     debug_println("CONNECT WIFI: Wi-Fi is disabled in config");

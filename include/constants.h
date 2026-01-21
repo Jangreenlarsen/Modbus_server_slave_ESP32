@@ -176,7 +176,7 @@ typedef enum {
  * EEPROM / NVS CONFIGURATION
  * ============================================================================ */
 
-#define CONFIG_SCHEMA_VERSION   9       // Current config schema version (v4.7.1+: STATIC register multi-register type support)
+#define CONFIG_SCHEMA_VERSION   10      // Current config schema version (v6.0.0+: HTTP REST API configuration)
 #define CONFIG_CRC_SEED         0xFFFF  // CRC16 initial value
 
 /* ============================================================================
@@ -294,14 +294,42 @@ typedef enum {
 #define MODBUS_MASTER_MAX_RETRIES          0     // No retries (ST Logic handles it)
 
 /* ============================================================================
+ * HTTP REST API CONFIGURATION (v6.0.0+)
+ * ============================================================================ */
+
+#define HTTP_SERVER_PORT                80          // Default HTTP port
+#define HTTP_SERVER_MAX_URI_LEN         128         // Max URI length for API endpoints
+#define HTTP_SERVER_MAX_RESP_SIZE       2048        // Max JSON response size
+#define HTTP_JSON_DOC_SIZE              1024        // ArduinoJson document size
+#define HTTP_AUTH_USERNAME_MAX_LEN      32          // Max username length
+#define HTTP_AUTH_PASSWORD_MAX_LEN      64          // Max password length
+
+/* NVS namespace for HTTP config */
+#define NVS_NAMESPACE_HTTP              "http"
+
+/* ============================================================================
  * VERSION & BUILD
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "5.3.0"
+#define PROJECT_VERSION     "6.0.0"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v6.0.0 (2026-01-21): FEAT-011 HTTP REST API for Node-RED integration
+ *                      - NEW: http_server.h/cpp - ESP-IDF HTTP server wrapper
+ *                      - NEW: api_handlers.h/cpp - JSON REST endpoint handlers
+ *                      - FEAT: GET /api/status - System info (version, uptime, heap, wifi)
+ *                      - FEAT: GET /api/counters, /api/counters/{1-4} - Counter data
+ *                      - FEAT: GET /api/timers, /api/timers/{1-4} - Timer data
+ *                      - FEAT: GET/POST /api/registers/hr/{addr} - Holding registers
+ *                      - FEAT: GET/POST /api/registers/coils/{addr} - Coils
+ *                      - FEAT: GET /api/registers/ir/{addr}, /di/{addr} - Input registers
+ *                      - FEAT: GET /api/logic, /api/logic/{1-4} - ST Logic programs
+ *                      - CLI: set http enabled/port/auth/username/password
+ *                      - CLI: show http - HTTP server status and statistics
+ *                      - DEP: ArduinoJson@^7.0.0 for JSON serialization
+ *                      - SCHEMA: v9→v10 migration for HttpConfig
  * v5.3.0 (2026-01-19): FEAT-008 ST Logic Debugger - Single-step, Breakpoints, Variable Inspection
  *                      - FEAT: Pause/continue/step/stop program execution
  *                      - FEAT: Breakpoints at PC addresses (max 8 per program)

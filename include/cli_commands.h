@@ -261,6 +261,20 @@ void cli_cmd_set_debug(uint8_t argc, char* argv[]);
 void cli_cmd_set_wifi(uint8_t argc, char* argv[]);
 
 /**
+ * @brief Handle "set http" command for HTTP REST API configuration (v6.0.0+)
+ * @param argc Argument count
+ * @param argv Argument values (e.g., {"enabled", "on"})
+ *
+ * Usage:
+ *   set http enabled on|off
+ *   set http port 8080
+ *   set http auth on|off
+ *   set http username admin
+ *   set http password secret
+ */
+void cli_cmd_set_http(uint8_t argc, char* argv[]);
+
+/**
  * @brief Handle "connect wifi" command (start Wi-Fi connection)
  */
 void cli_cmd_connect_wifi(void);

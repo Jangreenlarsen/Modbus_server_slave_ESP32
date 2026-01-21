@@ -196,6 +196,7 @@ static const char* normalize_alias(const char* s) {
   if (str_eq_i(s, "COIL")) return "COIL";
   if (str_eq_i(s, "HOSTNAME")) return "HOSTNAME";
   if (str_eq_i(s, "WIFI")) return "WIFI";
+  if (str_eq_i(s, "HTTP") || str_eq_i(s, "REST") || str_eq_i(s, "API")) return "HTTP";
   if (str_eq_i(s, "ENABLE")) return "ENABLE";
   if (str_eq_i(s, "DISABLE")) return "DISABLE";
   if (str_eq_i(s, "PERSIST")) return "PERSIST";
@@ -295,6 +296,29 @@ static void print_wifi_help(void) {
   debug_println("  set wifi port <port>       - Sæt Telnet port (default 23)");
   debug_println("  set wifi telnet_user <u>   - Sæt Telnet username");
   debug_println("  set wifi telnet_pass <p>   - Sæt Telnet password");
+  debug_println("");
+}
+
+static void print_http_help(void) {
+  debug_println("");
+  debug_println("Available 'set http' commands:");
+  debug_println("  set http enabled <on|off>  - Aktivér/deaktivér HTTP REST API");
+  debug_println("  set http port <port>       - Sæt HTTP port (default 80)");
+  debug_println("  set http auth <on|off>     - Aktivér/deaktivér Basic Auth");
+  debug_println("  set http username <user>   - Sæt HTTP username");
+  debug_println("  set http password <pass>   - Sæt HTTP password");
+  debug_println("");
+  debug_println("API Endpoints:");
+  debug_println("  GET  /api/status           - System info (version, uptime, heap)");
+  debug_println("  GET  /api/counters         - Alle counters");
+  debug_println("  GET  /api/counters/{1-4}   - Enkelt counter");
+  debug_println("  GET  /api/timers           - Alle timers");
+  debug_println("  GET  /api/timers/{1-4}     - Enkelt timer");
+  debug_println("  GET  /api/registers/hr/{addr}  - Læs holding register");
+  debug_println("  POST /api/registers/hr/{addr}  - Skriv holding register");
+  debug_println("  GET  /api/registers/coils/{addr} - Læs coil");
+  debug_println("  POST /api/registers/coils/{addr} - Skriv coil");
+  debug_println("  GET  /api/logic            - ST Logic status");
   debug_println("");
 }
 
@@ -621,6 +645,9 @@ bool cli_parser_execute(char* line) {
     } else if (!strcmp(what, "WIFI")) {
       cli_cmd_show_wifi();
       return true;
+    } else if (!strcmp(what, "HTTP")) {
+      cli_cmd_show_http();
+      return true;
     } else if (!strcmp(what, "DEBUG")) {
       cli_cmd_show_debug();
       return true;
@@ -942,6 +969,22 @@ bool cli_parser_execute(char* line) {
         return true;
       }
       cli_cmd_set_wifi(argc - 2, argv + 2);
+      return true;
+    } else if (!strcmp(what, "HTTP")) {
+      // Check for help
+      if (argc >= 3) {
+        const char* subwhat = normalize_alias(argv[2]);
+        if (!strcmp(subwhat, "HELP") || !strcmp(subwhat, "?")) {
+          print_http_help();
+          return true;
+        }
+      }
+      // set http <option> <value>
+      if (argc < 3) {
+        print_http_help();
+        return true;
+      }
+      cli_cmd_set_http(argc - 2, argv + 2);
       return true;
     } else if (!strcmp(what, "PERSIST")) {
       // Check for help

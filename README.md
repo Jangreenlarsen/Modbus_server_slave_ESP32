@@ -1,8 +1,8 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v5.3.0 | **Build:** #1084 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v6.0.0 | **Build:** #1105 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
-En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, telnet CLI interface, og komplet Modbus register dokumentation.
+En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, **HTTP REST API** for Node-RED integration, telnet CLI interface, og komplet Modbus register dokumentation.
 
 ---
 
@@ -63,6 +63,7 @@ Remote I/O Boards (Modbus Slaves)
 | **Configure Modbus** | [MODBUS_REGISTER_MAP.md](MODBUS_REGISTER_MAP.md) |
 | **Learn ST Logic** | [docs/ST_USAGE_GUIDE.md](docs/ST_USAGE_GUIDE.md) or [docs/README_ST_LOGIC.md](docs/README_ST_LOGIC.md) |
 | **Debug ST programs** | [ST_DEBUG_GUIDE.md](ST_DEBUG_GUIDE.md) |
+| **Use REST API** | [docs/REST_API.md](docs/REST_API.md) |
 | **Configure counters** | [docs/COUNTER_COMPARE_QUICK_START.md](docs/COUNTER_COMPARE_QUICK_START.md) |
 | **Set up GPIO** | [docs/GPIO_MAPPING_GUIDE.md](docs/GPIO_MAPPING_GUIDE.md) |
 | **Contribute code** | [CLAUDE_INDEX.md](CLAUDE_INDEX.md) → [CLAUDE_WORKFLOW.md](CLAUDE_WORKFLOW.md) |
@@ -769,6 +770,42 @@ set logic debug:false            # Disable debug output
 - **Echo Control:** Configurable remote echo (on/off)
 - **Graceful Disconnect:** `exit` command
 - **Session Timeout:** Configurable inactivity timeout
+
+#### HTTP REST API (v6.0.0+)
+- **Port:** 80 (default, konfigurerbar)
+- **Protocol:** HTTP/1.1 med JSON responses
+- **Authentication:** Optional Basic Auth
+- **Use Cases:**
+  - Node-RED integration via HTTP Request nodes
+  - Web dashboards og visualisering
+  - Third-party system integration
+  - Remote monitoring og control
+- **Endpoints:** Se [docs/REST_API.md](docs/REST_API.md) for komplet dokumentation
+- **Quick Test:**
+```bash
+# System status
+curl http://192.168.1.100/api/status
+
+# Læs alle counters
+curl http://192.168.1.100/api/counters
+
+# Læs holding register 100
+curl http://192.168.1.100/api/registers/hr/100
+
+# Skriv til holding register
+curl -X POST -H "Content-Type: application/json" \
+     -d '{"value": 12345}' \
+     http://192.168.1.100/api/registers/hr/100
+```
+- **CLI Configuration:**
+```bash
+set http enabled on|off        # Enable/disable HTTP server
+set http port <port>           # Set HTTP port (default: 80)
+set http auth on|off           # Enable/disable Basic Auth
+set http username <user>       # Set auth username
+set http password <pass>       # Set auth password
+show http                      # Show HTTP status & statistics
+```
 
 #### Network Configuration Persistence
 - **NVS Storage:** All network settings saved to non-volatile storage
