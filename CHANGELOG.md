@@ -4,6 +4,235 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [6.0.3] - 2026-01-25 📋 (Test Plan Restructuring)
+
+### 📋 DOCUMENTATION
+
+**Test Plan Modularisering**
+- **Problem:** `ST_COMPLETE_TEST_PLAN.md` var 46.000+ tokens - for stor til effektiv brug
+- **Løsning:** Opdelt i 9 fokuserede testfiler i ny `tests/` mappe
+
+**Ny Test Struktur:**
+| Fil | Indhold | Tests |
+|-----|---------|-------|
+| `tests/TEST_INDEX.md` | Navigation hub | - |
+| `tests/API_TEST_PLAN.md` | **NY:** HTTP REST API tests | 41 |
+| `tests/ST_TEST_OPERATORS.md` | Aritmetik, logik, bit-shift, sammenligning | 20 |
+| `tests/ST_TEST_BUILTINS.md` | Math, clamping, trig, conversion, persistence | 23 |
+| `tests/ST_TEST_TIMERS.md` | TON/TOF/TP timer funktioner | 6 |
+| `tests/ST_TEST_GPIO.md` | GPIO & Hardware tests | 4 |
+| `tests/ST_TEST_CONTROL.md` | IF, CASE, FOR, WHILE, REPEAT | 6 |
+| `tests/ST_TEST_TYPES.md` | INT/DINT/REAL, EXPORT, TIME literals | 12 |
+| `tests/ST_TEST_COMBINED.md` | Kombinerede tests (Fase 2) | 10 |
+| **Total** | | **122+** |
+
+**API Test Plan Highlights:**
+- Konfiguration tests (enable/disable, port, persistence)
+- Endpoint tests (status, counters, timers, registers, logic)
+- Authentication tests (credentials, 401 errors)
+- Error handling tests (404, invalid JSON, concurrent requests)
+- Performance tests (response time, throughput, memory)
+- Alle tests har copy/paste curl kommandoer
+
+**Dokumentation Opdateringer:**
+- `CLAUDE_INDEX.md` - Tilføjet tests/ mappe reference
+- `README.md` - Tilføjet Test Documentation sektion
+
+### 📁 FILES ADDED
+
+| File | Description |
+|------|-------------|
+| `tests/TEST_INDEX.md` | Test navigation hub |
+| `tests/API_TEST_PLAN.md` | HTTP REST API testplan |
+| `tests/ST_TEST_OPERATORS.md` | Operator tests |
+| `tests/ST_TEST_BUILTINS.md` | Builtin function tests |
+| `tests/ST_TEST_TIMERS.md` | Timer tests |
+| `tests/ST_TEST_GPIO.md` | GPIO tests |
+| `tests/ST_TEST_CONTROL.md` | Control structure tests |
+| `tests/ST_TEST_TYPES.md` | Type system tests |
+| `tests/ST_TEST_COMBINED.md` | Combined tests |
+
+### 🏗️ BUILD
+
+- **Version:** 6.0.3
+- **Build:** #1133
+- **Schema:** 10 (unchanged)
+
+---
+
+## [6.0.2] - 2026-01-23 🛠️ (NVS Fix + API Discovery)
+
+### ✨ NEW FEATURES
+
+**GET /api/ - API Discovery Endpoint**
+- **Purpose:** Lists all available REST API endpoints with descriptions
+- **Response:** JSON with name, version, build, and endpoints array
+- **Usage:** Helps clients discover available API functionality
+- **Fix:** Uses heap allocation to prevent stack overflow crash
+
+**ST Logic Source Upload/Download via API**
+- **GET /api/logic/{1-4}/source** - Download ST program source code as JSON
+- **POST /api/logic/{1-4}/source** - Upload ST program (body: `{"source": "VAR..."}`)
+- **Response:** Includes program name, source, size, compile status
+- **Limit:** Max 8KB source code per upload
+- **Fix:** URI routing via api_handler_logic_single (wildcard matching issue)
+
+### 🐛 BUG FIXES
+
+**HTTP Server crash på ukendte URLs (BUG-194)**
+- **Problem:** System crashede når ukendte API endpoints blev kaldt
+- **Årsag:** Ingen error handler for 404/405 errors + stack overflow (4KB for lille)
+- **Fix:** Custom error handler returnerer JSON fejlbesked i stedet for crash
+- **Fix:** Stack size øget fra 4KB til 8KB
+
+**Telnet command history viser escape sekvenser (BUG-195)**
+- **Problem:** Pil op/ned viste `^[[A^[[B` i stedet for kommandoer fra historik
+- **Årsag:** Manglende IAC negotiation + klient gjorde local echo
+- **Fix:** Server sender nu WILL ECHO + DONT ECHO ved connection
+- **Fix:** Line redraw bruger kompatibel metode (ingen ANSI codes)
+
+**NVS Save Error 4357 (ESP_ERR_NVS_NOT_ENOUGH_SPACE)**
+- **Problem:** NVS partition becomes fragmented after multiple save operations
+- **Symptom:** `save` command fails with error 4357 after running `defaults`
+- **Root cause:** NVS pages fill up and cannot allocate new blob without erasing old
+- **Fix:** Added `reset nvs` command to erase and reinitialize NVS partition
+- **Hint:** Error message now suggests running `reset nvs` to fix
+
+### ✨ NEW FEATURES
+
+**reset nvs Command**
+- **CLI:** `reset nvs` - Erases entire NVS partition and reinitializes
+- **Purpose:** Fixes NVS fragmentation that prevents saving configuration
+- **Warning:** Deletes ALL saved configuration - use `defaults` then `save` afterwards
+
+### 📁 FILES CHANGED
+
+| File | Change |
+|------|--------|
+| `src/api_handlers.cpp` | +api_handler_endpoints(), +logic_source_get/post() |
+| `src/http_server.cpp` | +uri_endpoints, +uri_logic_source_get/post |
+| `include/api_handlers.h` | +api_handler_endpoints(), +logic_source declarations |
+| `src/cli_show.cpp` | +source endpoints in show http |
+| `src/cli_parser.cpp` | +reset nvs command, +nvs_flash.h include |
+| `src/config_save.cpp` | +sizeof in error message, +hint for error 4357 |
+| `include/constants.h` | Version 6.0.2 |
+
+### 🏗️ BUILD
+
+- **Version:** 6.0.2
+- **Build:** #1132
+- **Schema:** 10 (unchanged)
+
+---
+
+## [6.0.1] - 2026-01-23 🔧 (HTTP API Enhancements & Bugfixes)
+
+### 🐛 BUG FIXES
+
+**BUG-192: HTTP Basic Auth virker ikke**
+- **Problem:** Base64-encoded credentials manglede nul-terminering efter `mbedtls_base64_encode()`
+- **Symptom:** `strcmp()` fejlede altid, auth blev afvist selvom credentials var korrekte
+- **Fix:** Tilføjet `encoded[encoded_len] = '\0'` efter encoding (http_server.cpp:350)
+
+**defaults kommando manglede HTTP config**
+- **Problem:** `cli_cmd_defaults()` havde sin egen minimalistiske initialisering
+- **Fix:** Bruger nu `config_struct_create_default()` som inkluderer alle subsystemer
+
+**config_struct_create_default() manglede network defaults**
+- **Problem:** Funktionen kaldte ikke `network_config_init_defaults()`
+- **Fix:** Tilføjet kald så HTTP/WiFi/Telnet config initialiseres korrekt
+
+### ✨ NEW FEATURES
+
+**HTTP API enable/disable (separat fra HTTP server)**
+- **CLI:** `set http api enable` / `set http api disable`
+- **Formål:** Tillader HTTP server at køre uden REST API endpoints (for fremtidige udvidelser)
+- **Config output:** Viser nu `api: enabled/disabled` i [API HTTP] sektion
+
+**Debug flags for HTTP**
+- **CLI:** `set debug http-server on|off` - Debug HTTP server start/stop/config
+- **CLI:** `set debug http-api on|off` - Debug API requests/responses med URI og status
+- **show debug:** Viser nu `http_server` og `http_api` flags
+
+**Reset HTTP statistics**
+- **CLI:** `reset http stats` - Nulstiller alle HTTP API statistikker
+
+**Forbedret config output**
+- **[API HTTP] sektion:** Viser nu `server`, `port`, `api`, `auth` status
+- **SET COMMANDS:** Viser `set http api enable/disable` kommando
+
+### 📁 FILES CHANGED
+
+| File | Change |
+|------|--------|
+| `include/types.h` | +api_enabled i HttpConfig, +http_server/http_api i DebugFlags |
+| `include/debug_flags.h` | +debug_flags_set_http_server/http_api() |
+| `src/debug_flags.cpp` | +implementering af nye flags |
+| `src/cli_commands.cpp` | Opdateret set debug, defaults bruger config_struct_create_default() |
+| `src/cli_show.cpp` | Opdateret show debug, config output, show http |
+| `src/cli_parser.cpp` | +reset http stats kommando, +http_server.h include |
+| `src/http_server.cpp` | +debug output, +auth fix (nul-terminering) |
+| `src/api_handlers.cpp` | +debug logging i api_send_json/api_send_error |
+| `src/config_struct.cpp` | +network_config_init_defaults() kald |
+| `BUGS_INDEX.md` | +BUG-192, opdateret FEAT-011 |
+
+### 🏗️ BUILD
+
+- **Version:** 6.0.1
+- **Build:** #1113
+- **Schema:** 10 (unchanged)
+
+---
+
+## [6.0.0] - 2026-01-21 🌐 (HTTP REST API - FEAT-011)
+
+### ✨ NEW FEATURES
+
+**HTTP REST API for Node-RED Integration**
+- **Feature:** Full REST API with JSON responses for all system data
+- **Server:** ESP-IDF esp_http_server med Basic Auth support
+- **Library:** ArduinoJson v7.0.0 for JSON serialization
+
+**API Endpoints:**
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | /api/status | System info (version, uptime, heap, wifi) |
+| GET | /api/counters | All 4 counters |
+| GET | /api/counters/{1-4} | Single counter |
+| GET | /api/timers | All 4 timers |
+| GET | /api/timers/{1-4} | Single timer |
+| GET | /api/registers/hr/{addr} | Read holding register |
+| POST | /api/registers/hr/{addr} | Write holding register |
+| GET | /api/registers/ir/{addr} | Read input register |
+| GET | /api/registers/coils/{addr} | Read coil |
+| POST | /api/registers/coils/{addr} | Write coil |
+| GET | /api/registers/di/{addr} | Read discrete input |
+| GET | /api/logic | All ST Logic programs |
+| GET | /api/logic/{1-4} | Single program |
+
+**CLI Commands:**
+- `set http enable/disable` - Enable/disable HTTP server
+- `set http port <port>` - Set HTTP port (default 80)
+- `set http auth enable/disable` - Enable/disable Basic Auth
+- `set http username <user>` - Set auth username
+- `set http password <pass>` - Set auth password
+- `show http` - Show HTTP server status and statistics
+
+### 📁 FILES ADDED
+
+- `include/http_server.h` - HTTP server API
+- `src/http_server.cpp` - ESP-IDF HTTP server wrapper
+- `include/api_handlers.h` - REST endpoint handlers
+- `src/api_handlers.cpp` - JSON response building
+
+### 🏗️ BUILD
+
+- **Version:** 6.0.0
+- **Build:** #1108
+- **Schema:** 10 (migration from v9 adds HttpConfig)
+
+---
+
 ## [4.8.0] - 2026-01-07 🎛️ (Signal Processing Function Blocks)
 
 ### ✨ NEW FEATURES

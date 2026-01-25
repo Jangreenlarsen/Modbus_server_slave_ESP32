@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v6.0.0 | **Build:** #1105 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v6.0.3 | **Build:** #1133 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, **HTTP REST API** for Node-RED integration, telnet CLI interface, og komplet Modbus register dokumentation.
 
@@ -68,6 +68,7 @@ Remote I/O Boards (Modbus Slaves)
 | **Set up GPIO** | [docs/GPIO_MAPPING_GUIDE.md](docs/GPIO_MAPPING_GUIDE.md) |
 | **Contribute code** | [CLAUDE_INDEX.md](CLAUDE_INDEX.md) → [CLAUDE_WORKFLOW.md](CLAUDE_WORKFLOW.md) |
 | **Check known bugs** | [BUGS_INDEX.md](BUGS_INDEX.md) |
+| **Run tests** | [tests/TEST_INDEX.md](tests/TEST_INDEX.md) |
 | **See version history** | [CHANGELOG.md](CHANGELOG.md) |
 
 ---
@@ -118,10 +119,23 @@ Remote I/O Boards (Modbus Slaves)
 | **[TIMING_ANALYSIS.md](TIMING_ANALYSIS.md)** | Timing specifications |
 | **[ST_MONITORING_IMPLEMENTATION_STATUS.md](ST_MONITORING_IMPLEMENTATION_STATUS.md)** | Monitoring implementation status |
 
-**Testing:**
+**Testing (Modular Test Plans):**
 | Document | Description |
 |----------|-------------|
-| **[ST_COMPLETE_TEST_PLAN.md](ST_COMPLETE_TEST_PLAN.md)** | 65 test cases (copy/paste ready) |
+| **[tests/TEST_INDEX.md](tests/TEST_INDEX.md)** | Test navigation hub - start here |
+| **[tests/API_TEST_PLAN.md](tests/API_TEST_PLAN.md)** | HTTP REST API tests (41 tests) |
+| **[tests/ST_TEST_OPERATORS.md](tests/ST_TEST_OPERATORS.md)** | Operator tests: +, -, *, /, AND, OR, etc. (20 tests) |
+| **[tests/ST_TEST_BUILTINS.md](tests/ST_TEST_BUILTINS.md)** | Builtin functions: ABS, SQRT, MIN, MAX, etc. (23 tests) |
+| **[tests/ST_TEST_TIMERS.md](tests/ST_TEST_TIMERS.md)** | Timer tests: TON, TOF, TP (6 tests) |
+| **[tests/ST_TEST_GPIO.md](tests/ST_TEST_GPIO.md)** | GPIO & Hardware tests (4 tests) |
+| **[tests/ST_TEST_CONTROL.md](tests/ST_TEST_CONTROL.md)** | Control structures: IF, CASE, FOR, WHILE (6 tests) |
+| **[tests/ST_TEST_TYPES.md](tests/ST_TEST_TYPES.md)** | Type system: INT, DINT, REAL, EXPORT (12 tests) |
+| **[tests/ST_TEST_COMBINED.md](tests/ST_TEST_COMBINED.md)** | Combined/integration tests (10 tests) |
+
+**Legacy Test Documentation:**
+| Document | Description |
+|----------|-------------|
+| **[ST_COMPLETE_TEST_PLAN.md](ST_COMPLETE_TEST_PLAN.md)** | Original monolithic test plan (archived) |
 | **[ST_COMPLEX_TEST_CASES.md](ST_COMPLEX_TEST_CASES.md)** | Advanced test scenarios |
 | **[docs/ST_FUNCTION_TESTS.md](docs/ST_FUNCTION_TESTS.md)** | Function-specific tests |
 | **[docs/ST_LATCH_TEST_CASES.md](docs/ST_LATCH_TEST_CASES.md)** | SR/RS latch test cases |

@@ -53,6 +53,18 @@ Bug tracking:
 ├─ BUGS_INDEX.md - Quick bug reference (~500 tokens)
 └─ BUGS.md - Full detailed bugs (5000+ tokens)
 
+Test documentation:
+└─ tests/ - Strukturerede testplaner
+   ├─ TEST_INDEX.md - Test navigation hub
+   ├─ API_TEST_PLAN.md - HTTP REST API tests (41 tests)
+   ├─ ST_TEST_OPERATORS.md - Operator tests (20 tests)
+   ├─ ST_TEST_BUILTINS.md - Builtin function tests (23 tests)
+   ├─ ST_TEST_TIMERS.md - TON/TOF/TP tests (6 tests)
+   ├─ ST_TEST_GPIO.md - GPIO & Hardware tests (4 tests)
+   ├─ ST_TEST_CONTROL.md - Control structure tests (6 tests)
+   ├─ ST_TEST_TYPES.md - Type system tests (12 tests)
+   └─ ST_TEST_COMBINED.md - Combined tests (10 tests)
+
 Project files:
 ├─ src/ - All C++ implementation files (30+)
 ├─ include/ - All headers (.h files)
@@ -85,6 +97,11 @@ Project files:
 1. Check [`BUGS_INDEX.md`](BUGS_INDEX.md) - might already be known
 2. Read [`BUGS.md`](BUGS.md) for details on that bug
 3. If new bug, document it in BUGS.md
+
+### "I need to run tests"
+1. Open [`tests/TEST_INDEX.md`](tests/TEST_INDEX.md) for overview
+2. Choose relevant test file (API, ST operators, etc.)
+3. Follow test procedures with copy/paste CLI commands
 
 ---
 
@@ -193,7 +210,7 @@ EXCEPTION:
 
 ---
 
-**Last Updated:** 2026-01-20
-**Version:** v5.3.0
-**Build:** #1084
+**Last Updated:** 2026-01-25
+**Version:** v6.0.2
+**Build:** #1132
 **Status:** ✅ Active & Maintained

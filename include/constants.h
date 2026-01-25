@@ -312,10 +312,31 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "6.0.0"
+#define PROJECT_VERSION     "6.0.3"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v6.0.3 (2026-01-25): Test plan restructuring
+ *                      - DOC: Split ST_COMPLETE_TEST_PLAN.md (46k tokens) into 9 modular files
+ *                      - DOC: New tests/ folder with TEST_INDEX.md as navigation hub
+ *                      - DOC: Added API_TEST_PLAN.md with 41 HTTP REST API test cases
+ *                      - DOC: Updated CLAUDE_INDEX.md, README.md, CHANGELOG.md
+ *                      - Build #1135
+ * v6.0.2 (2026-01-23): NVS fix + API discovery
+ *                      - FEAT: GET /api/ - Discovery endpoint listing all API endpoints
+ *                      - FEAT: reset nvs - New CLI command to erase NVS partition
+ *                      - FIX: NVS save error 4357 (ESP_ERR_NVS_NOT_ENOUGH_SPACE) with helpful hint
+ *                      - Build #1119
+ * v6.0.1 (2026-01-23): HTTP API enhancements and bugfixes
+ *                      - FEAT: set http api enable/disable - Separate control for REST API endpoints
+ *                      - FEAT: set debug http-server/http-api on/off - Debug flags for HTTP
+ *                      - FEAT: reset http stats - Reset HTTP API statistics from CLI
+ *                      - FEAT: show debug now includes http_server and http_api flags
+ *                      - FEAT: config output now shows [API HTTP] section with server/api/auth status
+ *                      - BUG-192: Fixed HTTP Basic Auth (missing null-terminator after base64 encode)
+ *                      - FIX: defaults command now uses centralized config_struct_create_default()
+ *                      - FIX: config_struct_create_default() now calls network_config_init_defaults()
+ *                      - Build #1113
  * v6.0.0 (2026-01-21): FEAT-011 HTTP REST API for Node-RED integration
  *                      - NEW: http_server.h/cpp - ESP-IDF HTTP server wrapper
  *                      - NEW: api_handlers.h/cpp - JSON REST endpoint handlers
