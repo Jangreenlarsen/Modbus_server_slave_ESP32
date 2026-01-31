@@ -11,6 +11,7 @@
 
 #include <stdint.h>
 #include "st_types.h"
+#include "constants.h"
 #include "config_struct.h"
 #include "st_debug.h"  // FEAT-008: Debugger support
 
@@ -69,7 +70,7 @@ typedef struct {
 
 typedef struct {
   // 4 independent logic programs
-  st_logic_program_config_t programs[4];
+  st_logic_program_config_t programs[ST_LOGIC_MAX_PROGRAMS];
 
   // Global source code pool (dynamic allocation, v4.7.1)
   char source_pool[ST_LOGIC_POOL_SIZE];  // 8KB shared pool for all programs
@@ -87,7 +88,7 @@ typedef struct {
   uint32_t total_cycles;      // Total number of cycles executed
 
   // FEAT-008: Per-program debugger state
-  st_debug_state_t debugger[4];  // Debugger state for each program
+  st_debug_state_t debugger[ST_LOGIC_MAX_PROGRAMS];  // Debugger state for each program
 
 } st_logic_engine_state_t;
 

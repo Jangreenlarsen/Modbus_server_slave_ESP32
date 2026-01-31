@@ -52,7 +52,7 @@ void registers_set_holding_register(uint16_t addr, uint16_t value) {
   holding_regs[addr] = value;
 
   // Process ST Logic control registers
-  if (addr >= ST_LOGIC_CONTROL_REG_BASE && addr < ST_LOGIC_CONTROL_REG_BASE + 4) {
+  if (addr >= ST_LOGIC_CONTROL_REG_BASE && addr < ST_LOGIC_CONTROL_REG_BASE + ST_LOGIC_MAX_PROGRAMS) {
     registers_process_st_logic_control(addr, value);
   }
 
@@ -287,7 +287,7 @@ void registers_update_st_logic_status(void) {
   st_logic_engine_state_t *st_state = st_logic_get_state();
 
   // Update status for each of 4 logic programs
-  for (uint8_t prog_id = 0; prog_id < 4; prog_id++) {
+  for (uint8_t prog_id = 0; prog_id < ST_LOGIC_MAX_PROGRAMS; prog_id++) {
     st_logic_program_config_t *prog = st_logic_get_program(st_state, prog_id);
 
     if (!prog) continue;
@@ -443,7 +443,7 @@ void registers_update_st_logic_status(void) {
 
 void registers_process_st_logic_control(uint16_t addr, uint16_t value) {
   // Determine which program this control register is for
-  if (addr < ST_LOGIC_CONTROL_REG_BASE || addr >= ST_LOGIC_CONTROL_REG_BASE + 4) {
+  if (addr < ST_LOGIC_CONTROL_REG_BASE || addr >= ST_LOGIC_CONTROL_REG_BASE + ST_LOGIC_MAX_PROGRAMS) {
     return;  // Not a control register
   }
 

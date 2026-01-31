@@ -22,10 +22,17 @@
 #include "config_struct.h"
 #include "registers.h"
 #include "counter_engine.h"
+#include "counter_config.h"
 #include "timer_engine.h"
 #include "st_logic_config.h"
 #include "wifi_driver.h"
 #include "build_version.h"
+#include "debug_flags.h"
+#include "debug.h"
+#include "config_save.h"
+#include "config_load.h"
+#include "config_apply.h"
+#include "gpio_driver.h"
 
 static const char *TAG = "API_HDLR";
 
@@ -36,6 +43,10 @@ extern void http_server_stat_client_error(void);
 extern void http_server_stat_server_error(void);
 extern void http_server_stat_auth_failure(void);
 extern bool http_server_check_auth(httpd_req_t *req);
+
+// Forward declarations for logic source handlers (defined later in this file)
+esp_err_t api_handler_logic_source_get(httpd_req_t *req);
+esp_err_t api_handler_logic_source_post(httpd_req_t *req);
 
 /* ============================================================================
  * UTILITY FUNCTIONS
@@ -70,6 +81,11 @@ int api_extract_id_from_uri(httpd_req_t *req, const char *prefix)
 
 esp_err_t api_send_error(httpd_req_t *req, int status, const char *error_msg)
 {
+  DebugFlags* dbg = debug_flags_get();
+  if (dbg->http_api) {
+    debug_printf("[API] %s -> %d %s\n", req->uri, status, error_msg);
+  }
+
   char buf[256];
   snprintf(buf, sizeof(buf), "{\"error\":\"%s\",\"status\":%d}", error_msg, status);
 
@@ -93,6 +109,11 @@ esp_err_t api_send_error(httpd_req_t *req, int status, const char *error_msg)
 
 esp_err_t api_send_json(httpd_req_t *req, const char *json_str)
 {
+  DebugFlags* dbg = debug_flags_get();
+  if (dbg->http_api) {
+    debug_printf("[API] %s -> 200 OK (%u bytes)\n", req->uri, (unsigned)strlen(json_str));
+  }
+
   httpd_resp_set_type(req, "application/json");
   httpd_resp_sendstr(req, json_str);
   http_server_stat_success();
@@ -110,6 +131,75 @@ esp_err_t api_send_json(httpd_req_t *req, const char *json_str)
       return api_send_error(req, 401, "Authentication required"); \
     } \
   } while(0)
+
+/* ============================================================================
+ * GET /api/ - API Discovery (list all endpoints)
+ * ============================================================================ */
+
+esp_err_t api_handler_endpoints(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  // Use heap allocation for larger response (endpoints list ~5KB with v6.0.4+ additions)
+  char *buf = (char *)malloc(6144);
+  if (!buf) {
+    return api_send_error(req, 500, "Out of memory");
+  }
+
+  // Build JSON manually for efficiency
+  int len = snprintf(buf, 6144,
+    "{"
+    "\"name\":\"Modbus ESP32 REST API\","
+    "\"version\":\"%s\","
+    "\"build\":%d,"
+    "\"endpoints\":["
+    "{\"method\":\"GET\",\"path\":\"/api/\",\"desc\":\"List endpoints\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/status\",\"desc\":\"System status\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/config\",\"desc\":\"Full configuration\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/counters\",\"desc\":\"All counters\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/counters/{1-4}\",\"desc\":\"Single counter\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/counters/{1-4}/reset\",\"desc\":\"Reset counter\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/counters/{1-4}/start\",\"desc\":\"Start counter\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/counters/{1-4}/stop\",\"desc\":\"Stop counter\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/timers\",\"desc\":\"All timers\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/timers/{1-4}\",\"desc\":\"Single timer\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/registers/hr/{addr}\",\"desc\":\"Read HR\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/registers/hr/{addr}\",\"desc\":\"Write HR\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/registers/ir/{addr}\",\"desc\":\"Read IR\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/registers/coils/{addr}\",\"desc\":\"Read coil\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/registers/coils/{addr}\",\"desc\":\"Write coil\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/registers/di/{addr}\",\"desc\":\"Read DI\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/gpio\",\"desc\":\"All GPIO mappings\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/gpio/{pin}\",\"desc\":\"Single GPIO\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/gpio/{pin}\",\"desc\":\"Write GPIO\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/logic\",\"desc\":\"ST Logic programs\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/logic/{1-4}\",\"desc\":\"Single program\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/logic/{1-4}/source\",\"desc\":\"Download ST code\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/logic/{1-4}/source\",\"desc\":\"Upload ST code\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/logic/{1-4}/enable\",\"desc\":\"Enable program\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/logic/{1-4}/disable\",\"desc\":\"Disable program\"},"
+    "{\"method\":\"DELETE\",\"path\":\"/api/logic/{1-4}\",\"desc\":\"Delete program\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/logic/{1-4}/stats\",\"desc\":\"Program stats\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/debug\",\"desc\":\"Debug flags\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/debug\",\"desc\":\"Set debug flags\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/system/reboot\",\"desc\":\"Reboot ESP32\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/system/save\",\"desc\":\"Save config to NVS\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/system/load\",\"desc\":\"Load config from NVS\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/system/defaults\",\"desc\":\"Reset to defaults\"}"
+    "]"
+    "}",
+    PROJECT_VERSION, BUILD_NUMBER);
+
+  if (len < 0 || len >= 6144) {
+    free(buf);
+    return api_send_error(req, 500, "Buffer overflow");
+  }
+
+  esp_err_t ret = api_send_json(req, buf);
+  free(buf);
+  return ret;
+}
 
 /* ============================================================================
  * GET /api/status
@@ -139,6 +229,7 @@ esp_err_t api_handler_status(httpd_req_t *req)
   }
 
   doc["modbus_slave_id"] = g_persist_config.modbus_slave.slave_id;
+  doc["https"] = http_server_is_tls_active() ? true : false;
 
   char buf[HTTP_JSON_DOC_SIZE];
   serializeJson(doc, buf, sizeof(buf));
@@ -584,7 +675,7 @@ esp_err_t api_handler_logic(httpd_req_t *req)
 
   JsonArray programs = doc["programs"].to<JsonArray>();
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
     JsonObject p = programs.add<JsonObject>();
     p["id"] = i + 1;
@@ -611,12 +702,30 @@ esp_err_t api_handler_logic(httpd_req_t *req)
 
 esp_err_t api_handler_logic_single(httpd_req_t *req)
 {
+  // Check if URI ends with /source - route to source handlers
+  // (source handlers have their own stat/auth calls)
+  const char *uri = req->uri;
+  size_t uri_len = strlen(uri);
+  const char *suffix = "/source";
+  size_t suffix_len = 7;
+  bool ends_with_source = (uri_len >= suffix_len &&
+                           strcmp(uri + uri_len - suffix_len, suffix) == 0);
+  if (ends_with_source) {
+    // Route to source handler based on method
+    if (req->method == HTTP_GET) {
+      return api_handler_logic_source_get(req);
+    } else if (req->method == HTTP_POST) {
+      return api_handler_logic_source_post(req);
+    }
+  }
+
+  // Normal logic/{id} handling
   http_server_stat_request();
   CHECK_AUTH(req);
 
   int id = api_extract_id_from_uri(req, "/api/logic/");
-  if (id < 1 || id > 4) {
-    return api_send_error(req, 400, "Invalid logic program ID (must be 1-4)");
+  if (id < 1 || id > ST_LOGIC_MAX_PROGRAMS) {
+    return api_send_error(req, 400, "Invalid logic program ID");
   }
 
   st_logic_engine_state_t *state = st_logic_get_state();
@@ -685,6 +794,757 @@ esp_err_t api_handler_logic_single(httpd_req_t *req)
 
   char buf[HTTP_SERVER_MAX_RESP_SIZE];
   serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+/* ============================================================================
+ * GET /api/logic/{id}/source - Download ST source code
+ * ============================================================================ */
+
+esp_err_t api_handler_logic_source_get(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  // Extract program ID from URI (e.g., "/api/logic/1/source" -> 1)
+  int id = api_extract_id_from_uri(req, "/api/logic/");
+  if (id < 1 || id > ST_LOGIC_MAX_PROGRAMS) {
+    return api_send_error(req, 400, "Invalid logic program ID");
+  }
+
+  st_logic_engine_state_t *state = st_logic_get_state();
+  if (!state) {
+    return api_send_error(req, 500, "ST Logic not initialized");
+  }
+
+  const char *source = st_logic_get_source_code(state, id - 1);
+  if (!source || strlen(source) == 0) {
+    return api_send_error(req, 404, "No source code uploaded for this program");
+  }
+
+  // Build JSON response with source code
+  size_t source_len = strlen(source);
+  size_t buf_size = source_len + 256;  // Extra space for JSON wrapper
+  char *buf = (char *)malloc(buf_size);
+  if (!buf) {
+    return api_send_error(req, 500, "Out of memory");
+  }
+
+  // Escape source code for JSON (newlines, quotes, etc.)
+  JsonDocument doc;
+  doc["id"] = id;
+  doc["name"] = state->programs[id - 1].name;
+  doc["source"] = source;
+  doc["size"] = source_len;
+
+  size_t json_len = serializeJson(doc, buf, buf_size);
+  if (json_len >= buf_size) {
+    free(buf);
+    return api_send_error(req, 500, "Response too large");
+  }
+
+  esp_err_t ret = api_send_json(req, buf);
+  free(buf);
+  return ret;
+}
+
+/* ============================================================================
+ * POST /api/logic/{id}/source - Upload ST source code
+ * ============================================================================ */
+
+esp_err_t api_handler_logic_source_post(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  // Extract program ID from URI
+  int id = api_extract_id_from_uri(req, "/api/logic/");
+  if (id < 1 || id > ST_LOGIC_MAX_PROGRAMS) {
+    return api_send_error(req, 400, "Invalid logic program ID");
+  }
+
+  st_logic_engine_state_t *state = st_logic_get_state();
+  if (!state) {
+    return api_send_error(req, 500, "ST Logic not initialized");
+  }
+
+  // Get content length
+  size_t content_len = req->content_len;
+  if (content_len == 0) {
+    return api_send_error(req, 400, "Empty request body");
+  }
+  if (content_len > 8192) {
+    return api_send_error(req, 400, "Request too large (max 8KB)");
+  }
+
+  // Allocate buffer for request body
+  char *content = (char *)malloc(content_len + 1);
+  if (!content) {
+    return api_send_error(req, 500, "Out of memory");
+  }
+
+  // Read request body
+  int received = 0;
+  while (received < content_len) {
+    int ret = httpd_req_recv(req, content + received, content_len - received);
+    if (ret <= 0) {
+      free(content);
+      return api_send_error(req, 400, "Failed to read request body");
+    }
+    received += ret;
+  }
+  content[content_len] = '\0';
+
+  // Parse JSON
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, content);
+  if (error) {
+    free(content);
+    return api_send_error(req, 400, "Invalid JSON");
+  }
+
+  if (!doc.containsKey("source")) {
+    free(content);
+    return api_send_error(req, 400, "Missing 'source' field");
+  }
+
+  const char *source = doc["source"].as<const char *>();
+  if (!source || strlen(source) == 0) {
+    free(content);
+    return api_send_error(req, 400, "Empty source code");
+  }
+
+  // Upload source code
+  uint32_t source_len = strlen(source);
+  bool success = st_logic_upload(state, id - 1, source, source_len);
+  free(content);
+
+  if (!success) {
+    return api_send_error(req, 500, "Failed to upload - pool full or compile error");
+  }
+
+  // Build success response
+  st_logic_program_config_t *prog = &state->programs[id - 1];
+
+  JsonDocument resp;
+  resp["status"] = "ok";
+  resp["id"] = id;
+  resp["name"] = prog->name;
+  resp["compiled"] = prog->compiled ? true : false;
+  resp["source_size"] = source_len;
+
+  if (prog->last_error[0] != '\0') {
+    resp["error"] = prog->last_error;
+  }
+
+  char buf[512];
+  serializeJson(resp, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+/* ============================================================================
+ * SYSTEM ENDPOINTS (v6.0.4+)
+ * ============================================================================ */
+
+esp_err_t api_handler_system_reboot(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  JsonDocument doc;
+  doc["status"] = "ok";
+  doc["message"] = "Rebooting in 1 second...";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  esp_err_t ret = api_send_json(req, buf);
+
+  // Schedule reboot after response is sent
+  delay(1000);
+  ESP.restart();
+
+  return ret;
+}
+
+esp_err_t api_handler_system_save(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  bool success = config_save_to_nvs(&g_persist_config);
+
+  JsonDocument doc;
+  doc["status"] = success ? "ok" : "error";
+  doc["message"] = success ? "Configuration saved to NVS" : "Failed to save configuration";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_system_load(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  bool success = config_load_from_nvs(&g_persist_config);
+  if (success) {
+    success = config_apply(&g_persist_config);
+  }
+
+  JsonDocument doc;
+  doc["status"] = success ? "ok" : "error";
+  doc["message"] = success ? "Configuration loaded and applied" : "Failed to load configuration";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_system_defaults(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  config_struct_create_default();
+  bool success = config_apply(&g_persist_config);
+
+  JsonDocument doc;
+  doc["status"] = success ? "ok" : "error";
+  doc["message"] = success ? "Reset to factory defaults (not saved)" : "Failed to apply defaults";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+/* ============================================================================
+ * COUNTER CONTROL ENDPOINTS (v6.0.4+)
+ * ============================================================================ */
+
+esp_err_t api_handler_counter_reset(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int id = api_extract_id_from_uri(req, "/api/counters/");
+  if (id < 1 || id > COUNTER_COUNT) {
+    return api_send_error(req, 400, "Invalid counter ID (must be 1-4)");
+  }
+
+  counter_engine_reset(id);
+
+  JsonDocument doc;
+  doc["status"] = "ok";
+  doc["counter"] = id;
+  doc["message"] = "Counter reset to start value";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_counter_start(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int id = api_extract_id_from_uri(req, "/api/counters/");
+  if (id < 1 || id > COUNTER_COUNT) {
+    return api_send_error(req, 400, "Invalid counter ID (must be 1-4)");
+  }
+
+  CounterConfig cfg;
+  if (!counter_engine_get_config(id, &cfg)) {
+    return api_send_error(req, 404, "Counter not configured");
+  }
+
+  if (cfg.ctrl_reg >= HOLDING_REGS_SIZE) {
+    return api_send_error(req, 500, "Counter has no control register");
+  }
+
+  // Set start bit (bit 1)
+  uint16_t ctrl_val = registers_get_holding_register(cfg.ctrl_reg);
+  ctrl_val |= 0x0002;
+  registers_set_holding_register(cfg.ctrl_reg, ctrl_val);
+
+  JsonDocument doc;
+  doc["status"] = "ok";
+  doc["counter"] = id;
+  doc["message"] = "Counter started";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_counter_stop(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int id = api_extract_id_from_uri(req, "/api/counters/");
+  if (id < 1 || id > COUNTER_COUNT) {
+    return api_send_error(req, 400, "Invalid counter ID (must be 1-4)");
+  }
+
+  CounterConfig cfg;
+  if (!counter_engine_get_config(id, &cfg)) {
+    return api_send_error(req, 404, "Counter not configured");
+  }
+
+  if (cfg.ctrl_reg >= HOLDING_REGS_SIZE) {
+    return api_send_error(req, 500, "Counter has no control register");
+  }
+
+  // Set stop bit (bit 2)
+  uint16_t ctrl_val = registers_get_holding_register(cfg.ctrl_reg);
+  ctrl_val |= 0x0004;
+  registers_set_holding_register(cfg.ctrl_reg, ctrl_val);
+
+  JsonDocument doc;
+  doc["status"] = "ok";
+  doc["counter"] = id;
+  doc["message"] = "Counter stopped";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+/* ============================================================================
+ * GPIO ENDPOINTS (v6.0.4+)
+ * ============================================================================ */
+
+esp_err_t api_handler_gpio(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  JsonDocument doc;
+  JsonArray gpios = doc["gpios"].to<JsonArray>();
+
+  // List GPIO mappings from var_maps array
+  for (int i = 0; i < g_persist_config.var_map_count; i++) {
+    const VariableMapping *m = &g_persist_config.var_maps[i];
+    if (m->source_type != MAPPING_SOURCE_GPIO) continue;
+    if (m->gpio_pin == 0 || m->gpio_pin == 0xFF) continue;
+
+    JsonObject gpio = gpios.add<JsonObject>();
+    gpio["pin"] = m->gpio_pin;
+    gpio["direction"] = m->is_input ? "input" : "output";
+
+    // Read current value
+    uint8_t level = gpio_read(m->gpio_pin);
+    gpio["value"] = level ? 1 : 0;
+
+    // Show register binding if configured
+    if (m->coil_reg != 0xFFFF) {
+      gpio["coil"] = m->coil_reg;
+    }
+    if (m->input_reg != 0xFFFF) {
+      gpio["register"] = m->input_reg;
+    }
+  }
+
+  char buf[HTTP_JSON_DOC_SIZE];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_gpio_single(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int pin = api_extract_id_from_uri(req, "/api/gpio/");
+  if (pin < 0 || pin > 39) {
+    return api_send_error(req, 400, "Invalid GPIO pin (must be 0-39)");
+  }
+
+  // Find GPIO mapping in var_maps
+  const VariableMapping *found = NULL;
+  for (int i = 0; i < g_persist_config.var_map_count; i++) {
+    const VariableMapping *m = &g_persist_config.var_maps[i];
+    if (m->source_type == MAPPING_SOURCE_GPIO && m->gpio_pin == pin) {
+      found = m;
+      break;
+    }
+  }
+
+  JsonDocument doc;
+  doc["pin"] = pin;
+  doc["value"] = gpio_read(pin) ? 1 : 0;
+
+  if (found) {
+    doc["configured"] = true;
+    doc["direction"] = found->is_input ? "input" : "output";
+    if (found->coil_reg != 0xFFFF) {
+      doc["coil"] = found->coil_reg;
+    }
+    if (found->input_reg != 0xFFFF) {
+      doc["register"] = found->input_reg;
+    }
+  } else {
+    doc["configured"] = false;
+  }
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_gpio_write(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int pin = api_extract_id_from_uri(req, "/api/gpio/");
+  if (pin < 0 || pin > 39) {
+    return api_send_error(req, 400, "Invalid GPIO pin (must be 0-39)");
+  }
+
+  // Read request body
+  char content[128];
+  int ret = httpd_req_recv(req, content, sizeof(content) - 1);
+  if (ret <= 0) {
+    return api_send_error(req, 400, "Failed to read request body");
+  }
+  content[ret] = '\0';
+
+  // Parse JSON
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, content);
+  if (error) {
+    return api_send_error(req, 400, "Invalid JSON");
+  }
+
+  if (!doc.containsKey("value")) {
+    return api_send_error(req, 400, "Missing 'value' field");
+  }
+
+  uint8_t value = 0;
+  if (doc["value"].is<bool>()) {
+    value = doc["value"].as<bool>() ? 1 : 0;
+  } else {
+    value = doc["value"].as<int>() ? 1 : 0;
+  }
+
+  // Validate pin is configured as output in var_maps
+  bool pin_configured_output = false;
+  for (int i = 0; i < g_persist_config.var_map_count; i++) {
+    const VariableMapping *m = &g_persist_config.var_maps[i];
+    if (m->gpio_pin == pin && m->is_input == 0) {
+      pin_configured_output = true;
+      break;
+    }
+  }
+  if (!pin_configured_output) {
+    return api_send_error(req, 400, "GPIO pin not configured as output");
+  }
+
+  // Write GPIO
+  gpio_write(pin, value);
+
+  JsonDocument resp;
+  resp["status"] = "ok";
+  resp["pin"] = pin;
+  resp["value"] = value ? 1 : 0;
+
+  char buf[256];
+  serializeJson(resp, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+/* ============================================================================
+ * LOGIC CONTROL ENDPOINTS (v6.0.4+)
+ * ============================================================================ */
+
+esp_err_t api_handler_logic_enable(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int id = api_extract_id_from_uri(req, "/api/logic/");
+  if (id < 1 || id > ST_LOGIC_MAX_PROGRAMS) {
+    return api_send_error(req, 400, "Invalid logic program ID");
+  }
+
+  st_logic_engine_state_t *state = st_logic_get_state();
+  if (!state) {
+    return api_send_error(req, 500, "ST Logic not initialized");
+  }
+
+  bool success = st_logic_set_enabled(state, id - 1, 1);
+
+  JsonDocument doc;
+  doc["status"] = success ? "ok" : "error";
+  doc["program"] = id;
+  doc["enabled"] = true;
+  doc["message"] = success ? "Program enabled" : "Failed to enable program";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_logic_disable(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int id = api_extract_id_from_uri(req, "/api/logic/");
+  if (id < 1 || id > ST_LOGIC_MAX_PROGRAMS) {
+    return api_send_error(req, 400, "Invalid logic program ID");
+  }
+
+  st_logic_engine_state_t *state = st_logic_get_state();
+  if (!state) {
+    return api_send_error(req, 500, "ST Logic not initialized");
+  }
+
+  bool success = st_logic_set_enabled(state, id - 1, 0);
+
+  JsonDocument doc;
+  doc["status"] = success ? "ok" : "error";
+  doc["program"] = id;
+  doc["enabled"] = false;
+  doc["message"] = success ? "Program disabled" : "Failed to disable program";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_logic_delete(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int id = api_extract_id_from_uri(req, "/api/logic/");
+  if (id < 1 || id > ST_LOGIC_MAX_PROGRAMS) {
+    return api_send_error(req, 400, "Invalid logic program ID");
+  }
+
+  st_logic_engine_state_t *state = st_logic_get_state();
+  if (!state) {
+    return api_send_error(req, 500, "ST Logic not initialized");
+  }
+
+  bool success = st_logic_delete(state, id - 1);
+
+  JsonDocument doc;
+  doc["status"] = success ? "ok" : "error";
+  doc["program"] = id;
+  doc["message"] = success ? "Program deleted" : "Failed to delete program";
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_logic_stats(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  int id = api_extract_id_from_uri(req, "/api/logic/");
+  if (id < 1 || id > ST_LOGIC_MAX_PROGRAMS) {
+    return api_send_error(req, 400, "Invalid logic program ID");
+  }
+
+  st_logic_engine_state_t *state = st_logic_get_state();
+  if (!state) {
+    return api_send_error(req, 500, "ST Logic not initialized");
+  }
+
+  st_logic_program_config_t *prog = &state->programs[id - 1];
+
+  JsonDocument doc;
+  doc["program"] = id;
+  doc["name"] = prog->name;
+  doc["enabled"] = prog->enabled ? true : false;
+  doc["compiled"] = prog->compiled ? true : false;
+  doc["execution_count"] = prog->execution_count;
+  doc["error_count"] = prog->error_count;
+  doc["last_execution_us"] = prog->last_execution_us;
+  doc["min_execution_us"] = prog->min_execution_us;
+  doc["max_execution_us"] = prog->max_execution_us;
+  doc["overrun_count"] = prog->overrun_count;
+
+  // Calculate average if we have executions
+  if (prog->execution_count > 0) {
+    doc["avg_execution_us"] = prog->total_execution_us / prog->execution_count;
+  } else {
+    doc["avg_execution_us"] = 0;
+  }
+
+  char buf[HTTP_JSON_DOC_SIZE];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+/* ============================================================================
+ * CONFIG & DEBUG ENDPOINTS (v6.0.4+)
+ * ============================================================================ */
+
+esp_err_t api_handler_config_get(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  // Allocate larger buffer for full config
+  char *buf = (char *)malloc(HTTP_SERVER_MAX_RESP_SIZE);
+  if (!buf) {
+    return api_send_error(req, 500, "Out of memory");
+  }
+
+  JsonDocument doc;
+
+  // System
+  JsonObject sys = doc["system"].to<JsonObject>();
+  sys["version"] = PROJECT_VERSION;
+  sys["build"] = BUILD_NUMBER;
+  sys["hostname"] = g_persist_config.hostname;
+  sys["schema_version"] = g_persist_config.schema_version;
+
+  // Modbus
+  JsonObject modbus = doc["modbus"].to<JsonObject>();
+  modbus["enabled"] = g_persist_config.modbus_slave.enabled ? true : false;
+  modbus["slave_id"] = g_persist_config.modbus_slave.slave_id;
+  modbus["baudrate"] = g_persist_config.modbus_slave.baudrate;
+  modbus["parity"] = g_persist_config.modbus_slave.parity;
+  modbus["stop_bits"] = g_persist_config.modbus_slave.stop_bits;
+
+  // Network
+  JsonObject network = doc["network"].to<JsonObject>();
+  network["ssid"] = g_persist_config.network.ssid;
+  network["dhcp"] = g_persist_config.network.dhcp_enabled ? true : false;
+  network["power_save"] = g_persist_config.network.wifi_power_save ? true : false;
+
+  // HTTP
+  JsonObject http = doc["http"].to<JsonObject>();
+  http["enabled"] = g_persist_config.network.http.enabled ? true : false;
+  http["port"] = g_persist_config.network.http.port;
+  http["auth_enabled"] = g_persist_config.network.http.auth_enabled ? true : false;
+  http["priority"] = g_persist_config.network.http.priority;
+
+  // Telnet
+  JsonObject telnet = doc["telnet"].to<JsonObject>();
+  telnet["enabled"] = g_persist_config.network.telnet_enabled ? true : false;
+  telnet["port"] = g_persist_config.network.telnet_port;
+
+  // ST Logic
+  JsonObject logic = doc["st_logic"].to<JsonObject>();
+  logic["interval_ms"] = g_persist_config.st_logic_interval_ms;
+
+  size_t json_len = serializeJson(doc, buf, HTTP_SERVER_MAX_RESP_SIZE);
+  if (json_len >= HTTP_SERVER_MAX_RESP_SIZE) {
+    free(buf);
+    return api_send_error(req, 500, "Response too large");
+  }
+
+  esp_err_t ret = api_send_json(req, buf);
+  free(buf);
+  return ret;
+}
+
+esp_err_t api_handler_debug_get(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  DebugFlags *dbg = debug_flags_get();
+
+  JsonDocument doc;
+  doc["all"] = dbg->all ? true : false;
+  doc["config_save"] = dbg->config_save ? true : false;
+  doc["config_load"] = dbg->config_load ? true : false;
+  doc["wifi_connect"] = dbg->wifi_connect ? true : false;
+  doc["network_validate"] = dbg->network_validate ? true : false;
+  doc["http_server"] = dbg->http_server ? true : false;
+  doc["http_api"] = dbg->http_api ? true : false;
+
+  char buf[256];
+  serializeJson(doc, buf, sizeof(buf));
+
+  return api_send_json(req, buf);
+}
+
+esp_err_t api_handler_debug_set(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  // Read request body
+  char content[256];
+  int ret = httpd_req_recv(req, content, sizeof(content) - 1);
+  if (ret <= 0) {
+    return api_send_error(req, 400, "Failed to read request body");
+  }
+  content[ret] = '\0';
+
+  // Parse JSON
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, content);
+  if (error) {
+    return api_send_error(req, 400, "Invalid JSON");
+  }
+
+  // Apply debug flags
+  if (doc.containsKey("all")) {
+    debug_flags_set_all(doc["all"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("config_save")) {
+    debug_flags_set_config_save(doc["config_save"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("config_load")) {
+    debug_flags_set_config_load(doc["config_load"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("wifi_connect")) {
+    debug_flags_set_wifi_connect(doc["wifi_connect"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("network_validate")) {
+    debug_flags_set_network_validate(doc["network_validate"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("http_server")) {
+    debug_flags_set_http_server(doc["http_server"].as<bool>() ? 1 : 0);
+  }
+  if (doc.containsKey("http_api")) {
+    debug_flags_set_http_api(doc["http_api"].as<bool>() ? 1 : 0);
+  }
+
+  // Return updated state
+  DebugFlags *dbg = debug_flags_get();
+
+  JsonDocument resp;
+  resp["status"] = "ok";
+  resp["all"] = dbg->all ? true : false;
+  resp["config_save"] = dbg->config_save ? true : false;
+  resp["config_load"] = dbg->config_load ? true : false;
+  resp["wifi_connect"] = dbg->wifi_connect ? true : false;
+  resp["network_validate"] = dbg->network_validate ? true : false;
+  resp["http_server"] = dbg->http_server ? true : false;
+  resp["http_api"] = dbg->http_api ? true : false;
+
+  char buf[256];
+  serializeJson(resp, buf, sizeof(buf));
 
   return api_send_json(req, buf);
 }

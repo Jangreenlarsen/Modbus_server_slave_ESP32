@@ -32,12 +32,14 @@ static struct {
   HttpServerStats stats;
   uint8_t initialized;
   uint8_t running;
+  uint8_t tls_active;
 } http_state = {
   .server = NULL,
   .config = {0},
   .stats = {0},
   .initialized = 0,
-  .running = 0
+  .running = 0,
+  .tls_active = 0
 };
 
 /* ============================================================================
@@ -253,6 +255,11 @@ int http_server_stop(void)
 uint8_t http_server_is_running(void)
 {
   return http_state.running;
+}
+
+uint8_t http_server_is_tls_active(void)
+{
+  return http_state.tls_active;
 }
 
 const HttpConfig* http_server_get_config(void)

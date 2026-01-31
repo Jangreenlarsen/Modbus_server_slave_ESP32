@@ -28,6 +28,10 @@ PersistConfig* config_struct_create_default(void) {
   g_persist_config.hostname[31] = '\0';
   g_persist_config.remote_echo = 1;  // Default: echo ON
 
+  // HTTP defaults (v6.0.4+)
+  g_persist_config.network.http.api_enabled = 1;  // API enabled by default
+  g_persist_config.network.http.priority = 1;     // NORMAL priority
+
   // ST Logic configuration (v4.1+)
   g_persist_config.st_logic_interval_ms = 10;  // Default: 10ms execution interval
 

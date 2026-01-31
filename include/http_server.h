@@ -57,6 +57,12 @@ int http_server_stop(void);
 uint8_t http_server_is_running(void);
 
 /**
+ * Check if TLS/HTTPS is currently active
+ * @return 1 if TLS active, 0 otherwise
+ */
+uint8_t http_server_is_tls_active(void);
+
+/**
  * Get current HTTP server configuration
  * @return pointer to HttpConfig, or NULL if not initialized
  */

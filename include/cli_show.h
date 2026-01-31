@@ -35,8 +35,9 @@
 
 /**
  * @brief Handle "show config" command (full system configuration)
+ * @param section Optional section filter (NULL or "" for all, e.g. "WIFI", "MODBUS", "COUNTERS")
  */
-void cli_cmd_show_config(void);
+void cli_cmd_show_config(const char *section = nullptr);
 
 /**
  * @brief Handle "show counters" command (counter status table)

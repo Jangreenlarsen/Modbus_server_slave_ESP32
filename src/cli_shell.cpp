@@ -92,7 +92,8 @@ static uint8_t cli_escape_seq_state = 0;    // For parsing arrow keys
 // Multi-line ST Logic Upload Mode
 static uint8_t cli_mode = CLI_MODE_NORMAL;
 static uint8_t cli_upload_program_id = 0xFF;
-static char cli_upload_buffer[CLI_UPLOAD_BUFFER_SIZE];
+// Dynamic allocation: upload buffer only needed during upload mode (~5 KB saved)
+static char *cli_upload_buffer = NULL;
 static uint16_t cli_upload_buffer_pos = 0;
 
 /* ============================================================================
@@ -150,6 +151,16 @@ void cli_shell_init(Console *console) {
  * ============================================================================ */
 
 void cli_shell_start_st_upload(uint8_t program_id) {
+  // Allocate upload buffer dynamically (only needed during upload)
+  if (!cli_upload_buffer) {
+    cli_upload_buffer = (char *)malloc(CLI_UPLOAD_BUFFER_SIZE);
+    if (!cli_upload_buffer) {
+      if (g_debug_console) {
+        cli_console_println(g_debug_console, "ERROR: Insufficient heap for upload buffer");
+      }
+      return;
+    }
+  }
   cli_mode = CLI_MODE_ST_UPLOAD;
   cli_upload_program_id = program_id;
   cli_upload_buffer_pos = 0;
@@ -173,7 +184,11 @@ void cli_shell_reset_upload_mode(void) {
   cli_mode = CLI_MODE_NORMAL;
   cli_upload_program_id = 0xFF;
   cli_upload_buffer_pos = 0;
-  memset(cli_upload_buffer, 0, CLI_UPLOAD_BUFFER_SIZE);
+  // Free dynamically allocated upload buffer
+  if (cli_upload_buffer) {
+    free(cli_upload_buffer);
+    cli_upload_buffer = NULL;
+  }
 
   // Note: Echo setting is preserved (not modified by upload mode)
 
@@ -213,9 +228,11 @@ void cli_shell_feed_upload_line(Console *console, const char *line) {
     // End of upload - compile and return to normal mode
     cli_console_println(console, "Compiling ST Logic program...");
 
-    // Null-terminate the upload buffer
+    // Null-terminate the upload buffer (CRITICAL: always terminate)
     if (cli_upload_buffer_pos < CLI_UPLOAD_BUFFER_SIZE) {
       cli_upload_buffer[cli_upload_buffer_pos] = '\0';
+    } else {
+      cli_upload_buffer[CLI_UPLOAD_BUFFER_SIZE - 1] = '\0';
     }
 
     // Execute upload with collected code
@@ -465,9 +482,11 @@ void cli_shell_loop(Console *console) {
           // End of upload - compile and return to normal mode
           cli_console_println(console, "Compiling ST Logic program...");
 
-          // Null-terminate the upload buffer (CRITICAL!)
+          // Null-terminate the upload buffer (CRITICAL: always terminate)
           if (cli_upload_buffer_pos < CLI_UPLOAD_BUFFER_SIZE) {
             cli_upload_buffer[cli_upload_buffer_pos] = '\0';
+          } else {
+            cli_upload_buffer[CLI_UPLOAD_BUFFER_SIZE - 1] = '\0';
           }
 
           // Execute upload with collected code

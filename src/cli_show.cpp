@@ -29,6 +29,7 @@
 #include "network_manager.h"
 #include "network_config.h"
 #include "http_server.h"
+#include "https_wrapper.h"
 #include <WiFi.h>
 #include "debug_flags.h"
 #include "debug.h"
@@ -40,12 +41,49 @@
  * SHOW CONFIG
  * ============================================================================ */
 
-void cli_cmd_show_config(void) {
-  debug_println("\n=== CONFIGURATION ===\n");
+// Helper: check if section should be shown based on filter
+static bool show_section_match(const char *filter, const char *section_name) {
+  if (!filter || filter[0] == '\0') return true;  // No filter = show all
+  // Case-insensitive comparison
+  const char *f = filter;
+  const char *s = section_name;
+  while (*f && *s) {
+    char cf = *f, cs = *s;
+    if (cf >= 'a' && cf <= 'z') cf -= 32;
+    if (cs >= 'a' && cs <= 'z') cs -= 32;
+    if (cf != cs) return false;
+    f++; s++;
+  }
+  return (*f == '\0');  // Filter fully matched (section_name can be longer)
+}
+
+void cli_cmd_show_config(const char *section) {
+  // Section filter: NULL/"" = all, "WIFI"/"NETWORK"/"MODBUS"/"COUNTERS"/"TIMERS"/"GPIO"/"HTTP"/"MODULES"/"PERSIST"/"SYSTEM"
+  bool show_all = (!section || section[0] == '\0');
+  bool show_system   = show_all || show_section_match(section, "SYSTEM");
+  bool show_modbus   = show_all || show_section_match(section, "MODBUS");
+  bool show_counters = show_all || show_section_match(section, "COUNTER");
+  bool show_timers   = show_all || show_section_match(section, "TIMER");
+  bool show_gpio     = show_all || show_section_match(section, "GPIO");
+  bool show_network  = show_all || show_section_match(section, "NETWORK") || show_section_match(section, "WIFI");
+  bool show_http     = show_all || show_section_match(section, "HTTP") || show_section_match(section, "API");
+  bool show_modules  = show_all || show_section_match(section, "MODULE");
+  bool show_persist  = show_all || show_section_match(section, "PERSIST");
+  bool show_logic    = show_all || show_section_match(section, "LOGIC") || show_section_match(section, "ST");
+  bool show_commands = show_all;  // SET commands only in full output
+
+  if (show_all) {
+    debug_println("\n=== CONFIGURATION ===\n");
+  } else {
+    debug_print("\n=== CONFIGURATION [");
+    debug_print(section);
+    debug_println("] ===\n");
+  }
 
   // =========================================================================
   // SYSTEM INFO
   // =========================================================================
+  if (show_system) {
   debug_println("[SYSTEM]");
   debug_print("Version: ");
   debug_print(PROJECT_VERSION);
@@ -63,10 +101,12 @@ void cli_cmd_show_config(void) {
   debug_print("Hostname: ");
   debug_println(g_persist_config.hostname[0] ? g_persist_config.hostname : "(NOT SET)");
   debug_println("");
+  } // end show_system
 
   // =========================================================================
   // MODBUS
   // =========================================================================
+  if (show_modbus) {
   debug_println("[MODBUS]");
   debug_print("Slave: ");
   debug_println(g_persist_config.modbus_slave.enabled ? "ENABLED" : "DISABLED");
@@ -113,10 +153,12 @@ void cli_cmd_show_config(void) {
     debug_println("");
   }
   debug_println("");
+  } // end show_modbus
 
   // =========================================================================
   // COUNTERS
   // =========================================================================
+  if (show_counters) {
   debug_println("[COUNTERS]");
   bool any_counter = false;
   for (uint8_t id = 1; id <= 4; id++) {
@@ -234,9 +276,12 @@ void cli_cmd_show_config(void) {
     }
   }
 
+  } // end show_counters
+
   // =========================================================================
   // TIMERS
   // =========================================================================
+  if (show_timers) {
   debug_println("\n[TIMERS]");
   bool any_timer = false;
   for (uint8_t id = 1; id <= 4; id++) {
@@ -305,9 +350,12 @@ void cli_cmd_show_config(void) {
   if (!any_timer) {
     debug_println("  (none configured)");
   }
+  } // end show_timers
+
   // =========================================================================
   // GPIO
   // =========================================================================
+  if (show_gpio) {
   debug_println("\n[GPIO]");
 
   // Get ST Logic state (needed for ST variable name lookup in GPIO mappings)
@@ -437,7 +485,7 @@ void cli_cmd_show_config(void) {
 
   debug_println("\nprograms:");
   // Show individual programs (all 4 slots, even if empty)
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t* prog = &st_state->programs[i];
 
     debug_print("  logic");
@@ -636,9 +684,12 @@ void cli_cmd_show_config(void) {
     debug_println("  Syntax: VAR temp : INT EXPORT; END_VAR");
   }
 
+  } // end show_gpio
+
   // =========================================================================
   // NETWORK
   // =========================================================================
+  if (show_network) {
   debug_println("\n[NETWORK]");
   debug_println("wifi:");
   debug_print("  status: ");
@@ -672,6 +723,9 @@ void cli_cmd_show_config(void) {
     debug_println(ip_str);
   }
 
+  debug_print("  power-save: ");
+  debug_println(g_persist_config.network.wifi_power_save ? "ON (low power)" : "OFF (fast response)");
+
   debug_println("\ntelnet:");
   debug_print("  status: ");
   debug_println(g_persist_config.network.telnet_enabled ? "enabled" : "disabled");
@@ -686,9 +740,72 @@ void cli_cmd_show_config(void) {
   debug_print("  password: ");
   debug_println(g_persist_config.network.telnet_password[0] ? "********" : "(not set)");
 
+  } // end show_network
+
+  // =========================================================================
+  // API HTTP
+  // =========================================================================
+  if (show_http) {
+  debug_println("\n[API HTTP]");
+  debug_print("  server: ");
+  debug_println(g_persist_config.network.http.enabled ? "enabled" : "disabled");
+
+  debug_print("  tls: ");
+  debug_println(g_persist_config.network.http.tls_enabled ? "enabled (HTTPS)" : "disabled (HTTP)");
+
+  {
+    char cert_info[48];
+    if (https_wrapper_get_cert_info(cert_info, sizeof(cert_info)) == 0) {
+      debug_print("  cert: ");
+      debug_println(cert_info);
+    }
+  }
+
+  debug_print("  port: ");
+  debug_print_uint(g_persist_config.network.http.port);
+  debug_println("");
+
+  debug_print("  api: ");
+  debug_println(g_persist_config.network.http.api_enabled ? "enabled" : "disabled");
+
+  debug_print("  auth: ");
+  debug_println(g_persist_config.network.http.auth_enabled ? "enabled" : "disabled");
+
+  if (g_persist_config.network.http.auth_enabled) {
+    debug_print("  username: ");
+    debug_println(g_persist_config.network.http.username[0] ? g_persist_config.network.http.username : "(not set)");
+
+    debug_print("  password: ");
+    debug_println(g_persist_config.network.http.password[0] ? "********" : "(not set)");
+  }
+
+  debug_print("  priority: ");
+  switch (g_persist_config.network.http.priority) {
+    case 0:  debug_println("LOW"); break;
+    case 2:  debug_println("HIGH"); break;
+    default: debug_println("NORMAL"); break;
+  }
+
+  } // end show_http
+
+  // =========================================================================
+  // MODULES
+  // =========================================================================
+  if (show_modules) {
+  debug_println("\n[MODULES]");
+  debug_print("  counters: ");
+  debug_println((g_persist_config.module_flags & MODULE_FLAG_COUNTERS_DISABLED) ? "disabled" : "enabled");
+  debug_print("  timers: ");
+  debug_println((g_persist_config.module_flags & MODULE_FLAG_TIMERS_DISABLED) ? "disabled" : "enabled");
+  debug_print("  st-logic: ");
+  debug_println((g_persist_config.module_flags & MODULE_FLAG_ST_LOGIC_DISABLED) ? "disabled" : "enabled");
+
+  } // end show_modules
+
   // =========================================================================
   // PERSISTENCE
   // =========================================================================
+  if (show_persist) {
   debug_println("\n[PERSISTENCE]");
   debug_print("  status: ");
   debug_println(g_persist_config.persist_regs.enabled ? "enabled" : "disabled");
@@ -732,9 +849,12 @@ void cli_cmd_show_config(void) {
     debug_println("  (none configured)");
   }
 
+  } // end show_persist
+
   // =========================================================================
   // CONFIGURATION AS SET COMMANDS (copy/paste ready)
   // =========================================================================
+  if (show_commands) {
   debug_println("\n=== CONFIGURATION AS SET COMMANDS ===");
   debug_println("# Copy/paste these commands to recreate current config");
   debug_println("# NOTE: Counter/Timer registers are AUTO-ASSIGNED (cannot be manually set)");
@@ -842,6 +962,37 @@ void cli_cmd_show_config(void) {
       debug_print_uint(g_persist_config.network.telnet_port);
       debug_println("");
     }
+    // Power save setting (v6.0.4+)
+    debug_print("set wifi power-save ");
+    debug_println(g_persist_config.network.wifi_power_save ? "on" : "off");
+  }
+
+  // API HTTP
+  debug_println("\n# API HTTP");
+  debug_println(g_persist_config.network.http.enabled ? "set http enable" : "set http disable");
+  if (g_persist_config.network.http.enabled) {
+    debug_println(g_persist_config.network.http.tls_enabled ? "set http tls enable" : "set http tls disable");
+    debug_print("set http port ");
+    debug_print_uint(g_persist_config.network.http.port);
+    debug_println("");
+    debug_println(g_persist_config.network.http.api_enabled ? "set http api enable" : "set http api disable");
+    debug_println(g_persist_config.network.http.auth_enabled ? "set http auth enable" : "set http auth disable");
+    if (g_persist_config.network.http.auth_enabled) {
+      if (g_persist_config.network.http.username[0]) {
+        debug_print("set http username ");
+        debug_println(g_persist_config.network.http.username);
+      }
+      if (g_persist_config.network.http.password[0]) {
+        debug_println("set http password ********");
+      }
+    }
+    // Priority setting (v6.0.4+)
+    debug_print("set http priority ");
+    switch (g_persist_config.network.http.priority) {
+      case 0:  debug_println("low"); break;
+      case 2:  debug_println("high"); break;
+      default: debug_println("normal"); break;
+    }
   }
 
   // ST Logic execution interval + enable/disable status
@@ -854,7 +1005,7 @@ void cli_cmd_show_config(void) {
   extern st_logic_engine_state_t* st_logic_get_state(void);
   st_logic_engine_state_t* logic_state = st_logic_get_state();
   if (logic_state) {
-    for (uint8_t i = 0; i < 4; i++) {
+    for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
       st_logic_program_config_t* prog = &logic_state->programs[i];
       // Only show if program has source code OR is explicitly enabled/disabled
       if (prog->source_size > 0 || prog->enabled) {
@@ -1080,6 +1231,7 @@ void cli_cmd_show_config(void) {
 
   debug_println("\n# Note: Remember to run 'save' after making changes!");
   debug_println("");
+  } // end show_commands
 }
 
 /* ============================================================================
@@ -2001,35 +2153,35 @@ void cli_cmd_show_st_logic_stats_modbus(void) {
   };
 
   debug_println("Per-Program Min Execution Time (µs):");
-  for (uint8_t i = 0; i < 4; i++) {
-    uint32_t min_us = read_32bit(252 + (i * 2));
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
+    uint32_t min_us = read_32bit(ST_LOGIC_MIN_EXEC_TIME_REG_BASE + (i * 2));
     debug_printf("  Logic%d: %u µs (%.3f ms)\n", i + 1, (unsigned int)min_us, min_us / 1000.0);
   }
 
   debug_println("\nPer-Program Max Execution Time (µs):");
-  for (uint8_t i = 0; i < 4; i++) {
-    uint32_t max_us = read_32bit(260 + (i * 2));
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
+    uint32_t max_us = read_32bit(ST_LOGIC_MAX_EXEC_TIME_REG_BASE + (i * 2));
     debug_printf("  Logic%d: %u µs (%.3f ms)\n", i + 1, (unsigned int)max_us, max_us / 1000.0);
   }
 
   debug_println("\nPer-Program Avg Execution Time (µs):");
-  for (uint8_t i = 0; i < 4; i++) {
-    uint32_t avg_us = read_32bit(268 + (i * 2));
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
+    uint32_t avg_us = read_32bit(ST_LOGIC_AVG_EXEC_TIME_REG_BASE + (i * 2));
     debug_printf("  Logic%d: %u µs (%.3f ms)\n", i + 1, (unsigned int)avg_us, avg_us / 1000.0);
   }
 
   debug_println("\nPer-Program Overrun Count:");
-  for (uint8_t i = 0; i < 4; i++) {
-    uint32_t overruns = read_32bit(276 + (i * 2));
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
+    uint32_t overruns = read_32bit(ST_LOGIC_OVERRUN_COUNT_REG_BASE + (i * 2));
     debug_printf("  Logic%d: %u\n", i + 1, (unsigned int)overruns);
   }
 
   debug_println("\nGlobal Cycle Statistics:");
-  uint32_t cycle_min = read_32bit(284);
-  uint32_t cycle_max = read_32bit(286);
-  uint32_t cycle_overruns = read_32bit(288);
-  uint32_t total_cycles = read_32bit(290);
-  uint32_t interval = read_32bit(292);
+  uint32_t cycle_min = read_32bit(ST_LOGIC_CYCLE_MIN_REG);
+  uint32_t cycle_max = read_32bit(ST_LOGIC_CYCLE_MAX_REG);
+  uint32_t cycle_overruns = read_32bit(ST_LOGIC_CYCLE_OVERRUN_REG);
+  uint32_t total_cycles = read_32bit(ST_LOGIC_TOTAL_CYCLES_REG);
+  uint32_t interval = read_32bit(ST_LOGIC_EXEC_INTERVAL_RO_REG);
 
   debug_printf("  Cycle Min: %u ms\n", (unsigned int)cycle_min);
   debug_printf("  Cycle Max: %u ms\n", (unsigned int)cycle_max);
@@ -2406,12 +2558,35 @@ void cli_cmd_show_http(void) {
 
   // Configuration
   debug_println("\n--- Configuration ---");
-  debug_print("Enabled: ");
-  debug_println(g_persist_config.network.http.enabled ? "YES" : "NO");
+  debug_print("Server: ");
+  debug_println(g_persist_config.network.http.enabled ? "ENABLED" : "DISABLED");
+
+  debug_print("TLS/HTTPS: ");
+  if (g_persist_config.network.http.tls_enabled) {
+    debug_print("ENABLED");
+    if (http_server_is_tls_active()) {
+      debug_println(" (active)");
+    } else {
+      debug_println(" (reboot required)");
+    }
+  } else {
+    debug_println("DISABLED");
+  }
+
+  {
+    char cert_info[48];
+    if (https_wrapper_get_cert_info(cert_info, sizeof(cert_info)) == 0) {
+      debug_print("Certificate: ");
+      debug_println(cert_info);
+    }
+  }
 
   debug_print("Port: ");
   debug_print_uint(g_persist_config.network.http.port);
   debug_println("");
+
+  debug_print("API: ");
+  debug_println(g_persist_config.network.http.api_enabled ? "ENABLED" : "DISABLED");
 
   debug_print("Auth: ");
   debug_println(g_persist_config.network.http.auth_enabled ? "ENABLED" : "DISABLED");
@@ -2451,6 +2626,7 @@ void cli_cmd_show_http(void) {
 
   // API Endpoints
   debug_println("\n--- API Endpoints ---");
+  debug_println("  GET  /api/                 - List all endpoints");
   debug_println("  GET  /api/status           - System info");
   debug_println("  GET  /api/counters         - All counters");
   debug_println("  GET  /api/counters/{1-4}   - Single counter");
@@ -2464,12 +2640,15 @@ void cli_cmd_show_http(void) {
   debug_println("  GET  /api/registers/di/{addr}  - Read discrete input");
   debug_println("  GET  /api/logic            - ST Logic programs");
   debug_println("  GET  /api/logic/{1-4}      - Single program");
+  debug_println("  GET  /api/logic/{1-4}/source  - Download ST code");
+  debug_println("  POST /api/logic/{1-4}/source  - Upload ST code");
 
   // Commands
   debug_println("\nCommands:");
-  debug_println("  set http enabled <on|off>");
+  debug_println("  set http enable|disable");
   debug_println("  set http port <port>");
-  debug_println("  set http auth <on|off>");
+  debug_println("  set http api enable|disable");
+  debug_println("  set http auth enable|disable");
   debug_println("  set http username <user>");
   debug_println("  set http password <pass>");
   debug_println("  save (to persist changes)\n");
@@ -3188,8 +3367,87 @@ void cli_cmd_show_debug(void) {
   debug_print("  network_validate:  ");
   debug_println(dbg->network_validate ? "ENABLED" : "DISABLED");
 
+  debug_print("  http_server:       ");
+  debug_println(dbg->http_server ? "ENABLED" : "DISABLED");
+
+  debug_print("  http_api:          ");
+  debug_println(dbg->http_api ? "ENABLED" : "DISABLED");
+
   debug_println("");
   debug_println("Use 'set debug <flag> <on|off>' to toggle debug flags");
+  debug_println("");
+}
+
+/* ============================================================================
+ * SHOW MODULES (v6.2.0+)
+ * ============================================================================ */
+
+void cli_cmd_show_modules(void) {
+  debug_println("");
+  debug_println("=== MODULE STATUS ===");
+  debug_println("");
+
+  // Counters
+  debug_print("  Counters:  ");
+  if (g_persist_config.module_flags & MODULE_FLAG_COUNTERS_DISABLED) {
+    debug_println("DISABLED");
+  } else {
+    uint8_t configured = 0;
+    for (uint8_t i = 0; i < COUNTER_COUNT; i++) {
+      if (g_persist_config.counters[i].enabled) configured++;
+    }
+    debug_print("ENABLED (");
+    debug_print_uint(configured);
+    debug_println(" configured)");
+  }
+
+  // Timers
+  debug_print("  Timers:    ");
+  if (g_persist_config.module_flags & MODULE_FLAG_TIMERS_DISABLED) {
+    debug_println("DISABLED");
+  } else {
+    uint8_t configured = 0;
+    for (uint8_t i = 0; i < TIMER_COUNT; i++) {
+      if (g_persist_config.timers[i].enabled) configured++;
+    }
+    debug_print("ENABLED (");
+    debug_print_uint(configured);
+    debug_println(" configured)");
+  }
+
+  // ST Logic
+  debug_print("  ST Logic:  ");
+  if (g_persist_config.module_flags & MODULE_FLAG_ST_LOGIC_DISABLED) {
+    debug_println("DISABLED");
+  } else {
+    st_logic_engine_state_t* st_state = st_logic_get_state();
+    uint8_t loaded = 0;
+    if (st_state) {
+      for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
+        if (st_state->programs[i].source_size > 0) loaded++;
+      }
+    }
+    debug_print("ENABLED (");
+    debug_print_uint(loaded);
+    debug_println(" programs loaded)");
+  }
+
+  // Modbus (always enabled)
+  debug_print("  Modbus:    ENABLED (slave ID ");
+  debug_print_uint(g_persist_config.modbus_slave.slave_id);
+  debug_println(")");
+
+  // Network
+  debug_print("  Network:   ");
+  debug_println(g_persist_config.network.enabled ? "ENABLED" : "DISABLED");
+
+  // HTTP API
+  debug_print("  HTTP API:  ");
+  debug_println(g_persist_config.network.http.enabled ? "ENABLED" : "DISABLED");
+
+  debug_println("");
+  debug_println("Use 'set module <name> enable|disable' to toggle modules");
+  debug_println("Note: Reboot required for changes to take effect");
   debug_println("");
 }
 

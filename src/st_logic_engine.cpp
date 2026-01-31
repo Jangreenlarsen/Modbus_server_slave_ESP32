@@ -264,7 +264,7 @@ bool st_logic_engine_loop(st_logic_engine_state_t *state,
   // NOTE: I/O is handled by gpio_mapping_update() in main loop, not here
   uint32_t start_cycle = millis();
 
-  for (int prog_id = 0; prog_id < 4; prog_id++) {
+  for (int prog_id = 0; prog_id < ST_LOGIC_MAX_PROGRAMS; prog_id++) {
     st_logic_program_config_t *prog = &state->programs[prog_id];
 
     if (!prog->enabled || !prog->compiled) continue;
@@ -318,7 +318,7 @@ void st_logic_print_status(st_logic_engine_state_t *state) {
   debug_printf("Execution Interval: %ums\n", state->execution_interval_ms);
   debug_printf("\nPrograms:\n");
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
     debug_printf("  %s:\n", prog->name);
     debug_printf("    Enabled: %s\n", prog->enabled ? "YES" : "NO");

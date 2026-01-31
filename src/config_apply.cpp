@@ -17,6 +17,7 @@
 #include "cli_shell.h"
 #include "st_logic_config.h"
 #include "debug.h"
+#include <esp_wifi.h>
 #include <cstddef>
 #include <cstring>
 #include <cstdio>
@@ -91,7 +92,7 @@ bool config_apply(const PersistConfig* cfg) {
       extern st_logic_engine_state_t* st_logic_get_state(void);
       st_logic_engine_state_t* logic_state = st_logic_get_state();
       bool program_exists = false;
-      if (logic_state && map->st_program_id < 4) {
+      if (logic_state && map->st_program_id < ST_LOGIC_MAX_PROGRAMS) {
         st_logic_program_config_t* prog = &logic_state->programs[map->st_program_id];
         program_exists = (prog->source_size > 0);  // Program has code uploaded
       }
@@ -263,6 +264,12 @@ bool config_apply(const PersistConfig* cfg) {
     // Restore all group register values
     registers_persist_restore_all_groups();
   }
+
+  // Apply Wi-Fi power save setting (v6.0.4+)
+  wifi_ps_type_t ps_mode = cfg->network.wifi_power_save ? WIFI_PS_MIN_MODEM : WIFI_PS_NONE;
+  esp_wifi_set_ps(ps_mode);
+  debug_print("  Wi-Fi power save: ");
+  debug_println(cfg->network.wifi_power_save ? "ON (min modem)" : "OFF (low latency)");
 
   debug_println("CONFIG APPLY: Done");
   return true;

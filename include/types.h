@@ -294,8 +294,10 @@ typedef struct __attribute__((packed)) {
   uint8_t auth_enabled;                         // Basic auth enabled (1) or disabled (0)
   char username[HTTP_AUTH_USERNAME_MAX_LEN];    // Basic auth username
   char password[HTTP_AUTH_PASSWORD_MAX_LEN];    // Basic auth password
+  uint8_t api_enabled;                          // API endpoints enabled (1) or disabled (0)
+  uint8_t priority;                             // Task priority: 0=LOW, 1=NORMAL, 2=HIGH
   uint8_t tls_enabled;                          // Future: HTTPS (currently unused)
-  uint8_t reserved[5];                          // Alignment/future use
+  uint8_t reserved[3];                          // Alignment/future use
 } HttpConfig;
 
 /* ============================================================================
@@ -325,8 +327,11 @@ typedef struct __attribute__((packed)) {
   // HTTP REST API configuration (v6.0.0+)
   HttpConfig http;                              // HTTP server configuration
 
+  // Wi-Fi power management (v6.0.4+)
+  uint8_t wifi_power_save;                      // 0 = OFF (fast response), 1 = ON (low power)
+
   // Reserved for future (SSH, mDNS, etc.)
-  uint8_t reserved[4];                          // Future: SSH, certificates, mDNS (reduced from 8)
+  uint8_t reserved[3];                          // Future: SSH, certificates, mDNS (reduced from 4)
 } NetworkConfig;
 
 /* ============================================================================
@@ -437,8 +442,11 @@ typedef struct __attribute__((packed)) {
   // Modbus Master configuration (v4.4+)
   modbus_master_config_t modbus_master;
 
+  // Module enable/disable flags (v6.2.0+)
+  uint8_t module_flags;  // Bitmask: MODULE_FLAG_* constants
+
   // Reserved for future features
-  uint8_t reserved[8];  // Reserved space for future use
+  uint8_t reserved[7];  // Reserved space for future use
 
   // CRC checksum (last)
   uint16_t crc16;
@@ -471,6 +479,8 @@ typedef struct {
   uint8_t config_load;        // Show debug when loading config from NVS
   uint8_t wifi_connect;       // Show debug when connecting WiFi (network_manager, wifi_driver)
   uint8_t network_validate;   // Show debug for network config validation
+  uint8_t http_server;        // Show debug for HTTP server operations
+  uint8_t http_api;           // Show debug for HTTP API request/response
 } DebugFlags;
 
 /* ============================================================================

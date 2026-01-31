@@ -575,7 +575,12 @@ bool cli_parser_execute(char* line) {
     }
 
     if (!strcmp(what, "CONFIG")) {
-      cli_cmd_show_config();
+      // Support optional section filter: "show config wifi", "show config modbus", etc.
+      const char *section_filter = nullptr;
+      if (argc >= 3) {
+        section_filter = argv[2];
+      }
+      cli_cmd_show_config(section_filter);
       return true;
     } else if (!strcmp(what, "COUNTERS")) {
       cli_cmd_show_counters();
@@ -701,49 +706,49 @@ bool cli_parser_execute(char* line) {
           } else {
             // show logic <id> code
             uint8_t program_id = atoi(subcommand);
-            if (program_id > 0 && program_id <= 4) {
+            if (program_id > 0 && program_id <= ST_LOGIC_MAX_PROGRAMS) {
               cli_cmd_show_logic_code(st_logic_get_state(), program_id - 1);
               return true;
             } else {
-              debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
+              debug_printf("ERROR: Invalid program ID '%s' (expected 1-%d)\n", subcommand, ST_LOGIC_MAX_PROGRAMS);
               return false;
             }
           }
         } else if (!strcmp(subcommand2_norm, "TIMING")) {
           // show logic <id> timing - BUG-122 FIX
           uint8_t program_id = atoi(subcommand);
-          if (program_id > 0 && program_id <= 4) {
+          if (program_id > 0 && program_id <= ST_LOGIC_MAX_PROGRAMS) {
             cli_cmd_show_logic_timing(st_logic_get_state(), program_id - 1);
             return true;
           } else {
-            debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
+            debug_printf("ERROR: Invalid program ID '%s' (expected 1-%d)\n", subcommand, ST_LOGIC_MAX_PROGRAMS);
             return false;
           }
         } else if (!strcmp(subcommand2_norm, "BYTECODE")) {
           // show logic <id> bytecode
           uint8_t program_id = atoi(subcommand);
-          if (program_id > 0 && program_id <= 4) {
+          if (program_id > 0 && program_id <= ST_LOGIC_MAX_PROGRAMS) {
             cli_cmd_show_logic_bytecode(st_logic_get_state(), program_id - 1);
             return true;
           } else {
-            debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
+            debug_printf("ERROR: Invalid program ID '%s' (expected 1-%d)\n", subcommand, ST_LOGIC_MAX_PROGRAMS);
             return false;
           }
         } else if (!strcmp(subcommand2_norm, "ST")) {
           // show logic <id> st - v5.1.0: Show with source code
           uint8_t program_id = atoi(subcommand);
-          if (program_id > 0 && program_id <= 4) {
+          if (program_id > 0 && program_id <= ST_LOGIC_MAX_PROGRAMS) {
             cli_cmd_show_logic_program(st_logic_get_state(), program_id - 1, 1);  // show_source=1
             return true;
           } else {
-            debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
+            debug_printf("ERROR: Invalid program ID '%s' (expected 1-%d)\n", subcommand, ST_LOGIC_MAX_PROGRAMS);
             return false;
           }
         } else if (!strcmp(subcommand2_norm, "DEBUG")) {
           // FEAT-008: show logic <id> debug [vars|stack]
           uint8_t program_id = atoi(subcommand);
-          if (program_id < 1 || program_id > 4) {
-            debug_printf("ERROR: Invalid program ID '%s' (expected 1-4)\n", subcommand);
+          if (program_id < 1 || program_id > ST_LOGIC_MAX_PROGRAMS) {
+            debug_printf("ERROR: Invalid program ID '%s' (expected 1-%d)\n", subcommand, ST_LOGIC_MAX_PROGRAMS);
             return false;
           }
 
@@ -782,11 +787,11 @@ bool cli_parser_execute(char* line) {
       } else {
         // show logic <id> - specific program (hide source code by default - v5.1.0)
         uint8_t program_id = atoi(subcommand);
-        if (program_id > 0 && program_id <= 4) {
+        if (program_id > 0 && program_id <= ST_LOGIC_MAX_PROGRAMS) {
           cli_cmd_show_logic_program(st_logic_get_state(), program_id - 1, 0);  // show_source=0
           return true;
         } else {
-          debug_printf("ERROR: Invalid program ID '%s' (expected 1-4 or all|stats|program|errors)\n", subcommand);
+          debug_printf("ERROR: Invalid program ID '%s' (expected 1-%d or all|stats|program|errors)\n", subcommand, ST_LOGIC_MAX_PROGRAMS);
           return false;
         }
       }
@@ -1071,8 +1076,8 @@ bool cli_parser_execute(char* line) {
       const char* subcommand = argv[3];  // Don't normalize yet - may be key:value
 
       // Validate program_id (1-4 user facing, 0-3 internal)
-      if (program_id < 1 || program_id > 4) {
-        debug_printf("ERROR: Invalid program ID %d (expected 1-4)\n", program_id);
+      if (program_id < 1 || program_id > ST_LOGIC_MAX_PROGRAMS) {
+        debug_printf("ERROR: Invalid program ID %d (expected 1-%d)\n", program_id, ST_LOGIC_MAX_PROGRAMS);
         return false;
       }
       uint8_t prog_idx = program_id - 1;  // Convert to 0-based index
@@ -1648,8 +1653,8 @@ void cli_parser_execute_st_upload(uint8_t program_id, const char* source_code) {
    * source_code: Complete multi-line source code collected from CLI
    */
 
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return;
   }
 

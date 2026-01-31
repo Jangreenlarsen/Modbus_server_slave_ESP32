@@ -81,6 +81,20 @@
 #define ST_LOGIC_CONTROL_RESET_ERROR    0x0004  // Bit 2: Reset error flag
 
 /* ============================================================================
+ * ST LOGIC PROGRAM LIMITS
+ * ============================================================================ */
+
+#define ST_LOGIC_MAX_PROGRAMS  4  // Max ST Logic programs (1-4, affects RAM: ~13KB per program)
+
+/* ============================================================================
+ * MODULE ENABLE/DISABLE FLAGS (v6.2.0+)
+ * ============================================================================ */
+
+#define MODULE_FLAG_COUNTERS_DISABLED   0x01  // Bit 0: Counters disabled
+#define MODULE_FLAG_TIMERS_DISABLED     0x02  // Bit 1: Timers disabled
+#define MODULE_FLAG_ST_LOGIC_DISABLED   0x04  // Bit 2: ST Logic disabled
+
+/* ============================================================================
  * COUNTER CONFIGURATION
  * ============================================================================ */
 

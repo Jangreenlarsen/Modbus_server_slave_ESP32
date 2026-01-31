@@ -228,6 +228,16 @@ int wifi_driver_init(void)
     return -1;
   }
 
+  // Set Wi-Fi power save mode based on config (v6.0.4+)
+  // wifi_power_save: 0 = off (fast), 1 = on (power save)
+  // Note: Config not loaded yet at init time, so default to power save OFF
+  // The actual setting will be applied later when config is loaded
+  err = esp_wifi_set_ps(WIFI_PS_NONE);
+  if (err != ESP_OK) {
+    ESP_LOGW(TAG, "Failed to set Wi-Fi power save: %s", esp_err_to_name(err));
+    // Continue anyway - not critical
+  }
+
   wifi_state.state = WIFI_STATE_IDLE;
   ESP_LOGI(TAG, "Wi-Fi driver initialized successfully");
 

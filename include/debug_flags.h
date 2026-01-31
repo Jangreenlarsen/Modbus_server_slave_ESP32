@@ -34,6 +34,16 @@ void debug_flags_set_wifi_connect(uint8_t enabled);
 void debug_flags_set_network_validate(uint8_t enabled);
 
 /**
+ * @brief Enable/disable HTTP server debug
+ */
+void debug_flags_set_http_server(uint8_t enabled);
+
+/**
+ * @brief Enable/disable HTTP API debug
+ */
+void debug_flags_set_http_api(uint8_t enabled);
+
+/**
  * @brief Enable/disable all debug flags
  */
 void debug_flags_set_all(uint8_t enabled);

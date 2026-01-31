@@ -402,17 +402,29 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
           // Up arrow - get previous command from history
           const char* prev_cmd = cli_history_get_prev();
           if (prev_cmd != NULL && prev_cmd[0] != '\0') {
+            // Save old length for clearing
+            uint16_t old_len = server->input_pos;
+
             // Clear current line and redraw with history command
             memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
             strncpy(server->input_buffer, prev_cmd, TELNET_INPUT_BUFFER_SIZE - 1);
             server->input_pos = strlen(server->input_buffer);
             server->cursor_pos = server->input_pos;  // Cursor at end of recalled command
 
-            // Redraw line: clear current, show new
+            // Redraw line using compatible method (no ANSI codes)
             if (server->echo_enabled) {
-              // ANSI: clear entire line, return to start, show prompt + command
-              telnet_server_write(server, "\x1B[2K\r> ");
+              // 1. Return to start of line
+              telnet_server_write(server, "\r> ");
+              // 2. Print new command
               telnet_server_write(server, server->input_buffer);
+              // 3. Clear remaining chars from old command with spaces
+              for (uint16_t i = server->input_pos; i < old_len + 2; i++) {
+                tcp_server_send(server->tcp_server, 0, (uint8_t*)" ", 1);
+              }
+              // 4. Move cursor back after spaces
+              for (uint16_t i = server->input_pos; i < old_len + 2; i++) {
+                tcp_server_send(server->tcp_server, 0, (uint8_t*)"\b", 1);
+              }
             }
           }
           return;
@@ -420,6 +432,9 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
           // Down arrow - get next command from history
           const char* next_cmd = cli_history_get_next();
           if (next_cmd != NULL) {
+            // Save old length for clearing
+            uint16_t old_len = server->input_pos;
+
             // Clear current line and redraw with history command
             memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
             if (next_cmd[0] != '\0') {
@@ -431,12 +446,21 @@ static void telnet_process_input(TelnetServer *server, uint8_t byte)
               server->cursor_pos = 0;
             }
 
-            // Redraw line
+            // Redraw line using compatible method (no ANSI codes)
             if (server->echo_enabled) {
-              // ANSI: clear entire line, return to start, show prompt + command (if any)
-              telnet_server_write(server, "\x1B[2K\r> ");
+              // 1. Return to start of line
+              telnet_server_write(server, "\r> ");
+              // 2. Print new command (if any)
               if (server->input_pos > 0) {
                 telnet_server_write(server, server->input_buffer);
+              }
+              // 3. Clear remaining chars from old command with spaces
+              for (uint16_t i = server->input_pos; i < old_len + 2; i++) {
+                tcp_server_send(server->tcp_server, 0, (uint8_t*)" ", 1);
+              }
+              // 4. Move cursor back after spaces
+              for (uint16_t i = server->input_pos; i < old_len + 2; i++) {
+                tcp_server_send(server->tcp_server, 0, (uint8_t*)"\b", 1);
               }
             }
           }
@@ -836,11 +860,17 @@ int telnet_server_loop(TelnetServer *server)
     server->cursor_pos = 0;        // Reset cursor position
     memset(server->input_buffer, 0, TELNET_INPUT_BUFFER_SIZE);
 
-    // SIMPLIFIED: No IAC negotiation - just echo from server side
-    // Many Telnet clients ignore IAC anyway
-    // Users can disable local echo in their client settings if they see double echo
+    // Send IAC negotiation to configure client properly
+    // WILL ECHO = Server will handle echo, client should NOT echo locally
+    // WILL SUPPRESS-GO-AHEAD = Character-by-character mode (not line mode)
+    uint8_t iac_will_echo[] = { 0xFF, 0xFB, 0x01 };        // IAC WILL ECHO
+    uint8_t iac_will_sga[] = { 0xFF, 0xFB, 0x03 };         // IAC WILL SUPPRESS-GO-AHEAD
+    uint8_t iac_dont_echo[] = { 0xFF, 0xFE, 0x01 };        // IAC DONT ECHO (client should not echo)
+    tcp_server_send(server->tcp_server, 0, iac_will_echo, 3);
+    tcp_server_send(server->tcp_server, 0, iac_will_sga, 3);
+    tcp_server_send(server->tcp_server, 0, iac_dont_echo, 3);
 
-    // Small delay to allow client to be ready (fixes missing initial prompt)
+    // Small delay to allow client to process IAC and be ready
     delay(100);
 
     if (server->auth_required) {

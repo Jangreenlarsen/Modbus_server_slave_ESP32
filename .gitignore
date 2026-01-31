@@ -54,5 +54,9 @@ reconfigure_output.txt
 docs/ARCHIVED/
 docs/.DS_Store
 
+# TLS certificates (private keys must NEVER be committed)
+certs/prvtkey.pem
+certs/*.key
+
 # Local editor/IDE
 .claude/settings.local.json

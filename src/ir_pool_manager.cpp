@@ -38,13 +38,13 @@ uint8_t ir_pool_calculate_size(const st_bytecode_program_t *bytecode) {
  * ============================================================================ */
 
 uint8_t ir_pool_allocate(st_logic_engine_state_t *state, uint8_t program_id, uint8_t size_needed) {
-  if (!state || program_id >= 4 || size_needed == 0 || size_needed > IR_POOL_SIZE) {
+  if (!state || program_id >= ST_LOGIC_MAX_PROGRAMS || size_needed == 0 || size_needed > IR_POOL_SIZE) {
     return 255;  // Invalid parameters
   }
 
   // Find highest used offset across all programs
   uint8_t pool_used = 0;
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
     if (prog->ir_pool_offset != 65535) {
       uint8_t end = prog->ir_pool_offset + prog->ir_pool_size;
@@ -77,7 +77,7 @@ uint8_t ir_pool_allocate(st_logic_engine_state_t *state, uint8_t program_id, uin
  * ============================================================================ */
 
 void ir_pool_free(st_logic_engine_state_t *state, uint8_t program_id) {
-  if (!state || program_id >= 4) return;
+  if (!state || program_id >= ST_LOGIC_MAX_PROGRAMS) return;
 
   st_logic_program_config_t *prog = &state->programs[program_id];
   if (prog->ir_pool_offset == 65535) {
@@ -101,7 +101,7 @@ uint8_t ir_pool_get_total_used(const st_logic_engine_state_t *state) {
   if (!state) return 0;
 
   uint8_t total = 0;
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     const st_logic_program_config_t *prog = &state->programs[i];
     if (prog->ir_pool_offset != 65535) {
       total += prog->ir_pool_size;
@@ -127,10 +127,10 @@ void ir_pool_compact(st_logic_engine_state_t *state) {
     uint8_t program_id;
     uint16_t offset;
     uint8_t size;
-  } allocations[4];
+  } allocations[ST_LOGIC_MAX_PROGRAMS];
   uint8_t alloc_count = 0;
 
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     if (state->programs[i].ir_pool_offset != 65535) {
       allocations[alloc_count].program_id = i;
       allocations[alloc_count].offset = state->programs[i].ir_pool_offset;
@@ -241,7 +241,7 @@ void ir_pool_write_exports(st_logic_program_config_t *prog) {
 void ir_pool_init(st_logic_engine_state_t *state) {
   if (!state) return;
 
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     state->programs[i].ir_pool_offset = 65535;  // Not allocated
     state->programs[i].ir_pool_size = 0;
   }
@@ -259,13 +259,13 @@ void ir_pool_reallocate_all(st_logic_engine_state_t *state) {
   debug_println("[IR_POOL] Reallocating after NVS load...");
 
   // Free all allocations first
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     state->programs[i].ir_pool_offset = 65535;
     state->programs[i].ir_pool_size = 0;
   }
 
   // Reallocate for each compiled program
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
     if (!prog->compiled) continue;
 

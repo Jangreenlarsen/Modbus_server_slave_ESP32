@@ -230,6 +230,8 @@ bool config_load_from_nvs(PersistConfig* out) {
       strncpy(out->network.http.password, "modbus123", sizeof(out->network.http.password) - 1);
       out->network.http.password[sizeof(out->network.http.password) - 1] = '\0';
       out->network.http.tls_enabled = 0;
+      out->network.http.api_enabled = 1;              // API enabled by default
+      out->network.http.priority = 1;                 // NORMAL priority
       memset(out->network.http.reserved, 0, sizeof(out->network.http.reserved));
 
       // Update schema version

@@ -28,8 +28,9 @@ static st_logic_engine_state_t g_logic_state;
 
 // Global parser and compiler to avoid stack overflow
 // (These are large structures, don't allocate on stack)
-static st_parser_t g_parser;
-static st_compiler_t g_compiler;
+// Dynamic allocation: parser + compiler are only needed during compile (~12 KB saved)
+static st_parser_t *g_parser = NULL;
+static st_compiler_t *g_compiler = NULL;
 
 /**
  * @brief Get pointer to global logic engine state
@@ -48,7 +49,7 @@ void st_logic_init(st_logic_engine_state_t *state) {
   state->execution_interval_ms = 10;  // Run every 10ms by default
 
   // Initialize each program
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
     memset(prog, 0, sizeof(*prog));
     snprintf(prog->name, sizeof(prog->name), "Logic%d", i + 1);
@@ -64,7 +65,7 @@ void st_logic_init(st_logic_engine_state_t *state) {
   ir_pool_init(state);
 
   // FEAT-008: Initialize debug states for each program
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_debug_init(&state->debugger[i]);
   }
 }
@@ -77,7 +78,7 @@ void st_logic_init(st_logic_engine_state_t *state) {
  * @brief Get pointer to source code from pool
  */
 const char* st_logic_get_source_code(st_logic_engine_state_t *state, uint8_t program_id) {
-  if (program_id >= 4) return NULL;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) return NULL;
 
   st_logic_program_config_t *prog = &state->programs[program_id];
   if (prog->source_offset == 0xFFFFFFFF || prog->source_size == 0) {
@@ -95,7 +96,7 @@ void st_logic_get_pool_stats(st_logic_engine_state_t *state,
   uint32_t total_used = 0;
 
   // Calculate used bytes
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
     if (prog->source_offset != 0xFFFFFFFF) {
       total_used += prog->source_size;
@@ -111,7 +112,7 @@ void st_logic_get_pool_stats(st_logic_engine_state_t *state,
  * @brief Free program's pool allocation
  */
 static void st_logic_pool_free(st_logic_engine_state_t *state, uint8_t program_id) {
-  if (program_id >= 4) return;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) return;
 
   st_logic_program_config_t *prog = &state->programs[program_id];
   if (prog->source_offset == 0xFFFFFFFF) return;  // Not allocated
@@ -121,7 +122,7 @@ static void st_logic_pool_free(st_logic_engine_state_t *state, uint8_t program_i
   uint32_t free_size = prog->source_size;
 
   // Move data down
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *other = &state->programs[i];
     if (other->source_offset > free_offset && other->source_offset != 0xFFFFFFFF) {
       // Move this program's source code down
@@ -142,14 +143,14 @@ static void st_logic_pool_free(st_logic_engine_state_t *state, uint8_t program_i
  * @return true if successful, false if pool full
  */
 static bool st_logic_pool_allocate(st_logic_engine_state_t *state, uint8_t program_id, uint32_t size) {
-  if (program_id >= 4) return false;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) return false;
 
   // Free existing allocation if any
   st_logic_pool_free(state, program_id);
 
   // Calculate used space
   uint32_t pool_used = 0;
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
     if (prog->source_offset != 0xFFFFFFFF) {
       uint32_t end = prog->source_offset + prog->source_size;
@@ -178,7 +179,7 @@ static bool st_logic_pool_allocate(st_logic_engine_state_t *state, uint8_t progr
 
 bool st_logic_upload(st_logic_engine_state_t *state, uint8_t program_id,
                       const char *source, uint32_t source_size) {
-  if (program_id >= 4) return false;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) return false;
 
   st_logic_program_config_t *prog = &state->programs[program_id];
 
@@ -220,7 +221,7 @@ bool st_logic_upload(st_logic_engine_state_t *state, uint8_t program_id,
 }
 
 bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
-  if (program_id >= 4) return false;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) return false;
 
   // FEAT-008: Reset debug state before recompiling (old snapshot is now invalid)
   st_debug_state_t *debug = &state->debugger[program_id];
@@ -236,22 +237,42 @@ bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
     return false;
   }
 
-  // Parse the source code (use global parser to avoid stack overflow)
-  st_parser_init(&g_parser, source_code);
-  st_program_t *program = st_parser_parse_program(&g_parser);
-
-  if (!program) {
-    snprintf(prog->last_error, sizeof(prog->last_error), "Parse error: %s", g_parser.error_msg);
+  // Dynamically allocate parser and compiler (~12 KB, only needed during compile)
+  g_parser = (st_parser_t *)malloc(sizeof(st_parser_t));
+  if (!g_parser) {
+    snprintf(prog->last_error, sizeof(prog->last_error), "Insufficient heap for parser");
     return false;
   }
 
-  // Compile to bytecode (use global compiler to avoid stack overflow)
-  st_compiler_init(&g_compiler);
-  st_bytecode_program_t *bytecode = st_compiler_compile(&g_compiler, program);
+  st_parser_init(g_parser, source_code);
+  st_program_t *program = st_parser_parse_program(g_parser);
+
+  if (!program) {
+    snprintf(prog->last_error, sizeof(prog->last_error), "Parse error: %s", g_parser->error_msg);
+    free(g_parser);
+    g_parser = NULL;
+    return false;
+  }
+
+  g_compiler = (st_compiler_t *)malloc(sizeof(st_compiler_t));
+  if (!g_compiler) {
+    snprintf(prog->last_error, sizeof(prog->last_error), "Insufficient heap for compiler");
+    st_program_free(program);
+    free(g_parser);
+    g_parser = NULL;
+    return false;
+  }
+
+  st_compiler_init(g_compiler);
+  st_bytecode_program_t *bytecode = st_compiler_compile(g_compiler, program);
 
   if (!bytecode) {
-    snprintf(prog->last_error, sizeof(prog->last_error), "Compile error: %s", g_compiler.error_msg);
+    snprintf(prog->last_error, sizeof(prog->last_error), "Compile error: %s", g_compiler->error_msg);
     st_program_free(program);
+    free(g_compiler);
+    g_compiler = NULL;
+    free(g_parser);
+    g_parser = NULL;
     return false;
   }
 
@@ -292,6 +313,12 @@ bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
   st_program_free(program);
   free(bytecode);
 
+  // Free dynamically allocated parser and compiler
+  free(g_compiler);
+  g_compiler = NULL;
+  free(g_parser);
+  g_parser = NULL;
+
   return true;
 }
 
@@ -321,7 +348,7 @@ bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
  * ============================================================================ */
 
 bool st_logic_set_enabled(st_logic_engine_state_t *state, uint8_t program_id, uint8_t enabled) {
-  if (program_id >= 4) return false;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) return false;
 
   st_logic_program_config_t *prog = &state->programs[program_id];
   prog->enabled = (enabled != 0);
@@ -330,7 +357,7 @@ bool st_logic_set_enabled(st_logic_engine_state_t *state, uint8_t program_id, ui
 }
 
 bool st_logic_delete(st_logic_engine_state_t *state, uint8_t program_id) {
-  if (program_id >= 4) return false;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) return false;
 
   // FEAT-008: Reset debug state before deleting program
   st_debug_state_t *debug = &state->debugger[program_id];
@@ -400,7 +427,7 @@ bool st_logic_delete(st_logic_engine_state_t *state, uint8_t program_id) {
 }
 
 st_logic_program_config_t *st_logic_get_program(st_logic_engine_state_t *state, uint8_t program_id) {
-  if (program_id >= 4) return NULL;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) return NULL;
   return &state->programs[program_id];
 }
 
@@ -415,14 +442,14 @@ void st_logic_update_binding_counts(st_logic_engine_state_t *state) {
   extern PersistConfig g_persist_config;
 
   // Reset all binding counts
-  for (uint8_t prog_id = 0; prog_id < 4; prog_id++) {
+  for (uint8_t prog_id = 0; prog_id < ST_LOGIC_MAX_PROGRAMS; prog_id++) {
     state->programs[prog_id].binding_count = 0;
   }
 
   // Count bindings for each program
   for (uint8_t i = 0; i < g_persist_config.var_map_count; i++) {
     const VariableMapping *map = &g_persist_config.var_maps[i];
-    if (map->source_type == MAPPING_SOURCE_ST_VAR && map->st_program_id < 4) {
+    if (map->source_type == MAPPING_SOURCE_ST_VAR && map->st_program_id < ST_LOGIC_MAX_PROGRAMS) {
       state->programs[map->st_program_id].binding_count++;
     }
   }
@@ -436,7 +463,7 @@ void st_logic_update_binding_counts(st_logic_engine_state_t *state) {
 void st_logic_reset_stats(st_logic_engine_state_t *state, uint8_t program_id) {
   if (program_id == 0xFF) {
     // Reset all programs
-    for (uint8_t i = 0; i < 4; i++) {
+    for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
       st_logic_program_config_t *prog = &state->programs[i];
       prog->min_execution_us = 0;
       prog->max_execution_us = 0;
@@ -445,7 +472,7 @@ void st_logic_reset_stats(st_logic_engine_state_t *state, uint8_t program_id) {
       prog->execution_count = 0;
       prog->error_count = 0;
     }
-  } else if (program_id < 4) {
+  } else if (program_id < ST_LOGIC_MAX_PROGRAMS) {
     // Reset single program
     st_logic_program_config_t *prog = &state->programs[program_id];
     prog->min_execution_us = 0;
@@ -494,7 +521,7 @@ bool st_logic_save_to_nvs(void) {
 
   // Save each program
   uint8_t saved_count = 0;
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
 
     // Delete file if program is empty
@@ -578,7 +605,7 @@ bool st_logic_load_from_nvs(void) {
 
   // Load each program
   uint8_t loaded_count = 0;
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &state->programs[i];
 
     char filename[32];

@@ -55,8 +55,8 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
  */
 int cli_cmd_set_logic_upload(st_logic_engine_state_t *logic_state, uint8_t program_id,
                              const char *source_code) {
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -144,8 +144,8 @@ int cli_cmd_set_logic_upload(st_logic_engine_state_t *logic_state, uint8_t progr
  */
 int cli_cmd_set_logic_enabled(st_logic_engine_state_t *logic_state, uint8_t program_id,
                               bool enabled) {
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -246,8 +246,8 @@ int cli_cmd_set_logic_interval(st_logic_engine_state_t *logic_state, uint32_t in
  *   set logic 1 delete
  */
 int cli_cmd_set_logic_delete(st_logic_engine_state_t *logic_state, uint8_t program_id) {
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -273,8 +273,8 @@ int cli_cmd_set_logic_delete(st_logic_engine_state_t *logic_state, uint8_t progr
  */
 int cli_cmd_set_logic_bind_by_name(st_logic_engine_state_t *logic_state, uint8_t program_id,
                                     const char *var_name, const char *binding_spec, const char *direction_override) {
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -448,8 +448,8 @@ static void cleanup_counters_using_register(uint16_t old_reg) {
  */
 int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program_id,
                            uint8_t var_index, uint16_t modbus_reg, const char *direction, uint8_t input_type, uint8_t output_type) {
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -675,8 +675,8 @@ int cli_cmd_set_logic_bind(st_logic_engine_state_t *logic_state, uint8_t program
  * @param show_source 1=show ST source code, 0=hide (v5.1.0)
  */
 int cli_cmd_show_logic_program(st_logic_engine_state_t *logic_state, uint8_t program_id, uint8_t show_source) {
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -703,7 +703,7 @@ int cli_cmd_show_logic_all(st_logic_engine_state_t *logic_state) {
 int cli_cmd_show_logic_programs(st_logic_engine_state_t *logic_state) {
   debug_printf("\n=== All Logic Programs ===\n\n");
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &logic_state->programs[i];
 
     // Program header with status indicator
@@ -744,7 +744,7 @@ int cli_cmd_show_logic_errors(st_logic_engine_state_t *logic_state) {
 
   int error_count = 0;
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &logic_state->programs[i];
 
     // Show if: has compilation error OR has runtime errors
@@ -776,7 +776,7 @@ int cli_cmd_show_logic_errors(st_logic_engine_state_t *logic_state) {
   if (error_count == 0) {
     debug_printf("  ✓ No errors found!\n\n");
   } else {
-    debug_printf("  Total programs with errors: %d/4\n\n", error_count);
+    debug_printf("  Total programs with errors: %d/%d\n\n", error_count, ST_LOGIC_MAX_PROGRAMS);
   }
 
   return 0;
@@ -828,7 +828,7 @@ int cli_cmd_show_logic_code_all(st_logic_engine_state_t *logic_state) {
   debug_printf("  All Logic Programs - Source Code\n");
   debug_printf("========================================\n\n");
 
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &logic_state->programs[i];
 
     debug_printf("--- [%d] %s ---\n", i + 1, prog->name);
@@ -865,8 +865,8 @@ int cli_cmd_show_logic_code_all(st_logic_engine_state_t *logic_state) {
  * @return 0 on success, -1 on error
  */
 int cli_cmd_show_logic_bytecode(st_logic_engine_state_t *logic_state, uint8_t program_id) {
-  if (program_id >= 4) {
-    debug_printf("ERROR: Invalid program ID (1-4)\n");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (1-%d)\n", ST_LOGIC_MAX_PROGRAMS);
     return -1;
   }
 
@@ -1068,7 +1068,7 @@ int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
   debug_printf("\n");
 
   // Per-program statistics
-  for (uint8_t i = 0; i < 4; i++) {
+  for (uint8_t i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
     st_logic_program_config_t *prog = &logic_state->programs[i];
 
     // Skip only if program is empty AND has never run
@@ -1133,8 +1133,8 @@ int cli_cmd_show_logic_stats(st_logic_engine_state_t *logic_state) {
  * @brief show logic X timing - Display detailed timing analysis for specific program (v4.1.0)
  */
 int cli_cmd_show_logic_timing(st_logic_engine_state_t *logic_state, uint8_t program_id) {
-  if (program_id >= 4) {
-    debug_printf("ERROR: Invalid program ID (1-4)\n");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (1-%d)\n", ST_LOGIC_MAX_PROGRAMS);
     return -1;
   }
 
@@ -1251,8 +1251,8 @@ int cli_cmd_reset_logic_stats(st_logic_engine_state_t *logic_state, const char *
   } else {
     // Parse program ID (1-4)
     int prog_num = atoi(target);
-    if (prog_num < 1 || prog_num > 4) {
-      debug_printf("ERROR: Invalid target. Use: all, cycle, or 1-4\n");
+    if (prog_num < 1 || prog_num > ST_LOGIC_MAX_PROGRAMS) {
+      debug_printf("ERROR: Invalid target. Use: all, cycle, or 1-%d\n", ST_LOGIC_MAX_PROGRAMS);
       return -1;
     }
 
@@ -1269,8 +1269,8 @@ int cli_cmd_reset_logic_stats(st_logic_engine_state_t *logic_state, const char *
 
 int cli_cmd_set_logic_debug_pause(st_logic_engine_state_t *logic_state, uint8_t program_id) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1303,8 +1303,8 @@ int cli_cmd_set_logic_debug_pause(st_logic_engine_state_t *logic_state, uint8_t 
 
 int cli_cmd_set_logic_debug_continue(st_logic_engine_state_t *logic_state, uint8_t program_id) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1352,8 +1352,8 @@ int cli_cmd_set_logic_debug_continue(st_logic_engine_state_t *logic_state, uint8
 
 int cli_cmd_set_logic_debug_step(st_logic_engine_state_t *logic_state, uint8_t program_id) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1393,8 +1393,8 @@ int cli_cmd_set_logic_debug_step(st_logic_engine_state_t *logic_state, uint8_t p
 
 int cli_cmd_set_logic_debug_breakpoint(st_logic_engine_state_t *logic_state, uint8_t program_id, uint16_t pc) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1422,8 +1422,8 @@ int cli_cmd_set_logic_debug_breakpoint(st_logic_engine_state_t *logic_state, uin
 
 int cli_cmd_set_logic_debug_breakpoint_line(st_logic_engine_state_t *logic_state, uint8_t program_id, uint16_t line) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1470,8 +1470,8 @@ int cli_cmd_set_logic_debug_breakpoint_line(st_logic_engine_state_t *logic_state
 
 int cli_cmd_set_logic_debug_clear(st_logic_engine_state_t *logic_state, uint8_t program_id, int pc) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1495,8 +1495,8 @@ int cli_cmd_set_logic_debug_clear(st_logic_engine_state_t *logic_state, uint8_t 
 
 int cli_cmd_set_logic_debug_stop(st_logic_engine_state_t *logic_state, uint8_t program_id) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1510,8 +1510,8 @@ int cli_cmd_set_logic_debug_stop(st_logic_engine_state_t *logic_state, uint8_t p
 
 int cli_cmd_show_logic_debug(st_logic_engine_state_t *logic_state, uint8_t program_id) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1531,8 +1531,8 @@ int cli_cmd_show_logic_debug(st_logic_engine_state_t *logic_state, uint8_t progr
 
 int cli_cmd_show_logic_debug_vars(st_logic_engine_state_t *logic_state, uint8_t program_id) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 
@@ -1547,8 +1547,8 @@ int cli_cmd_show_logic_debug_vars(st_logic_engine_state_t *logic_state, uint8_t 
 
 int cli_cmd_show_logic_debug_stack(st_logic_engine_state_t *logic_state, uint8_t program_id) {
   if (!logic_state) return -1;
-  if (program_id >= 4) {
-    debug_println("ERROR: Invalid program ID (0-3)");
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
     return -1;
   }
 

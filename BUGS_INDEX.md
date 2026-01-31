@@ -167,6 +167,15 @@
 | BUG-189 | Timer Mode 4 læser fra COIL i stedet for Discrete Input | ✔️ DESIGN | 🔵 LOW | v5.1.7 | Parameter hedder input_dis men koden læser registers_get_coil(). Bevidst design: tillader Modbus-triggered timer control. Dokumenteret |
 | BUG-190 | ST Debug: total_steps_debugged tæller i OFF mode | ✅ FIXED | 🔵 LOW | v5.3.0 | FEAT-008 bugfix: Counter incrementeredes for alle steps, ikke kun debug mode. FIX: Kun tæl når mode != ST_DEBUG_OFF (st_logic_engine.cpp:100-103) (Build #1083) |
 | BUG-191 | ST Debug: Ingen snapshot ved halt/error | ✅ FIXED | 🟠 MEDIUM | v5.3.0 | FEAT-008 bugfix: Når program haltede/fejlede under debugging blev ingen snapshot gemt → bruger kunne ikke se final state. FIX: Gem snapshot med REASON_HALT/REASON_ERROR (st_logic_engine.cpp:111-120) (Build #1083) |
+| BUG-192 | Dobbelt-close af socket i https_close_fn | ✅ FIXED | 🔴 CRITICAL | v6.0.4 | else-grenen kaldte close(sockfd) men httpd lukker også → heap corruption. FIX: Fjernet close() i else-gren (https_wrapper.c:166) (Build #1126) |
+| BUG-193 | Manglende null-terminering i upload buffer ved fuld kapacitet | ✅ FIXED | 🔴 CRITICAL | v6.0.4 | Når cli_upload_buffer_pos >= CLI_UPLOAD_BUFFER_SIZE → strlen() læser ud over buffer. FIX: else-gren null-terminerer ved [SIZE-1] (cli_shell.cpp:232,486) (Build #1126) |
+| BUG-194 | URI routing med strstr("/source") giver falsk positiv | ✅ FIXED | 🟡 HIGH | v6.0.4 | strstr matchede /source_backup, /sources etc. FIX: Erstattet med suffix-check strcmp (api_handlers.cpp:708) (Build #1126) |
+| BUG-195 | GPIO write API endpoint mangler pin-validering | ✅ FIXED | 🟡 HIGH | v6.0.4 | Kunne skrive til vilkårlige GPIO pins inkl. flash-pins (6-11). FIX: Validerer mod var_maps output-konfiguration (api_handlers.cpp:1240) (Build #1126) |
+| BUG-196 | Hardkodede registeradresser i show logic stats | ✅ FIXED | 🟡 HIGH | v6.0.4 | Literal 252/260/268/276/284-292 antog 4 programmer. FIX: Bruger nu ST_LOGIC_*_REG_BASE konstanter (cli_show.cpp:2094-2122) (Build #1126) |
+| BUG-197 | wifi_power_save config har ingen effekt | ✅ FIXED | 🟡 HIGH | v6.0.4 | esp_wifi_set_ps() blev aldrig kaldt med config-værdi. FIX: Tilføjet apply i config_apply.cpp (Build #1126) |
+| BUG-198 | Manglende defaults for api_enabled og priority | ✅ FIXED | 🟠 MEDIUM | v6.0.4 | Ved første boot/migration var api_enabled=0 (disabled). FIX: Defaults api_enabled=1, priority=1 i config_struct/config_load/network_config (Build #1126) |
+| BUG-199 | show config mangler sektionsfiltrering | ✅ FIXED | 🟠 MEDIUM | v6.0.4 | "show config wifi" virkede ikke - ingen section-parameter support. FIX: cli_cmd_show_config(section) med filter for WIFI/MODBUS/COUNTER/etc (cli_show.cpp, cli_parser.cpp) (Build #1126) |
+| BUG-200 | Privat TLS-nøgle ikke beskyttet i .gitignore | ✅ FIXED | 🔴 CRITICAL | v6.0.4 | certs/prvtkey.pem kunne committes ved uheld. FIX: Tilføjet certs/prvtkey.pem og certs/*.key til .gitignore (Build #1126) |
 
 ## Feature Requests / Enhancements
 
@@ -182,6 +191,12 @@
 | FEAT-008 | ST Logic debugging/single-step mode | ✅ DONE | 🔵 LOW | v5.3.0 | CLI: `set logic <id> debug pause/step/continue`, breakpoints, variable inspection. Build #1082, bugfixes Build #1083 (BUG-190, BUG-191). (st_debug.h, st_debug.cpp) |
 | FEAT-009 | ST Logic STRUCT type support | ❌ OPEN | 🔵 LOW | v6.0.0 | Brugerdefinerede strukturer: `TYPE MyStruct: STRUCT x: INT; y: REAL; END_STRUCT END_TYPE`. Avanceret - lav prioritet |
 | FEAT-010 | ST Logic program prioriteter/scheduling | ❌ OPEN | 🔵 LOW | v6.0.0 | Differenteret execution interval per program, interrupt-drevet high-priority execution. Nyttigt til real-time krav |
+| FEAT-011 | HTTP REST API v6.0.0 | ✅ DONE | 🟡 HIGH | v6.0.0 | REST API med 20+ endpoints for counters, timers, logic, registers, GPIO, system control. (api_handlers.cpp) (Build #1108) |
+| FEAT-012 | HTTPS/TLS support | ✅ DONE | 🟠 MEDIUM | v6.0.4 | Custom TLS wrapper med heap-baseret connection limiting. ECDSA P-256 certifikat embedded i flash. (https_wrapper.c) (Build #1126) |
+| FEAT-013 | Dynamisk parser/compiler RAM-allokering | ✅ DONE | 🟡 HIGH | v6.0.4 | Parser/compiler malloc'd under kompilering, frigivet efter. Sparer ~12KB permanent RAM. Upload-buffer også dynamisk (~5KB). (st_logic_config.cpp, cli_shell.cpp) (Build #1126) |
+| FEAT-014 | ST_LOGIC_MAX_PROGRAMS refactoring | ✅ DONE | 🟠 MEDIUM | v6.0.4 | Alle hardkodede 4-værdier erstattet med konstant. Module enable/disable flags. (constants.h, 10+ filer) (Build #1126) |
+| FEAT-015 | Telnet IAC negotiation + ANSI-kompatibel history | ✅ DONE | 🟠 MEDIUM | v6.0.4 | Korrekt IAC WILL ECHO/SUPPRESS-GO-AHEAD ved connection. ANSI-fri line clearing for alle terminaler. (telnet_server.cpp) (Build #1126) |
+| FEAT-016 | Show config sektionsfiltrering | ✅ DONE | 🟠 MEDIUM | v6.0.4 | "show config wifi/modbus/counters/http/..." viser kun relevant sektion. (cli_show.cpp, cli_parser.cpp) (Build #1126) |
 
 ## Quick Lookup by Category
 
