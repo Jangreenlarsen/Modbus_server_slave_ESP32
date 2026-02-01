@@ -142,8 +142,16 @@ esp_err_t api_send_json(httpd_req_t *req, const char *json_str)
  * AUTHENTICATION CHECK MACRO
  * ============================================================================ */
 
+#define CHECK_API_ENABLED(req) \
+  do { \
+    if (!g_persist_config.network.http.api_enabled) { \
+      return api_send_error(req, 403, "API disabled"); \
+    } \
+  } while(0)
+
 #define CHECK_AUTH(req) \
   do { \
+    CHECK_API_ENABLED(req); \
     if (!http_server_check_auth(req)) { \
       return api_send_error(req, 401, "Authentication required"); \
     } \
