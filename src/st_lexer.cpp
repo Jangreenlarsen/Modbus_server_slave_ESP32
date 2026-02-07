@@ -128,6 +128,12 @@ static const keyword_entry_t keywords[] = {
   {"BEGIN", ST_TOK_BEGIN},
   {"END", ST_TOK_END},
 
+  // FEAT-003: User-defined functions (IEC 61131-3)
+  {"FUNCTION", ST_TOK_FUNCTION},
+  {"END_FUNCTION", ST_TOK_END_FUNCTION},
+  {"FUNCTION_BLOCK", ST_TOK_FUNCTION_BLOCK},
+  {"END_FUNCTION_BLOCK", ST_TOK_END_FUNCTION_BLOCK},
+
   // Operators
   {"AND", ST_TOK_AND},
   {"OR", ST_TOK_OR},
@@ -708,6 +714,10 @@ const char *st_token_type_to_string(st_token_type_t type) {
     case ST_TOK_END_PROGRAM:    return "END_PROGRAM";
     case ST_TOK_BEGIN:          return "BEGIN";
     case ST_TOK_END:            return "END";
+    case ST_TOK_FUNCTION:       return "FUNCTION";
+    case ST_TOK_END_FUNCTION:   return "END_FUNCTION";
+    case ST_TOK_FUNCTION_BLOCK: return "FUNCTION_BLOCK";
+    case ST_TOK_END_FUNCTION_BLOCK: return "END_FUNCTION_BLOCK";
     case ST_TOK_ASSIGN:         return "ASSIGN";
     case ST_TOK_EQ:             return "EQ";
     case ST_TOK_NE:             return "NE";

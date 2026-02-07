@@ -98,6 +98,11 @@ bool st_logic_execute_program(st_logic_engine_state_t *state, uint8_t program_id
     stateful->cycle_time_ms = state->execution_interval_ms;
   }
 
+  // FEAT-003: Set function registry for user-defined function calls
+  if (prog->bytecode.func_registry) {
+    vm.func_registry = prog->bytecode.func_registry;
+  }
+
   // BUG-007 FIX: Add timing wrapper for execution monitoring (use micros for precision)
   uint32_t start_us = micros();
 

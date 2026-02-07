@@ -83,6 +83,12 @@ typedef enum {
   ST_TOK_BEGIN,             // BEGIN (v4.3.0 - IEC 61131-3 program body start)
   ST_TOK_END,               // END (v4.3.0 - IEC 61131-3 program end)
 
+  // Keywords - Function definitions (FEAT-003: User-defined functions)
+  ST_TOK_FUNCTION,          // FUNCTION
+  ST_TOK_END_FUNCTION,      // END_FUNCTION
+  ST_TOK_FUNCTION_BLOCK,    // FUNCTION_BLOCK (stateful)
+  ST_TOK_END_FUNCTION_BLOCK,// END_FUNCTION_BLOCK
+
   // Operators
   ST_TOK_ASSIGN,            // :=
   ST_TOK_EQ,                // =
@@ -180,6 +186,11 @@ typedef enum {
   ST_AST_EXIT,              // EXIT (break loop)
   ST_AST_CALL,              // Function call (future)
   ST_AST_REMOTE_WRITE,      // MB_WRITE_XXX(id, addr) := value (v4.6.0)
+  ST_AST_RETURN,            // RETURN [expression] (FEAT-003)
+
+  // FEAT-003: User-defined function definitions
+  ST_AST_FUNCTION_DEF,      // FUNCTION name : type ... END_FUNCTION
+  ST_AST_FUNCTION_BLOCK_DEF,// FUNCTION_BLOCK name ... END_FUNCTION_BLOCK
 
   // Expressions
   ST_AST_LITERAL,           // Constant (123, TRUE, 1.5, etc.)
@@ -269,6 +280,44 @@ typedef struct {
   uint16_t func_id;          // ST_BUILTIN_MB_WRITE_COIL or ST_BUILTIN_MB_WRITE_HOLDING (enum value)
 } st_remote_write_t;
 
+/* FEAT-003: User-defined function definition (IEC 61131-3)
+ *
+ * Syntax:
+ *   FUNCTION name : return_type
+ *   VAR_INPUT
+ *     param1 : INT;
+ *   END_VAR
+ *   VAR
+ *     local1 : INT;
+ *   END_VAR
+ *     (* function body *)
+ *     RETURN expression;
+ *   END_FUNCTION
+ */
+typedef struct {
+  char func_name[64];                   // Function name
+  st_datatype_t return_type;            // Return type (ST_TYPE_NONE for void/FUNCTION_BLOCK)
+
+  // Parameters (VAR_INPUT, VAR_OUTPUT, VAR_IN_OUT)
+  st_variable_decl_t params[8];         // Max ST_MAX_FUNCTION_PARAMS parameters
+  uint8_t param_count;
+
+  // Local variables (VAR)
+  st_variable_decl_t locals[16];        // Max ST_MAX_FUNCTION_LOCALS local variables
+  uint8_t local_count;
+
+  // Function body (linked list of statements)
+  st_ast_node_t *body;
+
+  // Flags
+  uint8_t is_function_block;            // 1 = FUNCTION_BLOCK (stateful), 0 = FUNCTION
+} st_function_def_t;
+
+/* FEAT-003: RETURN statement */
+typedef struct {
+  st_ast_node_t *expr;                  // Return expression (NULL for void return)
+} st_return_stmt_t;
+
 /* Main AST node */
 typedef struct st_ast_node {
   st_ast_node_type_t type;
@@ -282,6 +331,8 @@ typedef struct st_ast_node {
     st_while_stmt_t while_stmt;
     st_repeat_stmt_t repeat_stmt;
     st_remote_write_t remote_write;  // v4.6.0: MB_WRITE_XXX(id, addr) := value
+    st_return_stmt_t return_stmt;    // FEAT-003: RETURN statement
+    st_function_def_t function_def;  // FEAT-003: FUNCTION/FUNCTION_BLOCK definition
 
     st_binary_op_t binary_op;
     st_unary_op_t unary_op;
@@ -292,6 +343,86 @@ typedef struct st_ast_node {
 
   struct st_ast_node *next;  // Linked list of statements
 } st_ast_node_t;
+
+/* ============================================================================
+ * FEAT-003: FUNCTION REGISTRY (for user-defined functions)
+ * ============================================================================ */
+
+/**
+ * @brief Function registry entry
+ *
+ * Stores metadata about a user-defined function for lookup during
+ * compilation and execution.
+ */
+typedef struct {
+  char name[64];                        // Function name
+  st_datatype_t return_type;            // Return type (ST_TYPE_NONE for FB/void)
+
+  // Parameter info
+  st_datatype_t param_types[8];         // Parameter types (max 8)
+  uint8_t param_count;                  // Number of parameters
+
+  // Bytecode location
+  uint16_t bytecode_addr;               // Start address in bytecode array
+  uint16_t bytecode_size;               // Number of instructions
+
+  // Flags
+  uint8_t is_builtin;                   // 1 = builtin C function, 0 = user-defined
+  uint8_t is_function_block;            // 1 = FUNCTION_BLOCK (stateful)
+  uint8_t instance_size;                // Bytes needed for state storage (FB only)
+} st_function_entry_t;
+
+/**
+ * @brief FUNCTION_BLOCK instance storage (Phase 5)
+ *
+ * Stores persistent local variable state for each FUNCTION_BLOCK instance.
+ * Each call site in the source code gets a unique instance, just like
+ * builtin stateful functions (TON, CTU, etc.).
+ *
+ * Memory: 16 locals * 8 bytes + overhead = ~140 bytes per instance
+ */
+#define ST_MAX_FB_INSTANCES   16  // Max FUNCTION_BLOCK instances per program
+#define ST_MAX_FB_LOCALS      16  // Max local variables per FB instance
+
+typedef struct {
+  st_value_t local_vars[ST_MAX_FB_LOCALS];    // Persistent local variable values
+  st_datatype_t local_types[ST_MAX_FB_LOCALS]; // Types for each local variable
+  uint8_t local_count;                         // Number of local variables
+  uint8_t func_index;                          // Function registry index
+  uint8_t initialized;                         // 1 = has been called at least once
+} st_fb_instance_t;
+
+/**
+ * @brief Function registry
+ *
+ * Contains all functions (builtin + user-defined) for a program.
+ * Used during compilation for name resolution and during VM execution
+ * for CALL_USER dispatch.
+ */
+typedef struct {
+  st_function_entry_t functions[64];    // Max ST_MAX_TOTAL_FUNCTIONS
+  uint8_t builtin_count;                // Number of builtin functions
+  uint8_t user_count;                   // Number of user-defined functions
+
+  // Phase 5: FUNCTION_BLOCK instance storage
+  st_fb_instance_t fb_instances[ST_MAX_FB_INSTANCES];  // Persistent state for FB instances
+  uint8_t fb_instance_count;                            // Number of allocated FB instances
+} st_function_registry_t;
+
+/**
+ * @brief VM call frame (for function call stack)
+ *
+ * Stores return address and local variable info when calling
+ * a user-defined function.
+ */
+typedef struct {
+  uint16_t return_pc;                   // Return address (PC to jump back to)
+  uint16_t param_base;                  // Base index for parameters on value stack
+  uint8_t param_count;                  // Number of parameters passed
+  uint8_t local_count;                  // Number of local variables
+  uint8_t func_index;                   // Index in function registry (for debugging)
+  uint8_t fb_instance_id;              // Phase 5: FB instance ID (0xFF = stateless)
+} st_call_frame_t;
 
 /* ============================================================================
  * PROGRAM STRUCTURE (IEC 61131-3 6.1 - Organization)
@@ -369,6 +500,13 @@ typedef enum {
   // Function calls
   ST_OP_CALL_BUILTIN,       // Call built-in function (int_arg = function ID)
 
+  // FEAT-003: User-defined function calls
+  ST_OP_CALL_USER,          // Call user-defined function (int_arg = function index in registry)
+  ST_OP_RETURN,             // Return from function (pops return value, restores PC)
+  ST_OP_LOAD_PARAM,         // Load function parameter (var_index = param index)
+  ST_OP_STORE_LOCAL,        // Store to local variable (var_index = local index)
+  ST_OP_LOAD_LOCAL,         // Load local variable (var_index = local index)
+
   // Misc
   ST_OP_NOP,                // No operation
   ST_OP_HALT,               // Stop execution
@@ -388,6 +526,11 @@ typedef struct {
       uint8_t instance_id;  // Instance storage index (0-7)
       uint16_t padding;     // Padding to 4 bytes
     } builtin_call;
+    struct {                // FEAT-003: For CALL_USER with instance tracking
+      uint8_t func_index;   // Function index in registry
+      uint8_t instance_id;  // FB instance ID (0xFF = stateless FUNCTION)
+      uint16_t padding;     // Padding to 4 bytes
+    } user_call;
   } arg;
 } st_bytecode_instr_t;
 
@@ -411,6 +554,9 @@ typedef struct {
 
   // Stateful storage for timers, edges, counters (v4.7+)
   struct st_stateful_storage* stateful;  // Persistent state between cycles (opaque pointer)
+
+  // FEAT-003: Function registry for user-defined functions
+  st_function_registry_t* func_registry;  // NULL if no user functions (heap-allocated)
 
   char name[64];
   uint8_t enabled;

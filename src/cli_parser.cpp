@@ -536,6 +536,7 @@ static void print_logic_help(void) {
   debug_println("  show logic all code      - Vis alle programmer source code");
   debug_println("  show logic <id> timing   - Vis timing info (execution times)");
   debug_println("  show logic <id> bytecode - Vis compileret bytecode instruktioner");
+  debug_println("  show logic <id> functions- Vis user-defined functions (FEAT-003)");
   debug_println("");
   debug_println("Available 'reset logic' commands:");
   debug_println("  reset logic stats      - Nulstil alle programs statistik");
@@ -740,6 +741,16 @@ bool cli_parser_execute(char* line) {
           uint8_t program_id = atoi(subcommand);
           if (program_id > 0 && program_id <= ST_LOGIC_MAX_PROGRAMS) {
             cli_cmd_show_logic_bytecode(st_logic_get_state(), program_id - 1);
+            return true;
+          } else {
+            debug_printf("ERROR: Invalid program ID '%s' (expected 1-%d)\n", subcommand, ST_LOGIC_MAX_PROGRAMS);
+            return false;
+          }
+        } else if (!strcmp(subcommand2_norm, "FUNCTIONS")) {
+          // FEAT-003: show logic <id> functions
+          uint8_t program_id = atoi(subcommand);
+          if (program_id > 0 && program_id <= ST_LOGIC_MAX_PROGRAMS) {
+            cli_cmd_show_logic_functions(st_logic_get_state(), program_id - 1);
             return true;
           } else {
             debug_printf("ERROR: Invalid program ID '%s' (expected 1-%d)\n", subcommand, ST_LOGIC_MAX_PROGRAMS);

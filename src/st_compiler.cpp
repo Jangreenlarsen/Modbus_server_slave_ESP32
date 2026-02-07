@@ -9,6 +9,7 @@
 #include "st_compiler.h"
 #include "st_builtins.h"
 #include "st_stateful.h"
+#include "constants.h"
 #include "debug.h"
 #include <stdlib.h>
 #include <string.h>
@@ -47,12 +48,109 @@ void st_compiler_init(st_compiler_t *compiler) {
   compiler->blink_instance_count = 0;
   compiler->filter_instance_count = 0;
 
+  // FEAT-003: User-defined function support
+  compiler->function_depth = 0;
+  compiler->func_registry = NULL;
+  compiler->return_patch_count = 0;
+
   // Initialize line map (invalidate old mapping)
   g_line_map.valid = false;
   g_line_map.max_line = 0;
   for (int i = 0; i < ST_LINE_MAP_MAX; i++) {
     g_line_map.pc_for_line[i] = 0xFFFF;  // No code at this line
   }
+}
+
+/* ============================================================================
+ * FEAT-003: FUNCTION REGISTRY MANAGEMENT
+ * ============================================================================ */
+
+/**
+ * @brief Initialize function registry
+ */
+static void st_func_registry_init(st_function_registry_t *registry) {
+  memset(registry, 0, sizeof(*registry));
+  registry->builtin_count = 0;
+  registry->user_count = 0;
+}
+
+/**
+ * @brief Add a user-defined function to the registry
+ * @return Function index in registry, or 0xFF on error
+ */
+static uint8_t st_func_registry_add(st_function_registry_t *registry,
+                                     const char *name,
+                                     st_datatype_t return_type,
+                                     const st_datatype_t *param_types,
+                                     uint8_t param_count,
+                                     uint8_t is_function_block) {
+  uint8_t total = registry->builtin_count + registry->user_count;
+  if (total >= ST_MAX_TOTAL_FUNCTIONS) {
+    return 0xFF;
+  }
+  if (registry->user_count >= ST_MAX_USER_FUNCTIONS) {
+    return 0xFF;
+  }
+
+  st_function_entry_t *entry = &registry->functions[total];
+  memset(entry, 0, sizeof(*entry));
+  strncpy(entry->name, name, sizeof(entry->name) - 1);
+  entry->name[sizeof(entry->name) - 1] = '\0';
+  entry->return_type = return_type;
+  entry->param_count = param_count;
+  for (uint8_t i = 0; i < param_count && i < 8; i++) {
+    entry->param_types[i] = param_types[i];
+  }
+  entry->is_builtin = 0;
+  entry->is_function_block = is_function_block;
+  entry->bytecode_addr = 0;    // Set later after compilation
+  entry->bytecode_size = 0;    // Set later after compilation
+  entry->instance_size = 0;
+
+  registry->user_count++;
+
+  debug_printf("[COMPILER] Registered user function[%d]: '%s' params=%d ret=%d fb=%d\n",
+               total, name, param_count, return_type, is_function_block);
+
+  return total;
+}
+
+/**
+ * @brief Look up a function by name in the registry
+ * @return Function index, or 0xFF if not found
+ */
+static uint8_t st_func_registry_lookup(const st_function_registry_t *registry, const char *name) {
+  uint8_t total = registry->builtin_count + registry->user_count;
+  for (uint8_t i = 0; i < total; i++) {
+    if (strcasecmp(registry->functions[i].name, name) == 0) {
+      return i;
+    }
+  }
+  return 0xFF;
+}
+
+/* ============================================================================
+ * FEAT-003: SCOPED SYMBOL TABLE (for function local variables)
+ * ============================================================================ */
+
+/**
+ * @brief Save current symbol table state for scope restoration
+ */
+typedef struct {
+  uint8_t saved_count;          // Symbol count at scope entry
+} st_scope_save_t;
+
+static st_scope_save_t st_compiler_scope_save(st_compiler_t *compiler) {
+  st_scope_save_t save;
+  save.saved_count = compiler->symbol_table.count;
+  return save;
+}
+
+/**
+ * @brief Restore symbol table to saved scope (removes function-local symbols)
+ */
+static void st_compiler_scope_restore(st_compiler_t *compiler, st_scope_save_t *save) {
+  compiler->symbol_table.count = save->saved_count;
 }
 
 /* ============================================================================
@@ -148,6 +246,22 @@ bool st_compiler_emit_builtin_call(st_compiler_t *compiler, int32_t func_id, uin
   return true;
 }
 
+/**
+ * @brief Emit CALL_USER instruction with function index and FB instance ID
+ * @param func_index Function index in registry
+ * @param instance_id FB instance ID (0xFF = stateless FUNCTION)
+ */
+static bool st_compiler_emit_user_call(st_compiler_t *compiler, uint8_t func_index, uint8_t instance_id) {
+  if (!st_compiler_ensure_space(compiler, 1)) return false;
+
+  st_bytecode_instr_t *instr = &compiler->bytecode[compiler->bytecode_ptr++];
+  instr->opcode = ST_OP_CALL_USER;
+  instr->arg.user_call.func_index = func_index;
+  instr->arg.user_call.instance_id = instance_id;
+  instr->arg.user_call.padding = 0;
+  return true;
+}
+
 uint16_t st_compiler_current_addr(st_compiler_t *compiler) {
   return compiler->bytecode_ptr;
 }
@@ -201,8 +315,10 @@ void st_compiler_error(st_compiler_t *compiler, const char *msg) {
  * EXPRESSION COMPILATION
  * ============================================================================ */
 
-/* Forward declaration */
+/* Forward declarations */
 bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node);
+static bool st_compiler_emit_load_symbol(st_compiler_t *compiler, uint8_t var_index);
+static bool st_compiler_emit_store_symbol(st_compiler_t *compiler, uint8_t var_index);
 
 static bool st_compiler_compile_binary_op(st_compiler_t *compiler, st_ast_node_t *node) {
   // Compile left operand
@@ -299,7 +415,8 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
         st_compiler_error(compiler, msg);
         return false;
       }
-      return st_compiler_emit_var(compiler, ST_OP_LOAD_VAR, var_index);
+      // FEAT-003: Emit scope-aware LOAD (global, param, or local)
+      return st_compiler_emit_load_symbol(compiler, var_index);
     }
 
     case ST_AST_BINARY_OP:
@@ -365,6 +482,47 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
       else if (strcasecmp(node->data.function_call.func_name, "BLINK") == 0) func_id = ST_BUILTIN_BLINK;
       else if (strcasecmp(node->data.function_call.func_name, "FILTER") == 0) func_id = ST_BUILTIN_FILTER;
       else {
+        // FEAT-003: Check function registry for user-defined functions
+        if (compiler->func_registry) {
+          uint8_t user_func_idx = st_func_registry_lookup(compiler->func_registry,
+                                                            node->data.function_call.func_name);
+          if (user_func_idx != 0xFF) {
+            const st_function_entry_t *user_func = &compiler->func_registry->functions[user_func_idx];
+
+            // Validate argument count
+            if (node->data.function_call.arg_count != user_func->param_count) {
+              char msg[128];
+              snprintf(msg, sizeof(msg), "Function %s expects %d arguments, got %d",
+                       user_func->name, user_func->param_count,
+                       node->data.function_call.arg_count);
+              st_compiler_error(compiler, msg);
+              return false;
+            }
+
+            // Compile arguments (push onto stack)
+            for (uint8_t i = 0; i < node->data.function_call.arg_count; i++) {
+              if (!st_compiler_compile_expr(compiler, node->data.function_call.args[i])) {
+                return false;
+              }
+            }
+
+            // Phase 5: Allocate FB instance for FUNCTION_BLOCK calls
+            uint8_t fb_inst_id = 0xFF;  // 0xFF = stateless FUNCTION
+            if (user_func->is_function_block) {
+              if (compiler->fb_instance_count >= ST_MAX_FB_INSTANCES) {
+                st_compiler_error(compiler, "Too many FUNCTION_BLOCK instances (max 16)");
+                return false;
+              }
+              fb_inst_id = compiler->fb_instance_count++;
+              debug_printf("[COMPILER] Allocated FB instance %d for %s\n",
+                           fb_inst_id, user_func->name);
+            }
+
+            // Emit CALL_USER instruction with function index and instance ID
+            return st_compiler_emit_user_call(compiler, user_func_idx, fb_inst_id);
+          }
+        }
+
         char msg[128];
         snprintf(msg, sizeof(msg), "Unknown function: %s", node->data.function_call.func_name);
         st_compiler_error(compiler, msg);
@@ -473,6 +631,36 @@ bool st_compiler_compile_expr(st_compiler_t *compiler, st_ast_node_t *node) {
 }
 
 /* ============================================================================
+ * FEAT-003: SCOPE-AWARE VARIABLE ACCESS HELPERS
+ * ============================================================================ */
+
+/**
+ * @brief Emit the correct LOAD opcode for a symbol (global, param, or local)
+ */
+static bool st_compiler_emit_load_symbol(st_compiler_t *compiler, uint8_t var_index) {
+  st_symbol_t *sym = &compiler->symbol_table.symbols[var_index];
+  if (sym->is_func_param) {
+    return st_compiler_emit_var(compiler, ST_OP_LOAD_PARAM, sym->func_param_index);
+  } else if (sym->is_func_local) {
+    return st_compiler_emit_var(compiler, ST_OP_LOAD_LOCAL, sym->func_local_index);
+  }
+  return st_compiler_emit_var(compiler, ST_OP_LOAD_VAR, var_index);
+}
+
+/**
+ * @brief Emit the correct STORE opcode for a symbol (global or local)
+ */
+static bool st_compiler_emit_store_symbol(st_compiler_t *compiler, uint8_t var_index) {
+  st_symbol_t *sym = &compiler->symbol_table.symbols[var_index];
+  if (sym->is_func_local) {
+    return st_compiler_emit_var(compiler, ST_OP_STORE_LOCAL, sym->func_local_index);
+  } else if (sym->is_func_param) {
+    return st_compiler_emit_var(compiler, ST_OP_STORE_LOCAL, sym->func_param_index);
+  }
+  return st_compiler_emit_var(compiler, ST_OP_STORE_VAR, var_index);
+}
+
+/* ============================================================================
  * STATEMENT COMPILATION
  * ============================================================================ */
 
@@ -491,8 +679,8 @@ static bool st_compiler_compile_assignment(st_compiler_t *compiler, st_ast_node_
     return false;
   }
 
-  // Emit STORE instruction
-  return st_compiler_emit_var(compiler, ST_OP_STORE_VAR, var_index);
+  // FEAT-003: Emit scope-aware STORE (global, local, or param)
+  return st_compiler_emit_store_symbol(compiler, var_index);
 }
 
 /* v4.6.0: Compile remote write: MB_WRITE_XXX(id, addr) := value */
@@ -704,8 +892,8 @@ static bool st_compiler_compile_for(st_compiler_t *compiler, st_ast_node_t *node
     return false;
   }
 
-  // Store to loop variable
-  if (!st_compiler_emit_var(compiler, ST_OP_STORE_VAR, var_index)) {
+  // Store to loop variable (scope-aware for functions)
+  if (!st_compiler_emit_store_symbol(compiler, var_index)) {
     compiler->loop_depth--;
     return false;
   }
@@ -726,8 +914,8 @@ static bool st_compiler_compile_for(st_compiler_t *compiler, st_ast_node_t *node
   }
   // Stack: [end_value, end_value_dup]
 
-  // Load loop variable
-  if (!st_compiler_emit_var(compiler, ST_OP_LOAD_VAR, var_index)) {
+  // Load loop variable (scope-aware for functions)
+  if (!st_compiler_emit_load_symbol(compiler, var_index)) {
     return false;
   }
   // Stack: [end_value, end_value_dup, var]
@@ -751,8 +939,8 @@ static bool st_compiler_compile_for(st_compiler_t *compiler, st_ast_node_t *node
     }
   }
 
-  // Increment loop variable (BY step or default 1)
-  if (!st_compiler_emit_var(compiler, ST_OP_LOAD_VAR, var_index)) {
+  // Increment loop variable (BY step or default 1) (scope-aware)
+  if (!st_compiler_emit_load_symbol(compiler, var_index)) {
     return false;
   }
 
@@ -773,7 +961,7 @@ static bool st_compiler_compile_for(st_compiler_t *compiler, st_ast_node_t *node
   if (!st_compiler_emit(compiler, ST_OP_ADD_CHECKED)) {
     return false;
   }
-  if (!st_compiler_emit_var(compiler, ST_OP_STORE_VAR, var_index)) {
+  if (!st_compiler_emit_store_symbol(compiler, var_index)) {
     return false;
   }
 
@@ -973,6 +1161,36 @@ bool st_compiler_compile_node(st_compiler_t *compiler, st_ast_node_t *node) {
       break;
     }
 
+    // FEAT-003: RETURN statement
+    case ST_AST_RETURN: {
+      // Check if inside a function (function_depth > 0 means we're in a function)
+      if (compiler->function_depth == 0) {
+        st_compiler_error(compiler, "RETURN outside of function");
+        return false;
+      }
+
+      // Compile return expression (if present)
+      if (node->data.return_stmt.expr) {
+        if (!st_compiler_compile_expr(compiler, node->data.return_stmt.expr)) {
+          return false;
+        }
+      }
+
+      // Emit RETURN instruction
+      if (!st_compiler_emit(compiler, ST_OP_RETURN)) {
+        return false;
+      }
+      break;
+    }
+
+    // FEAT-003: Function definitions (not compiled inline, handled separately)
+    case ST_AST_FUNCTION_DEF:
+    case ST_AST_FUNCTION_BLOCK_DEF:
+      // Function definitions should be compiled separately, not in statement flow
+      // This case handles inline function definitions (future: local functions)
+      st_compiler_error(compiler, "Function definitions must be at top level");
+      return false;
+
     default:
       // Ignore other node types (they're part of expressions)
       break;
@@ -982,6 +1200,154 @@ bool st_compiler_compile_node(st_compiler_t *compiler, st_ast_node_t *node) {
   if (node->next) {
     if (!st_compiler_compile_node(compiler, node->next)) return false;
   }
+
+  return true;
+}
+
+/* ============================================================================
+ * FEAT-003: FUNCTION DEFINITION COMPILATION
+ * ============================================================================ */
+
+/**
+ * @brief Compile a user-defined FUNCTION/FUNCTION_BLOCK to bytecode
+ *
+ * This generates bytecode for the function body and registers it in the
+ * function registry. The function code is emitted into the same bytecode
+ * array as the main program, but is jumped over during normal execution.
+ *
+ * @param compiler Compiler state
+ * @param node AST node of type ST_AST_FUNCTION_DEF or ST_AST_FUNCTION_BLOCK_DEF
+ * @return true if successful
+ */
+static bool st_compiler_compile_function_def(st_compiler_t *compiler, st_ast_node_t *node) {
+  if (!compiler->func_registry) {
+    st_compiler_error(compiler, "Function registry not initialized");
+    return false;
+  }
+
+  st_function_def_t *def = &node->data.function_def;
+
+  // Check for duplicate function name
+  if (st_func_registry_lookup(compiler->func_registry, def->func_name) != 0xFF) {
+    char msg[128];
+    snprintf(msg, sizeof(msg), "Duplicate function name: %s", def->func_name);
+    st_compiler_error(compiler, msg);
+    return false;
+  }
+
+  // Collect parameter types
+  st_datatype_t param_types[ST_MAX_FUNCTION_PARAMS];
+  for (uint8_t i = 0; i < def->param_count && i < ST_MAX_FUNCTION_PARAMS; i++) {
+    param_types[i] = def->params[i].type;
+  }
+
+  // Register function (bytecode_addr will be set below)
+  uint8_t func_index = st_func_registry_add(compiler->func_registry,
+                                              def->func_name,
+                                              def->return_type,
+                                              param_types,
+                                              def->param_count,
+                                              def->is_function_block);
+  if (func_index == 0xFF) {
+    char msg[128];
+    snprintf(msg, sizeof(msg), "Too many user functions (max %d)", ST_MAX_USER_FUNCTIONS);
+    st_compiler_error(compiler, msg);
+    return false;
+  }
+
+  // Emit JMP to skip over function body in main program flow
+  uint16_t jump_over = st_compiler_emit_jump(compiler, ST_OP_JMP);
+
+  // Record function start address (where the actual function code begins)
+  uint16_t func_start = st_compiler_current_addr(compiler);
+  compiler->func_registry->functions[func_index].bytecode_addr = func_start;
+
+  // Enter function scope
+  compiler->function_depth = 1;
+  st_scope_save_t scope_save = st_compiler_scope_save(compiler);
+  compiler->return_patch_count = 0;
+
+  // Add parameters as symbols marked with is_func_param flag
+  // The compiler will emit LOAD_PARAM/STORE_LOCAL instead of LOAD_VAR/STORE_VAR
+  for (uint8_t i = 0; i < def->param_count; i++) {
+    uint8_t idx = st_compiler_add_symbol(compiler, def->params[i].name,
+                                          def->params[i].type, 1, 0, 0);
+    if (idx == 0xFF) {
+      st_compiler_scope_restore(compiler, &scope_save);
+      compiler->function_depth = 0;
+      return false;
+    }
+    // Mark as function parameter
+    compiler->symbol_table.symbols[idx].is_func_param = 1;
+    compiler->symbol_table.symbols[idx].func_param_index = i;
+  }
+
+  // Add local variables marked with is_func_local flag
+  uint8_t local_idx = 0;
+  for (uint8_t i = 0; i < def->local_count; i++) {
+    uint8_t idx = st_compiler_add_symbol(compiler, def->locals[i].name,
+                                          def->locals[i].type, 0, 0, 0);
+    if (idx == 0xFF) {
+      st_compiler_scope_restore(compiler, &scope_save);
+      compiler->function_depth = 0;
+      return false;
+    }
+    // Mark as function local variable
+    compiler->symbol_table.symbols[idx].is_func_local = 1;
+    compiler->symbol_table.symbols[idx].func_local_index = local_idx++;
+  }
+
+  // For functions with a return type, add the function name as a local variable
+  // (IEC 61131-3: assign to function name to set return value)
+  if (def->return_type != ST_TYPE_NONE) {
+    uint8_t ret_idx = st_compiler_add_symbol(compiler, def->func_name, def->return_type, 0, 0, 0);
+    if (ret_idx != 0xFF) {
+      compiler->symbol_table.symbols[ret_idx].is_func_local = 1;
+      compiler->symbol_table.symbols[ret_idx].func_local_index = local_idx++;
+    }
+  }
+
+  // Compile function body
+  if (def->body) {
+    if (!st_compiler_compile_node(compiler, def->body)) {
+      st_compiler_scope_restore(compiler, &scope_save);
+      compiler->function_depth = 0;
+      return false;
+    }
+  }
+
+  // If function has a return type, load the function-name variable as default return value
+  if (def->return_type != ST_TYPE_NONE) {
+    uint8_t ret_var = st_compiler_lookup_symbol(compiler, def->func_name);
+    if (ret_var != 0xFF) {
+      st_compiler_emit_load_symbol(compiler, ret_var);
+    }
+  }
+
+  // Emit fallback RETURN (in case body doesn't explicitly RETURN)
+  st_compiler_emit(compiler, ST_OP_RETURN);
+
+  // Record function end and size
+  uint16_t func_end = st_compiler_current_addr(compiler);
+  compiler->func_registry->functions[func_index].bytecode_size = func_end - func_start;
+
+  // Phase 5: Store local variable count for FB state persistence
+  // instance_size is repurposed to store local_count for user FBs
+  compiler->func_registry->functions[func_index].instance_size = def->local_count +
+    (def->return_type != ST_TYPE_NONE ? 1 : 0);  // +1 for return variable
+
+  debug_printf("[COMPILER] Function '%s' compiled: addr=%d size=%d params=%d locals=%d fb=%d\n",
+               def->func_name, func_start, func_end - func_start, def->param_count,
+               compiler->func_registry->functions[func_index].instance_size,
+               def->is_function_block);
+
+  // Backpatch the JMP that skips over the function body
+  st_compiler_patch_jump(compiler, jump_over, func_end);
+
+  // Restore scope and exit function context
+  st_compiler_scope_restore(compiler, &scope_save);
+  compiler->function_depth = 0;
+  compiler->return_patch_count = 0;
 
   return true;
 }
@@ -1006,13 +1372,73 @@ st_bytecode_program_t *st_compiler_compile(st_compiler_t *compiler, st_program_t
     }
   }
 
-  // Phase 2: Compile statements
-  if (!st_compiler_compile_node(compiler, program->body)) {
-    return NULL;  // Error already reported
+  // FEAT-003: Phase 1.5 - Scan for FUNCTION/FUNCTION_BLOCK definitions
+  // Check if the program body contains any function definitions
+  bool has_functions = false;
+  {
+    st_ast_node_t *scan = program->body;
+    while (scan) {
+      if (scan->type == ST_AST_FUNCTION_DEF || scan->type == ST_AST_FUNCTION_BLOCK_DEF) {
+        has_functions = true;
+        break;
+      }
+      scan = scan->next;
+    }
+  }
+
+  // FEAT-003: If functions found, allocate registry and compile them first (two-pass)
+  st_function_registry_t *registry = NULL;
+  if (has_functions) {
+    registry = (st_function_registry_t *)malloc(sizeof(st_function_registry_t));
+    if (!registry) {
+      st_compiler_error(compiler, "Failed to allocate function registry");
+      return NULL;
+    }
+    st_func_registry_init(registry);
+    compiler->func_registry = registry;
+
+    debug_printf("[COMPILER] Pass 1: Compiling user-defined functions\n");
+
+    // First pass: compile all function definitions
+    st_ast_node_t *node = program->body;
+    while (node) {
+      if (node->type == ST_AST_FUNCTION_DEF || node->type == ST_AST_FUNCTION_BLOCK_DEF) {
+        if (!st_compiler_compile_function_def(compiler, node)) {
+          free(registry);
+          compiler->func_registry = NULL;
+          return NULL;
+        }
+      }
+      node = node->next;
+    }
+
+    debug_printf("[COMPILER] Pass 1 complete: %d user functions registered\n",
+                 registry->user_count);
+  }
+
+  // Phase 2: Compile statements (skip function definitions - already compiled)
+  debug_printf("[COMPILER] Pass 2: Compiling main program body\n");
+  {
+    st_ast_node_t *node = program->body;
+    while (node) {
+      if (node->type != ST_AST_FUNCTION_DEF && node->type != ST_AST_FUNCTION_BLOCK_DEF) {
+        // Compile this statement (but don't follow ->next, we do it manually)
+        st_ast_node_t *saved_next = node->next;
+        node->next = NULL;  // Temporarily break chain to compile single node
+        if (!st_compiler_compile_node(compiler, node)) {
+          node->next = saved_next;  // Restore chain
+          if (registry) { free(registry); compiler->func_registry = NULL; }
+          return NULL;
+        }
+        node->next = saved_next;  // Restore chain
+      }
+      node = node->next;
+    }
   }
 
   // Phase 3: Emit HALT
   if (!st_compiler_emit(compiler, ST_OP_HALT)) {
+    if (registry) { free(registry); compiler->func_registry = NULL; }
     return NULL;
   }
 
@@ -1077,8 +1503,19 @@ st_bytecode_program_t *st_compiler_compile(st_compiler_t *compiler, st_program_t
     bytecode->stateful = NULL;
   }
 
+  // FEAT-003: Transfer function registry ownership to bytecode program
+  if (registry) {
+    bytecode->func_registry = registry;
+    compiler->func_registry = NULL;  // Compiler no longer owns it
+    debug_printf("[COMPILER] Function registry transferred to bytecode (%d user functions)\n",
+                 registry->user_count);
+  } else {
+    bytecode->func_registry = NULL;
+  }
+
   if (compiler->error_count > 0) {
     if (bytecode->stateful) free(bytecode->stateful);
+    if (bytecode->func_registry) free(bytecode->func_registry);
     free(bytecode);
     g_line_map.valid = false;  // Invalidate line map on error
     return NULL;
@@ -1153,6 +1590,12 @@ const char *st_opcode_to_string(st_opcode_t opcode) {
     case ST_OP_LOOP_TEST:       return "LOOP_TEST";
     case ST_OP_LOOP_NEXT:       return "LOOP_NEXT";
     case ST_OP_CALL_BUILTIN:    return "CALL_BUILTIN";
+    // FEAT-003: User-defined function opcodes
+    case ST_OP_CALL_USER:       return "CALL_USER";
+    case ST_OP_RETURN:          return "RETURN";
+    case ST_OP_LOAD_PARAM:      return "LOAD_PARAM";
+    case ST_OP_STORE_LOCAL:     return "STORE_LOCAL";
+    case ST_OP_LOAD_LOCAL:      return "LOAD_LOCAL";
     case ST_OP_NOP:             return "NOP";
     case ST_OP_HALT:            return "HALT";
     default:                    return "UNKNOWN";

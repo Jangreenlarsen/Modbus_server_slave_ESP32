@@ -93,4 +93,22 @@ void st_program_free(st_program_t *program);
  */
 void st_ast_node_print(st_ast_node_t *node, int indent);
 
+/**
+ * @brief FEAT-003: Parse a FUNCTION or FUNCTION_BLOCK definition
+ *
+ * Called when FUNCTION or FUNCTION_BLOCK keyword is encountered.
+ * Returns an AST node of type ST_AST_FUNCTION_DEF or ST_AST_FUNCTION_BLOCK_DEF.
+ *
+ * @param parser Parser state (must be positioned at FUNCTION/FUNCTION_BLOCK token)
+ * @return AST node for function definition, NULL on error
+ */
+st_ast_node_t *st_parser_parse_function_def(st_parser_t *parser);
+
+/**
+ * @brief FEAT-003: Check if current token starts a function definition
+ * @param parser Parser state
+ * @return true if current token is FUNCTION or FUNCTION_BLOCK
+ */
+bool st_parser_is_function_def(st_parser_t *parser);
+
 #endif // ST_PARSER_H

@@ -131,6 +131,7 @@ Remote I/O Boards (Modbus Slaves)
 | **[tests/ST_TEST_CONTROL.md](tests/ST_TEST_CONTROL.md)** | Control structures: IF, CASE, FOR, WHILE (6 tests) |
 | **[tests/ST_TEST_TYPES.md](tests/ST_TEST_TYPES.md)** | Type system: INT, DINT, REAL, EXPORT (12 tests) |
 | **[tests/ST_TEST_COMBINED.md](tests/ST_TEST_COMBINED.md)** | Combined/integration tests (10 tests) |
+| **[tests/ST_TEST_FUNCTIONS.md](tests/ST_TEST_FUNCTIONS.md)** | FUNCTION/FUNCTION_BLOCK tests (14 tests) ⭐ NEW |
 
 **Legacy Test Documentation:**
 | Document | Description |
@@ -150,6 +151,7 @@ Remote I/O Boards (Modbus Slaves)
 | **[ST_REMOTE_WRITE_SYNTAX_DESIGN.md](ST_REMOTE_WRITE_SYNTAX_DESIGN.md)** | MB_WRITE syntax design |
 | **[CODE_REVIEW_ST_FUNCTIONS.md](CODE_REVIEW_ST_FUNCTIONS.md)** | Code review notes |
 | **[docs/ST_FUNCTIONS_TODO.md](docs/ST_FUNCTIONS_TODO.md)** | Planned function additions |
+| **[FEAT-003_PLAN.md](FEAT-003_PLAN.md)** | FUNCTION/FUNCTION_BLOCK implementation plan ⭐ NEW |
 
 #### 4. Counter & Timer Documentation
 
@@ -289,6 +291,7 @@ Historical test reports and analysis documents are preserved in `docs/ARCHIVED/`
 
 **ST Logic Capabilities:**
 - [IEC 61131-3 Type System](#st-logic-structured-text-programming-v20) - INT/DINT/REAL/BOOL (v5.0.0)
+- [User-Defined Functions (FEAT-003)](#st-logic-structured-text-programming-v20) - FUNCTION/FUNCTION_BLOCK (v6.1.0) ⭐ NEW
 - [Modbus Master Integration](#modbus-master-interface-uart1---remote-device-control) - MB_READ_*/MB_WRITE_* functions
 - [Performance Monitoring](#st-logic-structured-text-programming-v20) - Min/Max/Avg execution times
 - [Bytecode Debugging](#-cli-commands-reference) - `show logic <id> bytecode` (v4.4.0)
@@ -675,6 +678,7 @@ Hver timer har **4 modes:**
 - **Comparisons:** =, <>, <, >, <=, >=
 - **Control Flow:** IF/THEN/ELSIF/ELSE, WHILE, FOR, REPEAT/UNTIL
 - **Variable Sections:** VAR_INPUT, VAR_OUTPUT, VAR (persistent)
+- **User Functions (v6.1.0):** FUNCTION (stateless), FUNCTION_BLOCK (stateful) - IEC 61131-3
 - **Comments:** (* multi-line *) og // single-line
 - **Built-in Functions:**
   - Math: `ABS()`, `SQRT()`, `MIN()`, `MAX()`, `SUM()`, `LIMIT()`, `SEL()`, `MUX()` ⭐ NEW v4.8.4
@@ -729,6 +733,50 @@ Hver timer har **4 modes:**
   - `show logic <id> debug vars` - Show variable values
 - **Documentation:** See [ST_DEBUG_GUIDE.md](ST_DEBUG_GUIDE.md) for detailed usage
 
+**User-Defined Functions (v6.1.0 - FEAT-003):** ⭐ NEW
+IEC 61131-3 kompatible brugerdefinerede FUNCTION og FUNCTION_BLOCK:
+
+- **FUNCTION (stateless):** Rene funktioner der returnerer en værdi
+  ```
+  FUNCTION DOUBLE : INT
+  VAR_INPUT val : INT; END_VAR
+  BEGIN
+    DOUBLE := val * 2;
+  END_FUNCTION
+  ```
+- **FUNCTION_BLOCK (stateful):** Funktionsblokke med persistent state mellem kald
+  ```
+  FUNCTION_BLOCK MY_COUNTER
+  VAR_INPUT en : BOOL; END_VAR
+  VAR_OUTPUT cv : INT; END_VAR
+  VAR cnt : INT; END_VAR        (* Bevares mellem kald *)
+  BEGIN
+    IF en THEN cnt := cnt + 1; END_IF;
+    cv := cnt;
+  END_FUNCTION_BLOCK
+  ```
+- **Features:**
+  - IEC 61131-3 return-semantik (returner via funktionsnavn)
+  - Multiple parametre (VAR_INPUT, op til 8 per funktion)
+  - Lokale variabler (VAR, op til 16 per funktion)
+  - Nested function calls (op til 8 niveauer dyb)
+  - FUNCTION_BLOCK instanser med uafhængig state (som TON/CTU)
+  - Two-pass compilation (funktioner defineres før de kaldes)
+  - Op til 16 user-defined functions og 16 FB instanser per program
+- **CLI Commands:**
+  - `show logic <id> functions` - Vis registrerede user-funktioner
+  - `show logic <id> bytecode` - Viser CALL_USER, RETURN, LOAD_PARAM opcodes
+- **Limits:**
+  | Konstant | Værdi |
+  |----------|-------|
+  | Max funktioner per program | 16 |
+  | Max parametre per funktion | 8 |
+  | Max lokale variabler per funktion | 16 |
+  | Max nestede kald | 8 |
+  | Max FUNCTION_BLOCK instanser | 16 |
+- **Documentation:** See [FEAT-003_PLAN.md](FEAT-003_PLAN.md) for implementation details
+- **Tests:** See [tests/ST_TEST_FUNCTIONS.md](tests/ST_TEST_FUNCTIONS.md) for 14 test cases
+
 **Variable I/O Binding:**
 ```
 ST Variable ↔ Holding Register (read/write)
@@ -750,6 +798,7 @@ set logic <id> bind <var> reg:X  # Bind variable to register
 show logic stats                 # All programs performance stats
 show logic <id> timing           # Detailed timing analysis
 show logic <id>                  # Specific program details
+show logic <id> functions        # Show user-defined functions (FEAT-003)
 set logic stats reset all        # Reset all statistics
 set logic stats reset cycle      # Reset global cycle stats
 set logic stats reset <1-4>      # Reset specific program stats

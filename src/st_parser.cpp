@@ -144,6 +144,17 @@ void st_ast_node_free(st_ast_node_t *node) {
       }
       break;
 
+    // FEAT-003: User-defined function support
+    case ST_AST_RETURN:
+      st_ast_node_free(node->data.return_stmt.expr);
+      break;
+
+    case ST_AST_FUNCTION_DEF:
+    case ST_AST_FUNCTION_BLOCK_DEF:
+      // Free function body
+      st_ast_node_free(node->data.function_def.body);
+      break;
+
     default:
       break;
   }
@@ -1138,6 +1149,37 @@ st_ast_node_t *st_parser_parse_statement(st_parser_t *parser) {
       return NULL;
     }
     return node;
+  } else if (parser_match(parser, ST_TOK_RETURN)) {
+    // FEAT-003: RETURN statement
+    uint32_t line = parser->current_token.line;
+    parser_advance(parser);
+
+    st_ast_node_t *node = ast_node_alloc(ST_AST_RETURN, line);
+    if (!node) {
+      parser_error(parser, "Out of memory");
+      return NULL;
+    }
+
+    // RETURN can have an optional expression
+    // Check if next token is ; or END_FUNCTION (no expression)
+    if (!parser_match(parser, ST_TOK_SEMICOLON) &&
+        !parser_match(parser, ST_TOK_END_FUNCTION) &&
+        !parser_match(parser, ST_TOK_END_FUNCTION_BLOCK) &&
+        !parser_match(parser, ST_TOK_EOF)) {
+      node->data.return_stmt.expr = parser_parse_expression(parser);
+      if (!node->data.return_stmt.expr && parser->error_count > 0) {
+        free(node);
+        return NULL;
+      }
+    } else {
+      node->data.return_stmt.expr = NULL;  // Void return
+    }
+
+    // Consume optional semicolon
+    if (parser_match(parser, ST_TOK_SEMICOLON)) {
+      parser_advance(parser);
+    }
+    return node;
   } else if (parser_match(parser, ST_TOK_THEN) || parser_match(parser, ST_TOK_ELSIF) ||
              parser_match(parser, ST_TOK_ELSE) || parser_match(parser, ST_TOK_END_IF) ||
              parser_match(parser, ST_TOK_END_CASE) || parser_match(parser, ST_TOK_END_FOR) ||
@@ -1212,7 +1254,9 @@ st_ast_node_t *st_parser_parse_statements(st_parser_t *parser) {
          !parser_match(parser, ST_TOK_END_REPEAT) &&
          !parser_match(parser, ST_TOK_UNTIL) &&    // BUG-122: Stop on UNTIL (terminates REPEAT loop)
          !parser_match(parser, ST_TOK_END_PROGRAM) &&
-         !parser_match(parser, ST_TOK_END)) {
+         !parser_match(parser, ST_TOK_END) &&
+         !parser_match(parser, ST_TOK_END_FUNCTION) &&        // FEAT-003
+         !parser_match(parser, ST_TOK_END_FUNCTION_BLOCK)) {  // FEAT-003
 
     st_ast_node_t *stmt = st_parser_parse_statement(parser);
     if (!stmt) {
@@ -1356,6 +1400,221 @@ bool st_parser_parse_var_declarations(st_parser_t *parser, st_variable_decl_t *v
   }
 
   return true;
+}
+
+/* ============================================================================
+ * FEAT-003: FUNCTION/FUNCTION_BLOCK PARSING
+ * ============================================================================ */
+
+/**
+ * @brief Parse a FUNCTION or FUNCTION_BLOCK definition
+ *
+ * IEC 61131-3 Syntax:
+ *   FUNCTION name : return_type
+ *   VAR_INPUT ... END_VAR
+ *   VAR ... END_VAR
+ *     (* body *)
+ *   END_FUNCTION
+ *
+ *   FUNCTION_BLOCK name
+ *   VAR_INPUT ... END_VAR
+ *   VAR_OUTPUT ... END_VAR
+ *   VAR ... END_VAR
+ *     (* body *)
+ *   END_FUNCTION_BLOCK
+ */
+static st_ast_node_t *parser_parse_function_definition(st_parser_t *parser) {
+  uint32_t line = parser->current_token.line;
+  bool is_function_block = parser_match(parser, ST_TOK_FUNCTION_BLOCK);
+
+  // Consume FUNCTION or FUNCTION_BLOCK
+  parser_advance(parser);
+
+  // Expect function name
+  if (!parser_match(parser, ST_TOK_IDENT)) {
+    parser_error(parser, is_function_block ?
+      "Expected function block name after FUNCTION_BLOCK" :
+      "Expected function name after FUNCTION");
+    return NULL;
+  }
+
+  st_ast_node_t *node = ast_node_alloc(
+    is_function_block ? ST_AST_FUNCTION_BLOCK_DEF : ST_AST_FUNCTION_DEF, line);
+  if (!node) {
+    parser_error(parser, "Out of memory");
+    return NULL;
+  }
+
+  // Copy function name
+  strncpy(node->data.function_def.func_name, parser->current_token.value, 63);
+  node->data.function_def.func_name[63] = '\0';
+  node->data.function_def.is_function_block = is_function_block ? 1 : 0;
+  node->data.function_def.param_count = 0;
+  node->data.function_def.local_count = 0;
+  node->data.function_def.body = NULL;
+  node->data.function_def.return_type = ST_TYPE_NONE;  // Default for FB
+  parser_advance(parser);
+
+  // For FUNCTION: parse return type (: TYPE)
+  if (!is_function_block) {
+    if (!parser_expect(parser, ST_TOK_COLON)) {
+      parser_error(parser, "Expected : after function name for return type");
+      st_ast_node_free(node);
+      return NULL;
+    }
+
+    // Parse return type
+    if (parser_match(parser, ST_TOK_BOOL)) {
+      node->data.function_def.return_type = ST_TYPE_BOOL;
+      parser_advance(parser);
+    } else if (parser_match(parser, ST_TOK_INT_KW)) {
+      node->data.function_def.return_type = ST_TYPE_INT;
+      parser_advance(parser);
+    } else if (parser_match(parser, ST_TOK_DINT_KW)) {
+      node->data.function_def.return_type = ST_TYPE_DINT;
+      parser_advance(parser);
+    } else if (parser_match(parser, ST_TOK_DWORD)) {
+      node->data.function_def.return_type = ST_TYPE_DWORD;
+      parser_advance(parser);
+    } else if (parser_match(parser, ST_TOK_REAL_KW)) {
+      node->data.function_def.return_type = ST_TYPE_REAL;
+      parser_advance(parser);
+    } else {
+      parser_error(parser, "Expected return type (BOOL, INT, DINT, DWORD, REAL)");
+      st_ast_node_free(node);
+      return NULL;
+    }
+  }
+
+  // Optional semicolon after function header
+  if (parser_match(parser, ST_TOK_SEMICOLON)) {
+    parser_advance(parser);
+  }
+
+  // Parse VAR_INPUT, VAR_OUTPUT, VAR blocks
+  while (parser_match(parser, ST_TOK_VAR) ||
+         parser_match(parser, ST_TOK_VAR_INPUT) ||
+         parser_match(parser, ST_TOK_VAR_OUTPUT) ||
+         parser_match(parser, ST_TOK_VAR_IN_OUT)) {
+
+    st_token_type_t var_section = parser->current_token.type;
+    parser_advance(parser);
+
+    // Parse variable declarations until END_VAR
+    while (!parser_match(parser, ST_TOK_END_VAR) &&
+           !parser_match(parser, ST_TOK_VAR) &&
+           !parser_match(parser, ST_TOK_VAR_INPUT) &&
+           !parser_match(parser, ST_TOK_VAR_OUTPUT) &&
+           !parser_match(parser, ST_TOK_VAR_IN_OUT) &&
+           !parser_match(parser, ST_TOK_END_FUNCTION) &&
+           !parser_match(parser, ST_TOK_END_FUNCTION_BLOCK) &&
+           !parser_match(parser, ST_TOK_EOF)) {
+
+      if (!parser_match(parser, ST_TOK_IDENT)) {
+        break;  // No more variables
+      }
+
+      // Determine where to store this variable
+      st_variable_decl_t *var;
+      if (var_section == ST_TOK_VAR_INPUT || var_section == ST_TOK_VAR_OUTPUT || var_section == ST_TOK_VAR_IN_OUT) {
+        // Parameter
+        if (node->data.function_def.param_count >= 8) {
+          parser_error(parser, "Too many function parameters (max 8)");
+          st_ast_node_free(node);
+          return NULL;
+        }
+        var = &node->data.function_def.params[node->data.function_def.param_count++];
+        var->is_input = (var_section == ST_TOK_VAR_INPUT || var_section == ST_TOK_VAR_IN_OUT);
+        var->is_output = (var_section == ST_TOK_VAR_OUTPUT || var_section == ST_TOK_VAR_IN_OUT);
+      } else {
+        // Local variable
+        if (node->data.function_def.local_count >= 16) {
+          parser_error(parser, "Too many local variables (max 16)");
+          st_ast_node_free(node);
+          return NULL;
+        }
+        var = &node->data.function_def.locals[node->data.function_def.local_count++];
+        var->is_input = 0;
+        var->is_output = 0;
+      }
+
+      // Copy variable name
+      strncpy(var->name, parser->current_token.value, 63);
+      var->name[63] = '\0';
+      parser_advance(parser);
+
+      // Expect colon
+      if (!parser_expect(parser, ST_TOK_COLON)) {
+        parser_error(parser, "Expected : after variable name");
+        st_ast_node_free(node);
+        return NULL;
+      }
+
+      // Parse data type
+      if (parser_match(parser, ST_TOK_BOOL)) {
+        var->type = ST_TYPE_BOOL;
+        parser_advance(parser);
+      } else if (parser_match(parser, ST_TOK_INT_KW)) {
+        var->type = ST_TYPE_INT;
+        parser_advance(parser);
+      } else if (parser_match(parser, ST_TOK_DINT_KW)) {
+        var->type = ST_TYPE_DINT;
+        parser_advance(parser);
+      } else if (parser_match(parser, ST_TOK_DWORD)) {
+        var->type = ST_TYPE_DWORD;
+        parser_advance(parser);
+      } else if (parser_match(parser, ST_TOK_REAL_KW)) {
+        var->type = ST_TYPE_REAL;
+        parser_advance(parser);
+      } else {
+        parser_error(parser, "Expected data type");
+        st_ast_node_free(node);
+        return NULL;
+      }
+
+      var->is_exported = 0;  // Function params/locals not exported
+
+      // Optional initial value
+      if (parser_match(parser, ST_TOK_ASSIGN)) {
+        parser_advance(parser);
+        st_ast_node_t *init_expr = parser_parse_expression(parser);
+        if (init_expr && init_expr->type == ST_AST_LITERAL) {
+          var->initial_value = init_expr->data.literal.value;
+          st_ast_node_free(init_expr);
+        }
+      }
+
+      // Consume semicolon
+      if (parser_match(parser, ST_TOK_SEMICOLON)) {
+        parser_advance(parser);
+      }
+    }
+
+    // Expect END_VAR
+    if (parser_match(parser, ST_TOK_END_VAR)) {
+      parser_advance(parser);
+    }
+  }
+
+  // Parse function body (statements)
+  node->data.function_def.body = st_parser_parse_statements(parser);
+
+  // Expect END_FUNCTION or END_FUNCTION_BLOCK
+  st_token_type_t expected_end = is_function_block ? ST_TOK_END_FUNCTION_BLOCK : ST_TOK_END_FUNCTION;
+  if (!parser_expect(parser, expected_end)) {
+    parser_error(parser, is_function_block ?
+      "Expected END_FUNCTION_BLOCK" :
+      "Expected END_FUNCTION");
+    st_ast_node_free(node);
+    return NULL;
+  }
+
+  // Optional semicolon
+  if (parser_match(parser, ST_TOK_SEMICOLON)) {
+    parser_advance(parser);
+  }
+
+  return node;
 }
 
 /* ============================================================================
@@ -1517,4 +1776,15 @@ void st_ast_node_print(st_ast_node_t *node, int indent) {
 /* Implementation of public API */
 st_ast_node_t *st_parser_parse_expression(st_parser_t *parser) {
   return parser_parse_expression(parser);
+}
+
+/* FEAT-003: Public API for function definition parsing */
+st_ast_node_t *st_parser_parse_function_def(st_parser_t *parser) {
+  return parser_parse_function_definition(parser);
+}
+
+/* FEAT-003: Check if current token starts a function definition */
+bool st_parser_is_function_def(st_parser_t *parser) {
+  return parser_match(parser, ST_TOK_FUNCTION) ||
+         parser_match(parser, ST_TOK_FUNCTION_BLOCK);
 }

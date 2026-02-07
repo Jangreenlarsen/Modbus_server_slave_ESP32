@@ -19,8 +19,9 @@ Testplanerne er opdelt i fokuserede moduler for lettere vedligeholdelse:
 | [ST_TEST_CONTROL.md](ST_TEST_CONTROL.md) | IF, CASE, FOR, WHILE, REPEAT | 5 |
 | [ST_TEST_TYPES.md](ST_TEST_TYPES.md) | Type system, EXPORT, TIME literals | 12 |
 | [ST_TEST_COMBINED.md](ST_TEST_COMBINED.md) | Fase 2: Kombinerede tests | 10 |
-| [API_TEST_PLAN.md](API_TEST_PLAN.md) | **NY:** HTTP REST API tests | 25+ |
-| **Total** | | **105+** |
+| [ST_TEST_FUNCTIONS.md](ST_TEST_FUNCTIONS.md) | **NY:** FUNCTION/FUNCTION_BLOCK (FEAT-003) | 14 |
+| [API_TEST_PLAN.md](API_TEST_PLAN.md) | HTTP REST API tests | 25+ |
+| **Total** | | **119+** |
 
 ---
 
@@ -149,5 +150,5 @@ reboot
 
 ---
 
-**Last Updated:** 2026-01-25
+**Last Updated:** 2026-02-07
 **Maintained By:** Development Team

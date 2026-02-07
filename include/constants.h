@@ -86,6 +86,13 @@
 
 #define ST_LOGIC_MAX_PROGRAMS  4  // Max ST Logic programs (1-4, affects RAM: ~13KB per program)
 
+/* FEAT-003: User-defined function limits */
+#define ST_MAX_USER_FUNCTIONS     16    // Max user-defined functions per program
+#define ST_MAX_FUNCTION_PARAMS    8     // Max parameters per function
+#define ST_MAX_FUNCTION_LOCALS    16    // Max local variables per function
+#define ST_MAX_CALL_DEPTH         8     // Max nested function calls (recursion limit)
+#define ST_MAX_TOTAL_FUNCTIONS    64    // Builtin (~48) + user-defined (16)
+
 /* ============================================================================
  * MODULE ENABLE/DISABLE FLAGS (v6.2.0+)
  * ============================================================================ */

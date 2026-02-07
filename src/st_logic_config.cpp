@@ -230,6 +230,12 @@ bool st_logic_compile(st_logic_engine_state_t *state, uint8_t program_id) {
 
   st_logic_program_config_t *prog = &state->programs[program_id];
 
+  // FEAT-003: Free old function registry if recompiling
+  if (prog->bytecode.func_registry) {
+    free(prog->bytecode.func_registry);
+    prog->bytecode.func_registry = NULL;
+  }
+
   // Get source code from pool
   const char *source_code = st_logic_get_source_code(state, program_id);
   if (!source_code || prog->source_size == 0) {

@@ -38,6 +38,11 @@ void st_vm_init(st_vm_t *vm, const st_bytecode_program_t *program) {
   if (program && program->var_count > 0) {
     memcpy(vm->variables, program->variables, program->var_count * sizeof(st_value_t));
   }
+
+  // FEAT-003: Initialize call stack for user-defined functions
+  vm->call_depth = 0;
+  vm->local_base = 0;
+  vm->func_registry = NULL;  // Set externally if user functions are used
 }
 
 void st_vm_reset(st_vm_t *vm) {
@@ -1627,6 +1632,192 @@ bool st_vm_step(st_vm_t *vm) {
     case ST_OP_HALT:
       vm->halted = 1;
       return false;
+
+    // FEAT-003: User-defined function opcodes
+    case ST_OP_CALL_USER: {
+      // Get function index and FB instance ID from instruction
+      uint8_t func_index = instr->arg.user_call.func_index;
+      uint8_t fb_inst_id = instr->arg.user_call.instance_id;
+
+      // Check if function registry is available
+      if (!vm->func_registry) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "No function registry available");
+        vm->error = 1;
+        return false;
+      }
+
+      // Check function index bounds
+      if (func_index >= vm->func_registry->builtin_count + vm->func_registry->user_count) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "Invalid function index: %d", func_index);
+        vm->error = 1;
+        return false;
+      }
+
+      // Check call depth
+      if (vm->call_depth >= 8) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "Call stack overflow (max 8 nested calls)");
+        vm->error = 1;
+        return false;
+      }
+
+      // Get function entry
+      const st_function_entry_t *func = &vm->func_registry->functions[func_index];
+
+      // Push call frame
+      st_call_frame_t *frame = &vm->call_stack[vm->call_depth];
+      frame->return_pc = vm->pc;  // Return to next instruction
+      frame->param_base = vm->sp - func->param_count;  // Parameters are on stack
+      frame->param_count = func->param_count;
+      frame->local_count = 0;  // Will be set by function prologue
+      frame->func_index = func_index;
+      frame->fb_instance_id = fb_inst_id;  // Phase 5: Track FB instance
+
+      // Phase 5: Load FB instance state into local_vars
+      if (fb_inst_id != 0xFF && fb_inst_id < ST_MAX_FB_INSTANCES) {
+        st_fb_instance_t *inst = &((st_function_registry_t *)vm->func_registry)->fb_instances[fb_inst_id];
+        if (inst->initialized) {
+          // Restore persistent local variables from instance storage
+          uint8_t count = inst->local_count;
+          if (count > ST_MAX_FB_LOCALS) count = ST_MAX_FB_LOCALS;
+          for (uint8_t i = 0; i < count; i++) {
+            if (vm->local_base + i < 64) {
+              vm->local_vars[vm->local_base + i] = inst->local_vars[i];
+              vm->local_types[vm->local_base + i] = inst->local_types[i];
+            }
+          }
+        }
+      }
+
+      vm->call_depth++;
+
+      // Jump to function code
+      vm->pc = func->bytecode_addr;
+      return true;  // Don't increment PC - we just set it
+    }
+
+    case ST_OP_RETURN: {
+      // Check we're in a function
+      if (vm->call_depth == 0) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "RETURN outside of function");
+        vm->error = 1;
+        return false;
+      }
+
+      // Get return value from stack (if any)
+      st_value_t return_value;
+      st_datatype_t return_type = ST_TYPE_NONE;
+      if (vm->sp > 0) {
+        st_vm_pop_typed(vm, &return_value, &return_type);
+      }
+
+      // Pop call frame
+      vm->call_depth--;
+      st_call_frame_t *frame = &vm->call_stack[vm->call_depth];
+
+      // Phase 5: Save FB instance state (persist local variables)
+      if (frame->fb_instance_id != 0xFF && frame->fb_instance_id < ST_MAX_FB_INSTANCES && vm->func_registry) {
+        st_fb_instance_t *inst = &((st_function_registry_t *)vm->func_registry)->fb_instances[frame->fb_instance_id];
+        // Count local variables used by this function (from function entry metadata)
+        const st_function_entry_t *func = &vm->func_registry->functions[frame->func_index];
+        // Store the local variable count based on the function's instance_size field
+        // (we repurpose instance_size to count locals for FBs)
+        uint8_t local_count = func->instance_size;
+        if (local_count > ST_MAX_FB_LOCALS) local_count = ST_MAX_FB_LOCALS;
+        for (uint8_t i = 0; i < local_count; i++) {
+          if (vm->local_base + i < 64) {
+            inst->local_vars[i] = vm->local_vars[vm->local_base + i];
+            inst->local_types[i] = vm->local_types[vm->local_base + i];
+          }
+        }
+        inst->local_count = local_count;
+        inst->func_index = frame->func_index;
+        inst->initialized = 1;
+      }
+
+      // Restore PC
+      vm->pc = frame->return_pc;
+
+      // Pop parameters from stack
+      vm->sp = frame->param_base;
+
+      // Push return value (if any)
+      if (return_type != ST_TYPE_NONE) {
+        st_vm_push_typed(vm, return_value, return_type);
+      }
+
+      break;
+    }
+
+    case ST_OP_LOAD_PARAM: {
+      // Load parameter from call frame
+      if (vm->call_depth == 0) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "LOAD_PARAM outside of function");
+        vm->error = 1;
+        return false;
+      }
+
+      uint8_t param_index = (uint8_t)instr->arg.var_index;
+      st_call_frame_t *frame = &vm->call_stack[vm->call_depth - 1];
+
+      if (param_index >= frame->param_count) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "Parameter index out of bounds: %d", param_index);
+        vm->error = 1;
+        return false;
+      }
+
+      // Parameters are stored on stack at param_base
+      uint8_t stack_index = frame->param_base + param_index;
+      st_vm_push_typed(vm, vm->stack[stack_index], vm->type_stack[stack_index]);
+      break;
+    }
+
+    case ST_OP_STORE_LOCAL: {
+      // Store to local variable
+      if (vm->call_depth == 0) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "STORE_LOCAL outside of function");
+        vm->error = 1;
+        return false;
+      }
+
+      uint8_t local_index = (uint8_t)instr->arg.var_index;
+      if (vm->local_base + local_index >= 64) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "Local variable overflow");
+        vm->error = 1;
+        return false;
+      }
+
+      st_value_t value;
+      st_datatype_t type;
+      if (!st_vm_pop_typed(vm, &value, &type)) {
+        return false;
+      }
+
+      vm->local_vars[vm->local_base + local_index] = value;
+      vm->local_types[vm->local_base + local_index] = type;
+      break;
+    }
+
+    case ST_OP_LOAD_LOCAL: {
+      // Load local variable
+      if (vm->call_depth == 0) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "LOAD_LOCAL outside of function");
+        vm->error = 1;
+        return false;
+      }
+
+      uint8_t local_index = (uint8_t)instr->arg.var_index;
+      if (vm->local_base + local_index >= 64) {
+        snprintf(vm->error_msg, sizeof(vm->error_msg), "Local variable overflow");
+        vm->error = 1;
+        return false;
+      }
+
+      st_value_t value = vm->local_vars[vm->local_base + local_index];
+      st_datatype_t type = vm->local_types[vm->local_base + local_index];
+      st_vm_push_typed(vm, value, type);
+      break;
+    }
+
     default:
       snprintf(vm->error_msg, sizeof(vm->error_msg), "Unknown opcode: %d", instr->opcode);
       vm->error = 1;

@@ -1011,6 +1011,34 @@ int cli_cmd_show_logic_bytecode(st_logic_engine_state_t *logic_state, uint8_t pr
       case ST_OP_CALL_BUILTIN:
         debug_printf("CALL_BUILTIN %d", instr->arg.int_arg);
         break;
+      // FEAT-003: User-defined function opcodes
+      case ST_OP_CALL_USER: {
+        uint8_t fi = instr->arg.user_call.func_index;
+        uint8_t ii = instr->arg.user_call.instance_id;
+        debug_printf("CALL_USER func[%d]", fi);
+        if (prog->bytecode.func_registry && fi < prog->bytecode.func_registry->builtin_count + prog->bytecode.func_registry->user_count) {
+          debug_printf(" ; %s", prog->bytecode.func_registry->functions[fi].name);
+        }
+        if (ii != 0xFF) {
+          debug_printf(" inst=%d", ii);
+        }
+        break;
+      }
+      case ST_OP_RETURN:
+        debug_printf("RETURN");
+        break;
+      case ST_OP_LOAD_PARAM:
+        debug_printf("LOAD_PARAM [%d]", instr->arg.var_index);
+        break;
+      case ST_OP_STORE_LOCAL:
+        debug_printf("STORE_LOCAL [%d]", instr->arg.var_index);
+        break;
+      case ST_OP_LOAD_LOCAL:
+        debug_printf("LOAD_LOCAL [%d]", instr->arg.var_index);
+        break;
+      case ST_OP_ADD_CHECKED:
+        debug_printf("ADD_CHECKED");
+        break;
       case ST_OP_NOP:
         debug_printf("NOP");
         break;
@@ -1557,5 +1585,103 @@ int cli_cmd_show_logic_debug_stack(st_logic_engine_state_t *logic_state, uint8_t
   debug_printf("\n=== Logic%d Stack ===", program_id + 1);
   st_debug_print_stack(debug);
 
+  return 0;
+}
+
+/* ============================================================================
+ * FEAT-003: USER FUNCTION COMMANDS
+ * ============================================================================ */
+
+/**
+ * @brief show logic <id> functions
+ *
+ * Display registered user-defined functions for a program.
+ * Shows function name, parameters, return type, bytecode address,
+ * and FUNCTION_BLOCK instance info.
+ */
+int cli_cmd_show_logic_functions(st_logic_engine_state_t *logic_state, uint8_t program_id) {
+  if (!logic_state) return -1;
+  if (program_id >= ST_LOGIC_MAX_PROGRAMS) {
+    debug_printf("ERROR: Invalid program ID (0-%d)\n", ST_LOGIC_MAX_PROGRAMS - 1);
+    return -1;
+  }
+
+  st_logic_program_config_t *prog = &logic_state->programs[program_id];
+
+  debug_printf("\n======== Logic%d User Functions ========\n\n", program_id + 1);
+
+  if (!prog->compiled || prog->bytecode.instr_count == 0) {
+    debug_printf("Program not compiled or empty.\n\n");
+    return 0;
+  }
+
+  st_function_registry_t *reg = prog->bytecode.func_registry;
+  if (!reg || reg->user_count == 0) {
+    debug_printf("No user-defined functions.\n\n");
+    return 0;
+  }
+
+  // Type name helper
+  static const char *type_names[] = {"BOOL", "INT", "DINT", "WORD", "DWORD", "REAL", "TIME", "STRING", "???"};
+
+  debug_printf("User Functions: %d\n", reg->user_count);
+  if (reg->fb_instance_count > 0) {
+    debug_printf("FB Instances:   %d / %d\n", reg->fb_instance_count, ST_MAX_FB_INSTANCES);
+  }
+  debug_printf("\n");
+
+  // List user functions (start after builtins)
+  for (uint8_t i = reg->builtin_count; i < reg->builtin_count + reg->user_count; i++) {
+    st_function_entry_t *func = &reg->functions[i];
+
+    // Function type indicator
+    const char *func_type = func->is_function_block ? "FUNCTION_BLOCK" : "FUNCTION";
+
+    // Return type
+    uint8_t rt_idx = (uint8_t)func->return_type;
+    if (rt_idx > 7) rt_idx = 8;
+    const char *ret_type = type_names[rt_idx];
+
+    debug_printf("  [%d] %s %s", i, func_type, func->name);
+    if (!func->is_function_block) {
+      debug_printf(" : %s", ret_type);
+    }
+    debug_printf("\n");
+
+    // Parameters
+    if (func->param_count > 0) {
+      debug_printf("      Params: %d (", func->param_count);
+      for (uint8_t p = 0; p < func->param_count; p++) {
+        if (p > 0) debug_printf(", ");
+        uint8_t pt_idx = (uint8_t)func->param_types[p];
+        if (pt_idx > 7) pt_idx = 8;
+        debug_printf("%s", type_names[pt_idx]);
+      }
+      debug_printf(")\n");
+    }
+
+    // Bytecode info
+    debug_printf("      Bytecode: addr=%u, size=%u instructions\n",
+                 func->bytecode_addr, func->bytecode_size);
+
+    // FB instance info
+    if (func->is_function_block && func->instance_size > 0) {
+      debug_printf("      Instance size: %d locals\n", func->instance_size);
+
+      // Show allocated instances for this function
+      for (uint8_t inst = 0; inst < reg->fb_instance_count; inst++) {
+        if (reg->fb_instances[inst].func_index == i) {
+          debug_printf("        inst[%d]: %s, %d vars\n",
+                       inst,
+                       reg->fb_instances[inst].initialized ? "initialized" : "not initialized",
+                       reg->fb_instances[inst].local_count);
+        }
+      }
+    }
+
+    debug_printf("\n");
+  }
+
+  debug_printf("========================================\n\n");
   return 0;
 }

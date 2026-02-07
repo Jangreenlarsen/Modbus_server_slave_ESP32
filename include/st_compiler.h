@@ -27,6 +27,11 @@ typedef struct {
   uint8_t is_input;
   uint8_t is_output;
   uint8_t is_exported;        // EXPORT flag (v5.1.0 - map to IR 220-251 pool)
+  // FEAT-003: Function scope tracking
+  uint8_t is_func_param;      // 1 = function parameter (use LOAD_PARAM)
+  uint8_t is_func_local;      // 1 = function local variable (use LOAD_LOCAL/STORE_LOCAL)
+  uint8_t func_param_index;   // Parameter index within function (0-based)
+  uint8_t func_local_index;   // Local variable index within function (0-based)
 } st_symbol_t;
 
 /* Symbol table */
@@ -72,6 +77,13 @@ typedef struct {
   uint8_t hysteresis_instance_count;  // HYSTERESIS instances allocated (v4.8)
   uint8_t blink_instance_count;       // BLINK instances allocated (v4.8)
   uint8_t filter_instance_count;      // FILTER instances allocated (v4.8)
+
+  // FEAT-003: User-defined function support
+  uint8_t function_depth;             // Current function nesting depth (0 = main program)
+  st_function_registry_t *func_registry;  // Function registry for user-defined functions
+  uint16_t return_patch_stack[16];    // RETURN jump addresses to backpatch
+  uint8_t return_patch_count;         // Number of RETURN patches pending
+  uint8_t fb_instance_count;          // Phase 5: FUNCTION_BLOCK instances allocated
 } st_compiler_t;
 
 /**

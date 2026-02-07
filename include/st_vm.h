@@ -45,6 +45,14 @@ typedef struct {
   st_value_t variables[32];   // Local variables (mirrors bytecode->variables)
   uint8_t var_count;
 
+  // FEAT-003: Call stack for user-defined functions
+  st_call_frame_t call_stack[8];  // Max ST_MAX_CALL_DEPTH nested calls
+  uint8_t call_depth;             // Current call depth (0 = main program)
+  st_value_t local_vars[64];      // Local variable storage for functions
+  st_datatype_t local_types[64];  // Types for local variables
+  uint8_t local_base;             // Current local variable base index
+  const st_function_registry_t *func_registry;  // Function registry (NULL if no user functions)
+
   // Execution statistics (optional)
   uint32_t step_count;        // Total steps executed
   uint32_t max_stack_depth;   // Peak stack usage

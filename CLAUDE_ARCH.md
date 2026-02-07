@@ -183,6 +183,7 @@ gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
 - Type-safe variable bindings (BOOL/INT/REAL)
 - Unified mapping system (ST vars ↔ Modbus registers/coils)
 - **Interactive Debugger (v5.3.0):** Pause, step, breakpoints, variable inspection
+- **User-Defined Functions (v6.1.0 FEAT-003):** FUNCTION/FUNCTION_BLOCK support
 
 **Registers:**
 - IR 200-203: Status (enabled, compiled, error)
@@ -192,6 +193,82 @@ gpio_mapping.cpp/h       ← Variable binding system (shared with GPIO)
 - IR 216-219: Variable binding count
 - IR 220-251: Variable values
 - HR 200-203: Control
+
+#### FUNCTION / FUNCTION_BLOCK Support (FEAT-003, v6.1.0)
+
+IEC 61131-3-kompatible brugerdefinerede funktioner.
+
+```
+Compilation Pipeline:
+  ST Source → Lexer → Parser → AST → Compiler → Bytecode → VM
+                                        ↓
+                              Two-Pass Compilation:
+                              Pass 1: FUNCTION/FUNCTION_BLOCK defs
+                              Pass 2: Main program body
+```
+
+**FUNCTION (stateless):**
+```
+FUNCTION name : return_type
+VAR_INPUT param1 : INT; END_VAR
+VAR local1 : INT; END_VAR
+BEGIN
+  name := param1 * 2;    (* Return via funktionsnavn *)
+END_FUNCTION
+```
+- Ingen state mellem kald
+- Returnerer værdi via funktionsnavn (IEC 61131-3)
+- Kompileres med scope-aware variable access (LOAD_PARAM/LOAD_LOCAL)
+
+**FUNCTION_BLOCK (stateful):**
+```
+FUNCTION_BLOCK name
+VAR_INPUT en : BOOL; END_VAR
+VAR_OUTPUT cv : INT; END_VAR
+VAR cnt : INT; END_VAR        (* Bevares mellem kald *)
+BEGIN
+  IF en THEN cnt := cnt + 1; END_IF;
+  cv := cnt;
+END_FUNCTION_BLOCK
+```
+- Lokale variabler bevares mellem kald (state persistence)
+- Hver call-site i kildekoden får en unik instans (som TON/CTU)
+- Max 16 FB instanser per program (ST_MAX_FB_INSTANCES)
+
+**Arkitektur:**
+```
+st_function_registry_t (heap-allokeret, ejet af bytecode program)
+  ├→ functions[64]           Registrerede funktioner (builtin + user)
+  ├→ fb_instances[16]        FUNCTION_BLOCK instans-storage
+  └→ user_count/builtin_count
+
+st_call_frame_t (VM call stack, max 8 deep)
+  ├→ return_pc               Retur-adresse
+  ├→ param_base              Parameter offset på stack
+  ├→ param_count/local_count
+  └→ fb_instance_id          0xFF=stateless, ellers instans-index
+
+Nye opcodes:
+  CALL_USER    → Push call frame, jump til funktion
+  RETURN       → Pop call frame, gem FB state
+  LOAD_PARAM   → Læs parameter fra call frame
+  LOAD_LOCAL   → Læs lokal variabel
+  STORE_LOCAL  → Skriv lokal variabel
+```
+
+**CLI kommandoer:**
+- `show logic <id> functions` - Vis registrerede user-funktioner
+- `show logic <id> bytecode` - Viser CALL_USER, RETURN, LOAD_PARAM etc.
+
+**Limits:**
+| Konstant | Værdi | Beskrivelse |
+|----------|-------|-------------|
+| ST_MAX_USER_FUNCTIONS | 16 | Max brugerdefinerede funktioner |
+| ST_MAX_FUNCTION_PARAMS | 8 | Max parametre per funktion |
+| ST_MAX_FUNCTION_LOCALS | 16 | Max lokale variabler per funktion |
+| ST_MAX_CALL_DEPTH | 8 | Max nestede funktionskald |
+| ST_MAX_FB_INSTANCES | 16 | Max FUNCTION_BLOCK instanser |
+| ST_MAX_FB_LOCALS | 16 | Max lokale variabler per FB instans |
 
 ---
 
@@ -445,6 +522,8 @@ pio clean && pio run # Clean rebuild
 - **TIMING_ANALYSIS.md** - ST Logic timing deep dive
 - **MODBUS_REGISTER_MAP.md** - Complete register reference
 - **ST_DEBUG_GUIDE.md** - ST Logic Debugger usage guide (v5.3.0)
+- **FEAT-003_PLAN.md** - FUNCTION/FUNCTION_BLOCK implementation plan (FEAT-003)
+- **tests/ST_TEST_FUNCTIONS.md** - FUNCTION/FUNCTION_BLOCK test cases
 - **CHANGELOG.md** - Version history
 
 ---
@@ -473,7 +552,7 @@ pio clean && pio run # Clean rebuild
 
 ---
 
-**Last Updated:** 2026-01-20
-**Version:** v5.3.0
-**Build:** #1084
+**Last Updated:** 2026-02-07
+**Version:** v6.1.0
+**Build:** #1184+
 **Status:** ✅ Active & Complete
