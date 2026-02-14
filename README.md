@@ -1,6 +1,6 @@
 # Modbus RTU Server (ESP32)
 
-**Version:** v6.0.3 | **Build:** #1133 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
+**Version:** v6.0.7 | **Build:** #1227 | **Status:** Production-Ready | **Platform:** ESP32-WROOM-32
 
 En komplet, modulær **Modbus RTU Server** implementation til ESP32-WROOM-32 mikrocontroller med **dual Modbus interfaces** (Slave + Master), ST Structured Text Logic programmering med IEC 61131-3 type system, Wi-Fi netværk, **HTTP REST API** for Node-RED integration, telnet CLI interface, og komplet Modbus register dokumentation.
 
@@ -64,6 +64,7 @@ Remote I/O Boards (Modbus Slaves)
 | **Learn ST Logic** | [docs/ST_USAGE_GUIDE.md](docs/ST_USAGE_GUIDE.md) or [docs/README_ST_LOGIC.md](docs/README_ST_LOGIC.md) |
 | **Debug ST programs** | [ST_DEBUG_GUIDE.md](ST_DEBUG_GUIDE.md) |
 | **Use REST API** | [docs/REST_API.md](docs/REST_API.md) |
+| **Backup/restore config** | [README.md → Backup/Restore](#config-backuprestore-v607) |
 | **Configure counters** | [docs/COUNTER_COMPARE_QUICK_START.md](docs/COUNTER_COMPARE_QUICK_START.md) |
 | **Set up GPIO** | [docs/GPIO_MAPPING_GUIDE.md](docs/GPIO_MAPPING_GUIDE.md) |
 | **Contribute code** | [CLAUDE_INDEX.md](CLAUDE_INDEX.md) → [CLAUDE_WORKFLOW.md](CLAUDE_WORKFLOW.md) |
@@ -288,6 +289,9 @@ Historical test reports and analysis documents are preserved in `docs/ARCHIVED/`
   - [ST Logic Integration](#4-st-logic-integration)
   - [Best Practices](#6-best-practices)
   - [Troubleshooting](#8-troubleshooting)
+
+**Config Management:**
+- [**Config Backup/Restore**](#config-backuprestore-v607) - Full JSON backup/restore via HTTP API (v6.0.7)
 
 **ST Logic Capabilities:**
 - [IEC 61131-3 Type System](#st-logic-structured-text-programming-v20) - INT/DINT/REAL/BOOL (v5.0.0)
@@ -868,7 +872,40 @@ set http auth on|off           # Enable/disable Basic Auth
 set http username <user>       # Set auth username
 set http password <pass>       # Set auth password
 show http                      # Show HTTP status & statistics
+show backup                   # Show backup/restore URLs & instructions
 ```
+
+#### Config Backup/Restore (v6.0.7)
+
+Full configuration backup and restore via HTTP API. Backup includes ALL settings: Modbus slave/master, network/WiFi (incl. passwords), HTTP, telnet, counters, timers, static/dynamic registers, coils, variable mappings, persistent register groups, and ST Logic source code.
+
+**Download backup:**
+```bash
+# Browser: open URL directly (downloads as backup.json)
+# curl:
+curl -u api_user:password http://192.168.1.100/api/system/backup -o backup.json
+```
+
+**Restore from backup:**
+```bash
+curl -u api_user:password -X POST \
+     -H "Content-Type: application/json" \
+     -d @backup.json \
+     http://192.168.1.100/api/system/restore
+```
+
+**CLI:**
+```bash
+show backup    # Shows download URL with current IP + curl examples
+```
+
+**Details:**
+- **Backup format:** JSON (~12-20KB depending on config)
+- **Auth required:** Yes (Basic Auth if enabled)
+- **ST Logic:** Source code included as plain text, auto-compiled on restore
+- **Passwords:** WiFi, HTTP, and telnet passwords included (needed for full restore)
+- **Restore behavior:** Full replace (not merge), saves to NVS + SPIFFS, calls `config_apply()`
+- **Versioning:** `backup_version: 1` field for future compatibility
 
 #### Network Configuration Persistence
 - **NVS Storage:** All network settings saved to non-volatile storage
