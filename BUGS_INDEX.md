@@ -182,6 +182,12 @@
 | BUG-204 | WWW-Authenticate header tabt pga. httpd response rækkefølge | ✅ FIXED | 🟡 HIGH | v6.0.5 | Header sat FØR `set_type`/`set_status` blev overskrevet. FIX: Flyttet til `api_send_error()` EFTER set_type/set_status men FØR sendstr (api_handlers.cpp) (Build #1162) |
 | BUG-205 | API responses cached af browser - manglende Cache-Control | ✅ FIXED | 🟡 HIGH | v6.0.5 | Uden `Cache-Control` header cachede browsere API responses aggressivt. Efter reflash viste browser gammel data. FIX: `Cache-Control: no-store, no-cache, must-revalidate` på alle API svar (api_handlers.cpp) (Build #1162) |
 | BUG-206 | /api/ trailing slash returnerer 404 | ✅ FIXED | 🔵 LOW | v6.0.5 | Kun `/api` var registreret, `/api/` gav 404. FIX: Tilføjet separat URI registration for `/api/` (http_server.cpp) (Build #1162) |
+| BUG-207 | HTTP server stack_size 4096 for lille til API handlers | ✅ FIXED | 🔴 CRITICAL | v6.0.6 | Plain HTTP task stack kun 4096 bytes → POST `/api/logic/{id}/source` og `/bind` crasher ESP32 (stack overflow). HTTPS brugte 10240. FIX: Øget til 8192 + flyttet handler response buffere fra stack til heap (http_server.cpp:463, api_handlers.cpp) (Build #1196) |
+| BUG-208 | GET /api/logic/{id}/stats stack buffer overflow | ✅ FIXED | 🟡 HIGH | v6.0.6 | `char buf[HTTP_JSON_DOC_SIZE]` (1024 bytes) på stack + JsonDocument (~700 bytes) overskrider 4096 stack. FIX: Flyttet buf til heap med malloc (api_handlers.cpp:1589) (Build #1196) |
+| BUG-209 | GET /api/logic/{id}/source timeout - delvis data | ✅ FIXED | 🟡 HIGH | v6.0.6 | Content-Length sendes men kun delvis data modtages. Forårsaget af stack overflow (BUG-207). VERIFICERET FIXED efter stack_size øgning til 8192 (Build #1196) |
+| BUG-210 | API source upload kompilerer ikke automatisk | ✅ FIXED | 🟡 HIGH | v6.0.6 | POST `/api/logic/{id}/source` kaldte kun `st_logic_upload()` men IKKE `st_logic_compile()`. FIX: Tilføjet `st_logic_compile()` kald efter upload (api_handlers.cpp:1084) (Build #1197) |
+| BUG-211 | Parser håndterer ikke FUNCTION/FUNCTION_BLOCK definitioner i PROGRAM body | ✅ FIXED | 🔴 CRITICAL | v6.0.6 | `st_parser_parse_statement()` havde ingen case for FUNCTION/FUNCTION_BLOCK. FIX: (1) `st_parser_parse_program()` parser FUNCTION/FB mellem VAR og BEGIN, (2) valgfri BEGIN i funktionskrop, (3) funktionskald-som-statement support. Alle 11 FEAT-003 tests bestået (st_parser.cpp:1668-1704, 697-747) (Build #1224) |
+| BUG-212 | Source pool null-terminering mangler i compiler path | ✅ FIXED | 🔴 CRITICAL | v6.0.6 | `st_logic_get_source_code()` returnerer pointer ind i shared pool UDEN null-terminator. Lexeren bruger '\0' til EOF-detektion → parser læser forbi kildekoden ind i tilstødende pool-data. Symptom: parse fejl med variabelnavne fra andre programmer. FIX: null-termineret kopi i `st_logic_compile()` + memory leak fix i `st_logic_delete()` (st_logic_config.cpp:240-260, 376-380) (Build #1224) |
 
 ## Feature Requests / Enhancements
 
@@ -189,7 +195,7 @@
 |-----------|-------|--------|----------|----------------|-------------|
 | FEAT-001 | `set reg STATIC` multi-register type support | ✅ DONE | 🟠 MEDIUM | v4.7.1 | Add DINT/DWORD/REAL support til persistent register configuration (Build #966) |
 | FEAT-002 | ST Logic dynamisk pool allokering (8KB shared) | ✅ DONE | 🟡 HIGH | v4.7.1 | Erstat fixed 4KB arrays med 8KB shared pool - flexibel allokering (Build #944) |
-| FEAT-003 | ST Logic custom FUNCTION/FUNCTION_BLOCK support | ❌ OPEN | 🟠 MEDIUM | v6.0.0 | IEC 61131-3 FUNCTION keyword for brugerdefinerede funktioner. Kræver: lexer tokens, parser FUNCTION declarations, compiler til separat bytecode, VM CALL opcode med stack frames. Estimat: 40-60 timer. Se ST_DEEP_ANALYSIS.md |
+| FEAT-003 | ST Logic custom FUNCTION/FUNCTION_BLOCK support | ✅ DONE | 🟠 MEDIUM | v6.0.6 | IEC 61131-3 FUNCTION/FUNCTION_BLOCK med VAR_INPUT, VAR_OUTPUT, VAR, lokale variable, nested calls, stateful FB instances. Parser, compiler (2-pass), VM (CALL_USER/RETURN/LOAD_PARAM/STORE_LOCAL) fuldt implementeret. 11/11 tests bestået (Build #1224) |
 | FEAT-004 | ST Logic ARRAY type support | ❌ OPEN | 🟡 HIGH | v6.0.0 | IEC 61131-3 ARRAY syntax: `VAR arr: ARRAY[1..10] OF INT; END_VAR`. Kræver: lexer [], parser array decl, compiler indexing, VM array access. Nyttigt til buffere, lookup tables, historik |
 | FEAT-005 | ST Logic STRING type support | ❌ OPEN | 🟠 MEDIUM | v6.0.0 | IEC 61131-3 STRING type med LEN(), CONCAT(), LEFT(), RIGHT(), MID() funktioner. Kræver: heap allocation, garbage collection overvejelser. Nyttigt til logging, protokol parsing |
 | FEAT-006 | ST Logic TIME literal support | ✅ DONE | 🟠 MEDIUM | v5.2.0 | Native TIME literals: `T#5s`, `T#100ms`, `T#1h30m`. Lexer parser, gemmes som DINT millisekunder. (st_types.h, st_lexer.cpp, st_parser.cpp) |
@@ -203,6 +209,7 @@
 | FEAT-014 | ST_LOGIC_MAX_PROGRAMS refactoring | ✅ DONE | 🟠 MEDIUM | v6.0.4 | Alle hardkodede 4-værdier erstattet med konstant. Module enable/disable flags. (constants.h, 10+ filer) (Build #1126) |
 | FEAT-015 | Telnet IAC negotiation + ANSI-kompatibel history | ✅ DONE | 🟠 MEDIUM | v6.0.4 | Korrekt IAC WILL ECHO/SUPPRESS-GO-AHEAD ved connection. ANSI-fri line clearing for alle terminaler. (telnet_server.cpp) (Build #1126) |
 | FEAT-016 | Show config sektionsfiltrering | ✅ DONE | 🟠 MEDIUM | v6.0.4 | "show config wifi/modbus/counters/http/..." viser kun relevant sektion. (cli_show.cpp, cli_parser.cpp) (Build #1126) |
+| FEAT-017 | Config Backup/Restore via HTTP API + CLI | ✅ DONE | 🟡 HIGH | v6.0.7 | GET /api/system/backup download fuld JSON config inkl. passwords + ST Logic source. POST /api/system/restore upload JSON for fuld restore. CLI: show backup. (api_handlers.cpp, http_server.cpp, cli_show.cpp, cli_parser.cpp) |
 
 ## Quick Lookup by Category
 
@@ -249,6 +256,7 @@
 - **BUG-183:** start_value kun uint16_t - begrænser 32/64-bit counters (FIXED Build #1077)
 - **BUG-201:** ESP-IDF middle-wildcard URI routing matcher aldrig (FIXED Build #1162)
 - **BUG-202:** Source pool entries ikke null-termineret (FIXED Build #1162)
+- **BUG-207:** HTTP server stack_size 4096 for lille til API handlers (FIXED Build #1196)
 
 ### 🟡 HIGH Priority (SHOULD FIX)
 - **BUG-003:** Bounds checking on var index
@@ -319,6 +327,9 @@
 - **BUG-203:** /api/config returnerer ufuldstændig konfiguration (FIXED Build #1162)
 - **BUG-204:** WWW-Authenticate header tabt pga. httpd response rækkefølge (FIXED Build #1162)
 - **BUG-205:** API responses cached af browser - manglende Cache-Control (FIXED Build #1162)
+- **BUG-208:** GET /api/logic/{id}/stats stack buffer overflow (FIXED Build #1196)
+- **BUG-209:** GET /api/logic/{id}/source timeout - delvis data (FIXED Build #1196)
+- **BUG-210:** API source upload kompilerer ikke automatisk (FIXED Build #1197)
 
 ### 🟠 MEDIUM Priority (NICE TO HAVE)
 - **BUG-187:** Timer ctrl_reg ikke initialiseret i defaults (FIXED Build #1074)

@@ -132,6 +132,11 @@ void cli_cmd_show_persist(void);
 void cli_cmd_show_watchdog(void);
 
 /**
+ * @brief Handle "show backup" command (Backup/restore URL)
+ */
+void cli_cmd_show_backup(void);
+
+/**
  * @brief Handle "read reg <id> <antal>" command
  * @param argc Argument count (must be 2)
  * @param argv Argument array (argv[0] = start addr, argv[1] = count)

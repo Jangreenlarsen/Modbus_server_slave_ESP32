@@ -197,6 +197,7 @@ static const char* normalize_alias(const char* s) {
   if (str_eq_i(s, "HOSTNAME")) return "HOSTNAME";
   if (str_eq_i(s, "WIFI")) return "WIFI";
   if (str_eq_i(s, "HTTP") || str_eq_i(s, "REST") || str_eq_i(s, "API")) return "HTTP";
+  if (str_eq_i(s, "BACKUP")) return "BACKUP";
   if (str_eq_i(s, "ENABLE")) return "ENABLE";
   if (str_eq_i(s, "DISABLE")) return "DISABLE";
   if (str_eq_i(s, "PERSIST")) return "PERSIST";
@@ -257,6 +258,7 @@ static void print_show_help(void) {
   debug_println("  show watchdog        - Vis watchdog monitor status (v4.0+)");
   debug_println("  show modbus-master   - Vis Modbus Master config (v4.4+)");
   debug_println("  show modbus-slave    - Vis Modbus Slave config (v4.4.1+)");
+  debug_println("  show backup          - Vis backup/restore URL");
   debug_println("  show version         - Vis firmware version");
   debug_println("  show echo            - Vis echo status");
   debug_println("");
@@ -664,6 +666,9 @@ bool cli_parser_execute(char* line) {
       return true;
     } else if (!strcmp(what, "HTTP")) {
       cli_cmd_show_http();
+      return true;
+    } else if (!strcmp(what, "BACKUP")) {
+      cli_cmd_show_backup();
       return true;
     } else if (!strcmp(what, "DEBUG")) {
       cli_cmd_show_debug();
@@ -1539,7 +1544,8 @@ bool cli_parser_execute(char* line) {
     debug_println("  show watchdog, wdg      - Watchdog status");
     debug_println("  show persist            - Persistence groups");
     debug_println("  show modbus-master, mb-master - Modbus master config");
-    debug_println("  show modbus-slave, mb-slave   - Modbus slave config\n");
+    debug_println("  show modbus-slave, mb-slave   - Modbus slave config");
+    debug_println("  show backup             - Backup/restore URL\n");
 
     debug_println("Set/Configure:");
     debug_println("  set counter <id> ?      - Counter help");

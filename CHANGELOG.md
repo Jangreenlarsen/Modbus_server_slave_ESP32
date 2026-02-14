@@ -4,6 +4,55 @@ All notable changes to this project are documented in this file.
 
 ---
 
+## [6.0.7] - 2026-02-14 💾 (Config Backup/Restore)
+
+### ✨ NEW FEATURES
+
+**FEAT-017: Config Backup/Restore via HTTP API + CLI**
+
+**GET /api/system/backup - Full Config Download**
+- Downloads entire ESP32 configuration as JSON file (~12-18KB)
+- Includes ALL fields: Modbus slave/master, network, HTTP, telnet, counters, timers
+- Includes passwords (WiFi, HTTP auth, telnet) for complete restore
+- Includes ST Logic source code for all 4 program slots
+- Includes static/dynamic registers, coils, variable mappings, persist groups
+- `Content-Disposition: attachment` header for browser auto-download
+- `backup_version: 1` field for future format compatibility
+
+**POST /api/system/restore - Full Config Restore**
+- Accepts backup JSON (up to 24KB) and restores entire configuration
+- Validates `backup_version` compatibility before applying
+- Restores all config sections with `containsKey` checks (partial restore safe)
+- ST Logic: deletes existing programs, uploads source, compiles, sets enabled state
+- Auto-saves to NVS + SPIFFS and calls `config_apply()` to activate
+- Returns warning: "Reboot recommended"
+
+**CLI: show backup**
+- Displays download URL based on current IP, port, and protocol (HTTP/HTTPS)
+- Shows curl example for restore operation
+
+### 📁 FILES CHANGED
+
+| File | Change |
+|------|--------|
+| `src/api_handlers.cpp` | +2 handlers: backup (GET) + restore (POST), endpoint discovery updated |
+| `src/http_server.cpp` | +2 URI definitions + registration |
+| `include/api_handlers.h` | +2 extern declarations |
+| `src/cli_show.cpp` | +`cli_cmd_show_backup()` |
+| `include/cli_show.h` | +declaration |
+| `src/cli_parser.cpp` | +BACKUP alias, dispatch, help text |
+| `BUGS_INDEX.md` | +FEAT-017 entry |
+
+### 🏗️ BUILD
+
+- **Version:** 6.0.7
+- **Build:** #1227
+- **Schema:** 10 (unchanged)
+- **RAM:** 32.9% (107,952 / 327,680 bytes)
+- **Flash:** 94.9% (1,244,233 / 1,310,720 bytes)
+
+---
+
 ## [6.0.3] - 2026-01-25 📋 (Test Plan Restructuring)
 
 ### 📋 DOCUMENTATION

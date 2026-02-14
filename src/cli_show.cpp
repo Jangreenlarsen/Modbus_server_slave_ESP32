@@ -3530,3 +3530,30 @@ void cli_cmd_show_watchdog(void) {
   debug_println(" seconds");
   debug_println("");
 }
+
+/* ============================================================================
+ * SHOW BACKUP
+ * ============================================================================ */
+
+void cli_cmd_show_backup(void) {
+  debug_println("\n=== BACKUP / RESTORE ===");
+  debug_println("Download backup via HTTP API:");
+
+  uint32_t ip = network_manager_get_local_ip();
+  if (ip != 0) {
+    char url[80];
+    const char *proto = g_persist_config.network.http.tls_enabled ? "https" : "http";
+    uint16_t port = g_persist_config.network.http.port;
+    snprintf(url, sizeof(url), "  %s://%d.%d.%d.%d:%d/api/system/backup",
+             proto, (int)(ip & 0xFF), (int)((ip >> 8) & 0xFF),
+             (int)((ip >> 16) & 0xFF), (int)((ip >> 24) & 0xFF), port);
+    debug_println(url);
+  } else {
+    debug_println("  (WiFi ikke forbundet)");
+  }
+
+  debug_println("\nRestore:");
+  debug_println("  POST /api/system/restore med backup JSON fil");
+  debug_println("  curl -u user:pass -X POST -d @backup.json http://<ip>/api/system/restore");
+  debug_println("");
+}

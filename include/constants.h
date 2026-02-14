@@ -333,10 +333,15 @@ typedef enum {
  * ============================================================================ */
 
 #define PROJECT_NAME        "Modbus RTU Server (ESP32)"
-#define PROJECT_VERSION     "6.0.3"
+#define PROJECT_VERSION     "6.0.7"
 // BUILD_DATE and BUILD_NUMBER now in build_version.h (auto-generated)
 
 /* Version history:
+ * v6.0.7 (2026-02-14): FEAT-017 Config Backup/Restore via HTTP API + CLI
+ *                      - FEAT: GET /api/system/backup - Download fuld config som JSON inkl. passwords + ST Logic source
+ *                      - FEAT: POST /api/system/restore - Upload JSON for fuld restore, auto-save + apply
+ *                      - FEAT: CLI "show backup" kommando med download URL
+ *                      - Build #1227
  * v6.0.3 (2026-01-25): Test plan restructuring
  *                      - DOC: Split ST_COMPLETE_TEST_PLAN.md (46k tokens) into 9 modular files
  *                      - DOC: New tests/ folder with TEST_INDEX.md as navigation hub

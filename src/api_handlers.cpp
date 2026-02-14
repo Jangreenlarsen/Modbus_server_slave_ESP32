@@ -233,7 +233,9 @@ esp_err_t api_handler_endpoints(httpd_req_t *req)
     "{\"method\":\"POST\",\"path\":\"/api/system/reboot\",\"desc\":\"Reboot ESP32\"},"
     "{\"method\":\"POST\",\"path\":\"/api/system/save\",\"desc\":\"Save config to NVS\"},"
     "{\"method\":\"POST\",\"path\":\"/api/system/load\",\"desc\":\"Load config from NVS\"},"
-    "{\"method\":\"POST\",\"path\":\"/api/system/defaults\",\"desc\":\"Reset to defaults\"}"
+    "{\"method\":\"POST\",\"path\":\"/api/system/defaults\",\"desc\":\"Reset to defaults\"},"
+    "{\"method\":\"GET\",\"path\":\"/api/system/backup\",\"desc\":\"Download config backup\"},"
+    "{\"method\":\"POST\",\"path\":\"/api/system/restore\",\"desc\":\"Restore config from backup\"}"
     "]"
     "}",
     PROJECT_VERSION, BUILD_NUMBER);
@@ -1085,6 +1087,9 @@ esp_err_t api_handler_logic_source_post(httpd_req_t *req)
     return api_send_error(req, 500, "Failed to upload - pool full or compile error");
   }
 
+  // Auto-compile after upload (BUG-210: was missing)
+  st_logic_compile(state, id - 1);
+
   // Build success response
   st_logic_program_config_t *prog = &state->programs[id - 1];
 
@@ -1586,10 +1591,15 @@ esp_err_t api_handler_logic_stats(httpd_req_t *req)
     doc["avg_execution_us"] = 0;
   }
 
-  char buf[HTTP_JSON_DOC_SIZE];
-  serializeJson(doc, buf, sizeof(buf));
+  char *buf = (char *)malloc(HTTP_JSON_DOC_SIZE);
+  if (!buf) {
+    return api_send_error(req, 500, "Out of memory");
+  }
+  serializeJson(doc, buf, HTTP_JSON_DOC_SIZE);
 
-  return api_send_json(req, buf);
+  esp_err_t ret = api_send_json(req, buf);
+  free(buf);
+  return ret;
 }
 
 /* ============================================================================
@@ -2993,10 +3003,15 @@ esp_err_t api_handler_logic_bind_post(httpd_req_t *req)
   resp["mappings_created"] = created;
   resp["message"] = "Variable binding created";
 
-  char buf[512];
-  serializeJson(resp, buf, sizeof(buf));
+  char *buf = (char *)malloc(512);
+  if (!buf) {
+    return api_send_error(req, 500, "Out of memory");
+  }
+  serializeJson(resp, buf, 512);
 
-  return api_send_json(req, buf);
+  esp_err_t result = api_send_json(req, buf);
+  free(buf);
+  return result;
 }
 
 /* ============================================================================
@@ -3125,4 +3140,629 @@ esp_err_t api_handler_modules_post(httpd_req_t *req)
   serializeJson(resp, buf2, sizeof(buf2));
 
   return api_send_json(req, buf2);
+}
+
+/* ============================================================================
+ * BACKUP / RESTORE ENDPOINTS
+ * ============================================================================ */
+
+esp_err_t api_handler_system_backup(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  // Allocate ~20KB heap buffer for full backup JSON
+  const size_t BUF_SIZE = 20480;
+  char *buf = (char *)malloc(BUF_SIZE);
+  if (!buf) {
+    return api_send_error(req, 500, "Out of memory");
+  }
+
+  JsonDocument doc;
+
+  // ── METADATA ──
+  doc["backup_version"] = 1;
+  doc["firmware_version"] = PROJECT_VERSION;
+  doc["build"] = BUILD_NUMBER;
+  doc["schema_version"] = g_persist_config.schema_version;
+  doc["hostname"] = g_persist_config.hostname;
+
+  // ── MODBUS SLAVE ──
+  JsonObject slave = doc["modbus_slave"].to<JsonObject>();
+  slave["enabled"] = g_persist_config.modbus_slave.enabled ? true : false;
+  slave["slave_id"] = g_persist_config.modbus_slave.slave_id;
+  slave["baudrate"] = g_persist_config.modbus_slave.baudrate;
+  slave["parity"] = g_persist_config.modbus_slave.parity;
+  slave["stop_bits"] = g_persist_config.modbus_slave.stop_bits;
+  slave["inter_frame_delay"] = g_persist_config.modbus_slave.inter_frame_delay;
+
+  // ── MODBUS MASTER ──
+  JsonObject master = doc["modbus_master"].to<JsonObject>();
+  master["enabled"] = g_persist_config.modbus_master.enabled ? true : false;
+  master["baudrate"] = g_persist_config.modbus_master.baudrate;
+  master["parity"] = g_persist_config.modbus_master.parity;
+  master["stop_bits"] = g_persist_config.modbus_master.stop_bits;
+  master["timeout_ms"] = g_persist_config.modbus_master.timeout_ms;
+  master["inter_frame_delay"] = g_persist_config.modbus_master.inter_frame_delay;
+  master["max_requests_per_cycle"] = g_persist_config.modbus_master.max_requests_per_cycle;
+
+  // ── NETWORK ──
+  JsonObject network = doc["network"].to<JsonObject>();
+  network["enabled"] = g_persist_config.network.enabled ? true : false;
+  network["ssid"] = g_persist_config.network.ssid;
+  network["password"] = g_persist_config.network.password;
+  network["dhcp"] = g_persist_config.network.dhcp_enabled ? true : false;
+  network["static_ip"] = g_persist_config.network.static_ip;
+  network["static_gateway"] = g_persist_config.network.static_gateway;
+  network["static_netmask"] = g_persist_config.network.static_netmask;
+  network["static_dns"] = g_persist_config.network.static_dns;
+  network["wifi_power_save"] = g_persist_config.network.wifi_power_save;
+
+  // ── TELNET ──
+  JsonObject telnet = doc["telnet"].to<JsonObject>();
+  telnet["enabled"] = g_persist_config.network.telnet_enabled ? true : false;
+  telnet["port"] = g_persist_config.network.telnet_port;
+  telnet["username"] = g_persist_config.network.telnet_username;
+  telnet["password"] = g_persist_config.network.telnet_password;
+
+  // ── HTTP ──
+  JsonObject http = doc["http"].to<JsonObject>();
+  http["enabled"] = g_persist_config.network.http.enabled ? true : false;
+  http["port"] = g_persist_config.network.http.port;
+  http["tls_enabled"] = g_persist_config.network.http.tls_enabled ? true : false;
+  http["api_enabled"] = g_persist_config.network.http.api_enabled ? true : false;
+  http["auth_enabled"] = g_persist_config.network.http.auth_enabled ? true : false;
+  http["username"] = g_persist_config.network.http.username;
+  http["password"] = g_persist_config.network.http.password;
+  http["priority"] = g_persist_config.network.http.priority;
+
+  // ── MISC ──
+  doc["remote_echo"] = g_persist_config.remote_echo;
+  doc["gpio2_user_mode"] = g_persist_config.gpio2_user_mode;
+  doc["st_logic_interval_ms"] = g_persist_config.st_logic_interval_ms;
+  doc["module_flags"] = g_persist_config.module_flags;
+
+  // ── COUNTERS ──
+  JsonArray counters = doc["counters"].to<JsonArray>();
+  for (int i = 0; i < COUNTER_COUNT; i++) {
+    const CounterConfig *c = &g_persist_config.counters[i];
+    JsonObject co = counters.add<JsonObject>();
+    co["id"] = i;
+    co["enabled"] = c->enabled ? true : false;
+    co["mode_enable"] = (uint8_t)c->mode_enable;
+    co["edge_type"] = (uint8_t)c->edge_type;
+    co["direction"] = (uint8_t)c->direction;
+    co["hw_mode"] = (uint8_t)c->hw_mode;
+    co["prescaler"] = c->prescaler;
+    co["bit_width"] = c->bit_width;
+    co["scale_factor"] = c->scale_factor;
+    co["value_reg"] = c->value_reg;
+    co["raw_reg"] = c->raw_reg;
+    co["freq_reg"] = c->freq_reg;
+    co["ctrl_reg"] = c->ctrl_reg;
+    co["compare_value_reg"] = c->compare_value_reg;
+    co["start_value"] = c->start_value;
+    co["debounce_enabled"] = c->debounce_enabled ? true : false;
+    co["debounce_ms"] = c->debounce_ms;
+    co["input_dis"] = c->input_dis;
+    co["interrupt_pin"] = c->interrupt_pin;
+    co["hw_gpio"] = c->hw_gpio;
+    co["compare_enabled"] = c->compare_enabled ? true : false;
+    co["compare_mode"] = c->compare_mode;
+    co["compare_value"] = c->compare_value;
+    co["reset_on_read"] = c->reset_on_read;
+    co["compare_source"] = c->compare_source;
+  }
+
+  // ── TIMERS ──
+  JsonArray timers = doc["timers"].to<JsonArray>();
+  for (int i = 0; i < TIMER_COUNT; i++) {
+    const TimerConfig *t = &g_persist_config.timers[i];
+    JsonObject ti = timers.add<JsonObject>();
+    ti["id"] = i;
+    ti["enabled"] = t->enabled ? true : false;
+    ti["mode"] = (uint8_t)t->mode;
+    ti["phase1_duration_ms"] = t->phase1_duration_ms;
+    ti["phase2_duration_ms"] = t->phase2_duration_ms;
+    ti["phase3_duration_ms"] = t->phase3_duration_ms;
+    ti["phase1_output_state"] = t->phase1_output_state;
+    ti["phase2_output_state"] = t->phase2_output_state;
+    ti["phase3_output_state"] = t->phase3_output_state;
+    ti["pulse_duration_ms"] = t->pulse_duration_ms;
+    ti["trigger_level"] = t->trigger_level;
+    ti["on_duration_ms"] = t->on_duration_ms;
+    ti["off_duration_ms"] = t->off_duration_ms;
+    ti["input_dis"] = t->input_dis;
+    ti["delay_ms"] = t->delay_ms;
+    ti["trigger_edge"] = t->trigger_edge;
+    ti["output_coil"] = t->output_coil;
+    ti["ctrl_reg"] = t->ctrl_reg;
+  }
+
+  // ── STATIC REGISTERS ──
+  JsonArray static_regs = doc["static_regs"].to<JsonArray>();
+  for (int i = 0; i < g_persist_config.static_reg_count && i < MAX_DYNAMIC_REGS; i++) {
+    const StaticRegisterMapping *r = &g_persist_config.static_regs[i];
+    JsonObject ro = static_regs.add<JsonObject>();
+    ro["address"] = r->register_address;
+    ro["value_type"] = r->value_type;
+    ro["value_16"] = r->value_16;
+    ro["value_32"] = r->value_32;
+  }
+
+  // ── DYNAMIC REGISTERS ──
+  JsonArray dynamic_regs = doc["dynamic_regs"].to<JsonArray>();
+  for (int i = 0; i < g_persist_config.dynamic_reg_count && i < MAX_DYNAMIC_REGS; i++) {
+    const DynamicRegisterMapping *r = &g_persist_config.dynamic_regs[i];
+    JsonObject ro = dynamic_regs.add<JsonObject>();
+    ro["address"] = r->register_address;
+    ro["source_type"] = r->source_type;
+    ro["source_id"] = r->source_id;
+    ro["source_function"] = r->source_function;
+  }
+
+  // ── STATIC COILS ──
+  JsonArray static_coils = doc["static_coils"].to<JsonArray>();
+  for (int i = 0; i < g_persist_config.static_coil_count && i < MAX_DYNAMIC_COILS; i++) {
+    const StaticCoilMapping *c = &g_persist_config.static_coils[i];
+    JsonObject co = static_coils.add<JsonObject>();
+    co["address"] = c->coil_address;
+    co["value"] = c->static_value;
+  }
+
+  // ── DYNAMIC COILS ──
+  JsonArray dynamic_coils = doc["dynamic_coils"].to<JsonArray>();
+  for (int i = 0; i < g_persist_config.dynamic_coil_count && i < MAX_DYNAMIC_COILS; i++) {
+    const DynamicCoilMapping *c = &g_persist_config.dynamic_coils[i];
+    JsonObject co = dynamic_coils.add<JsonObject>();
+    co["address"] = c->coil_address;
+    co["source_type"] = c->source_type;
+    co["source_id"] = c->source_id;
+    co["source_function"] = c->source_function;
+  }
+
+  // ── VARIABLE MAPPINGS ──
+  JsonArray var_maps = doc["var_maps"].to<JsonArray>();
+  for (int i = 0; i < g_persist_config.var_map_count && i < 32; i++) {
+    const VariableMapping *m = &g_persist_config.var_maps[i];
+    if (m->source_type == 0 && m->gpio_pin == 0 && m->input_reg == 0xFFFF && m->coil_reg == 0xFFFF) continue;
+    JsonObject mo = var_maps.add<JsonObject>();
+    mo["source_type"] = m->source_type;
+    mo["gpio_pin"] = m->gpio_pin;
+    mo["associated_counter"] = m->associated_counter;
+    mo["associated_timer"] = m->associated_timer;
+    mo["st_program_id"] = m->st_program_id;
+    mo["st_var_index"] = m->st_var_index;
+    mo["is_input"] = m->is_input;
+    mo["input_type"] = m->input_type;
+    mo["output_type"] = m->output_type;
+    mo["input_reg"] = m->input_reg;
+    mo["coil_reg"] = m->coil_reg;
+    mo["word_count"] = m->word_count;
+  }
+
+  // ── PERSIST REGS ──
+  JsonObject persist = doc["persist_regs"].to<JsonObject>();
+  persist["enabled"] = g_persist_config.persist_regs.enabled ? true : false;
+  persist["auto_load_enabled"] = g_persist_config.persist_regs.auto_load_enabled ? true : false;
+  JsonArray auto_ids = persist["auto_load_group_ids"].to<JsonArray>();
+  for (int i = 0; i < 7; i++) {
+    auto_ids.add(g_persist_config.persist_regs.auto_load_group_ids[i]);
+  }
+  uint8_t grp_count = g_persist_config.persist_regs.group_count;
+  if (grp_count > PERSIST_MAX_GROUPS) grp_count = PERSIST_MAX_GROUPS;
+  JsonArray groups = persist["groups"].to<JsonArray>();
+  for (int i = 0; i < grp_count; i++) {
+    const PersistGroup *pg = &g_persist_config.persist_regs.groups[i];
+    JsonObject go = groups.add<JsonObject>();
+    go["name"] = pg->name;
+    go["reg_count"] = pg->reg_count;
+    JsonArray addrs = go["reg_addresses"].to<JsonArray>();
+    JsonArray vals = go["reg_values"].to<JsonArray>();
+    for (int j = 0; j < pg->reg_count && j < PERSIST_GROUP_MAX_REGS; j++) {
+      addrs.add(pg->reg_addresses[j]);
+      vals.add(pg->reg_values[j]);
+    }
+  }
+
+  // ── LOGIC PROGRAMS (with source code) ──
+  JsonArray logic_programs = doc["logic_programs"].to<JsonArray>();
+  st_logic_engine_state_t *st_state = st_logic_get_state();
+  if (st_state) {
+    for (int i = 0; i < ST_LOGIC_MAX_PROGRAMS; i++) {
+      st_logic_program_config_t *p = &st_state->programs[i];
+      JsonObject pr = logic_programs.add<JsonObject>();
+      pr["id"] = i;
+      pr["name"] = p->name;
+      pr["enabled"] = p->enabled ? true : false;
+      const char *src = st_logic_get_source_code(st_state, i);
+      if (src && p->source_size > 0) {
+        pr["source"] = src;
+      } else {
+        pr["source"] = (const char *)nullptr;
+      }
+    }
+  }
+
+  // Serialize
+  size_t json_len = serializeJson(doc, buf, BUF_SIZE);
+  if (json_len >= BUF_SIZE) {
+    free(buf);
+    return api_send_error(req, 500, "Backup too large");
+  }
+
+  // Set Content-Disposition for browser download
+  httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"backup.json\"");
+
+  esp_err_t ret = api_send_json(req, buf);
+  free(buf);
+  return ret;
+}
+
+esp_err_t api_handler_system_restore(httpd_req_t *req)
+{
+  http_server_stat_request();
+  CHECK_AUTH(req);
+
+  // Read request body (up to 24KB)
+  int content_len = req->content_len;
+  if (content_len <= 0 || content_len > 24576) {
+    return api_send_error(req, 400, "Invalid body size (max 24KB)");
+  }
+
+  char *body = (char *)malloc(content_len + 1);
+  if (!body) {
+    return api_send_error(req, 500, "Out of memory");
+  }
+
+  int received = 0;
+  while (received < content_len) {
+    int ret = httpd_req_recv(req, body + received, content_len - received);
+    if (ret <= 0) {
+      free(body);
+      return api_send_error(req, 400, "Failed to read body");
+    }
+    received += ret;
+  }
+  body[content_len] = '\0';
+
+  // Parse JSON
+  JsonDocument doc;
+  DeserializationError error = deserializeJson(doc, body, content_len);
+  free(body);
+
+  if (error) {
+    return api_send_error(req, 400, "Invalid JSON");
+  }
+
+  // Validate backup version
+  int backup_ver = doc["backup_version"] | 0;
+  if (backup_ver != 1) {
+    return api_send_error(req, 400, "Unsupported backup_version");
+  }
+
+  // ── RESTORE MODBUS SLAVE ──
+  if (doc.containsKey("modbus_slave")) {
+    JsonObject s = doc["modbus_slave"];
+    if (s.containsKey("enabled")) g_persist_config.modbus_slave.enabled = s["enabled"].as<bool>();
+    if (s.containsKey("slave_id")) g_persist_config.modbus_slave.slave_id = s["slave_id"];
+    if (s.containsKey("baudrate")) g_persist_config.modbus_slave.baudrate = s["baudrate"];
+    if (s.containsKey("parity")) g_persist_config.modbus_slave.parity = s["parity"];
+    if (s.containsKey("stop_bits")) g_persist_config.modbus_slave.stop_bits = s["stop_bits"];
+    if (s.containsKey("inter_frame_delay")) g_persist_config.modbus_slave.inter_frame_delay = s["inter_frame_delay"];
+  }
+
+  // ── RESTORE MODBUS MASTER ──
+  if (doc.containsKey("modbus_master")) {
+    JsonObject m = doc["modbus_master"];
+    if (m.containsKey("enabled")) g_persist_config.modbus_master.enabled = m["enabled"].as<bool>();
+    if (m.containsKey("baudrate")) g_persist_config.modbus_master.baudrate = m["baudrate"];
+    if (m.containsKey("parity")) g_persist_config.modbus_master.parity = m["parity"];
+    if (m.containsKey("stop_bits")) g_persist_config.modbus_master.stop_bits = m["stop_bits"];
+    if (m.containsKey("timeout_ms")) g_persist_config.modbus_master.timeout_ms = m["timeout_ms"];
+    if (m.containsKey("inter_frame_delay")) g_persist_config.modbus_master.inter_frame_delay = m["inter_frame_delay"];
+    if (m.containsKey("max_requests_per_cycle")) g_persist_config.modbus_master.max_requests_per_cycle = m["max_requests_per_cycle"];
+  }
+
+  // ── RESTORE HOSTNAME ──
+  if (doc.containsKey("hostname")) {
+    strncpy(g_persist_config.hostname, doc["hostname"] | "", sizeof(g_persist_config.hostname) - 1);
+    g_persist_config.hostname[sizeof(g_persist_config.hostname) - 1] = '\0';
+  }
+
+  // ── RESTORE NETWORK ──
+  if (doc.containsKey("network")) {
+    JsonObject n = doc["network"];
+    if (n.containsKey("enabled")) g_persist_config.network.enabled = n["enabled"].as<bool>() ? 1 : 0;
+    if (n.containsKey("ssid")) {
+      strncpy(g_persist_config.network.ssid, n["ssid"] | "", sizeof(g_persist_config.network.ssid) - 1);
+      g_persist_config.network.ssid[sizeof(g_persist_config.network.ssid) - 1] = '\0';
+    }
+    if (n.containsKey("password")) {
+      strncpy(g_persist_config.network.password, n["password"] | "", sizeof(g_persist_config.network.password) - 1);
+      g_persist_config.network.password[sizeof(g_persist_config.network.password) - 1] = '\0';
+    }
+    if (n.containsKey("dhcp")) g_persist_config.network.dhcp_enabled = n["dhcp"].as<bool>() ? 1 : 0;
+    if (n.containsKey("static_ip")) g_persist_config.network.static_ip = n["static_ip"];
+    if (n.containsKey("static_gateway")) g_persist_config.network.static_gateway = n["static_gateway"];
+    if (n.containsKey("static_netmask")) g_persist_config.network.static_netmask = n["static_netmask"];
+    if (n.containsKey("static_dns")) g_persist_config.network.static_dns = n["static_dns"];
+    if (n.containsKey("wifi_power_save")) g_persist_config.network.wifi_power_save = n["wifi_power_save"];
+  }
+
+  // ── RESTORE TELNET ──
+  if (doc.containsKey("telnet")) {
+    JsonObject t = doc["telnet"];
+    if (t.containsKey("enabled")) g_persist_config.network.telnet_enabled = t["enabled"].as<bool>() ? 1 : 0;
+    if (t.containsKey("port")) g_persist_config.network.telnet_port = t["port"];
+    if (t.containsKey("username")) {
+      strncpy(g_persist_config.network.telnet_username, t["username"] | "", sizeof(g_persist_config.network.telnet_username) - 1);
+      g_persist_config.network.telnet_username[sizeof(g_persist_config.network.telnet_username) - 1] = '\0';
+    }
+    if (t.containsKey("password")) {
+      strncpy(g_persist_config.network.telnet_password, t["password"] | "", sizeof(g_persist_config.network.telnet_password) - 1);
+      g_persist_config.network.telnet_password[sizeof(g_persist_config.network.telnet_password) - 1] = '\0';
+    }
+  }
+
+  // ── RESTORE HTTP ──
+  if (doc.containsKey("http")) {
+    JsonObject h = doc["http"];
+    if (h.containsKey("enabled")) g_persist_config.network.http.enabled = h["enabled"].as<bool>() ? 1 : 0;
+    if (h.containsKey("port")) g_persist_config.network.http.port = h["port"];
+    if (h.containsKey("tls_enabled")) g_persist_config.network.http.tls_enabled = h["tls_enabled"].as<bool>() ? 1 : 0;
+    if (h.containsKey("api_enabled")) g_persist_config.network.http.api_enabled = h["api_enabled"].as<bool>() ? 1 : 0;
+    if (h.containsKey("auth_enabled")) g_persist_config.network.http.auth_enabled = h["auth_enabled"].as<bool>() ? 1 : 0;
+    if (h.containsKey("username")) {
+      strncpy(g_persist_config.network.http.username, h["username"] | "", sizeof(g_persist_config.network.http.username) - 1);
+      g_persist_config.network.http.username[sizeof(g_persist_config.network.http.username) - 1] = '\0';
+    }
+    if (h.containsKey("password")) {
+      strncpy(g_persist_config.network.http.password, h["password"] | "", sizeof(g_persist_config.network.http.password) - 1);
+      g_persist_config.network.http.password[sizeof(g_persist_config.network.http.password) - 1] = '\0';
+    }
+    if (h.containsKey("priority")) g_persist_config.network.http.priority = h["priority"];
+  }
+
+  // ── RESTORE MISC ──
+  if (doc.containsKey("remote_echo")) g_persist_config.remote_echo = doc["remote_echo"];
+  if (doc.containsKey("gpio2_user_mode")) g_persist_config.gpio2_user_mode = doc["gpio2_user_mode"];
+  if (doc.containsKey("st_logic_interval_ms")) g_persist_config.st_logic_interval_ms = doc["st_logic_interval_ms"];
+  if (doc.containsKey("module_flags")) g_persist_config.module_flags = doc["module_flags"];
+
+  // ── RESTORE COUNTERS ──
+  if (doc.containsKey("counters")) {
+    JsonArray ca = doc["counters"];
+    for (JsonObject co : ca) {
+      int id = co["id"] | -1;
+      if (id < 0 || id >= COUNTER_COUNT) continue;
+      CounterConfig *c = &g_persist_config.counters[id];
+      if (co.containsKey("enabled")) c->enabled = co["enabled"].as<bool>() ? 1 : 0;
+      if (co.containsKey("mode_enable")) c->mode_enable = (CounterModeEnable)(uint8_t)co["mode_enable"];
+      if (co.containsKey("edge_type")) c->edge_type = (CounterEdgeType)(uint8_t)co["edge_type"];
+      if (co.containsKey("direction")) c->direction = (CounterDirection)(uint8_t)co["direction"];
+      if (co.containsKey("hw_mode")) c->hw_mode = (CounterHWMode)(uint8_t)co["hw_mode"];
+      if (co.containsKey("prescaler")) c->prescaler = co["prescaler"];
+      if (co.containsKey("bit_width")) c->bit_width = co["bit_width"];
+      if (co.containsKey("scale_factor")) c->scale_factor = co["scale_factor"];
+      if (co.containsKey("value_reg")) c->value_reg = co["value_reg"];
+      if (co.containsKey("raw_reg")) c->raw_reg = co["raw_reg"];
+      if (co.containsKey("freq_reg")) c->freq_reg = co["freq_reg"];
+      if (co.containsKey("ctrl_reg")) c->ctrl_reg = co["ctrl_reg"];
+      if (co.containsKey("compare_value_reg")) c->compare_value_reg = co["compare_value_reg"];
+      if (co.containsKey("start_value")) c->start_value = co["start_value"];
+      if (co.containsKey("debounce_enabled")) c->debounce_enabled = co["debounce_enabled"].as<bool>() ? 1 : 0;
+      if (co.containsKey("debounce_ms")) c->debounce_ms = co["debounce_ms"];
+      if (co.containsKey("input_dis")) c->input_dis = co["input_dis"];
+      if (co.containsKey("interrupt_pin")) c->interrupt_pin = co["interrupt_pin"];
+      if (co.containsKey("hw_gpio")) c->hw_gpio = co["hw_gpio"];
+      if (co.containsKey("compare_enabled")) c->compare_enabled = co["compare_enabled"].as<bool>() ? 1 : 0;
+      if (co.containsKey("compare_mode")) c->compare_mode = co["compare_mode"];
+      if (co.containsKey("compare_value")) c->compare_value = co["compare_value"];
+      if (co.containsKey("reset_on_read")) c->reset_on_read = co["reset_on_read"];
+      if (co.containsKey("compare_source")) c->compare_source = co["compare_source"];
+    }
+  }
+
+  // ── RESTORE TIMERS ──
+  if (doc.containsKey("timers")) {
+    JsonArray ta = doc["timers"];
+    for (JsonObject ti : ta) {
+      int id = ti["id"] | -1;
+      if (id < 0 || id >= TIMER_COUNT) continue;
+      TimerConfig *t = &g_persist_config.timers[id];
+      if (ti.containsKey("enabled")) t->enabled = ti["enabled"].as<bool>() ? 1 : 0;
+      if (ti.containsKey("mode")) t->mode = (TimerMode)(uint8_t)ti["mode"];
+      if (ti.containsKey("phase1_duration_ms")) t->phase1_duration_ms = ti["phase1_duration_ms"];
+      if (ti.containsKey("phase2_duration_ms")) t->phase2_duration_ms = ti["phase2_duration_ms"];
+      if (ti.containsKey("phase3_duration_ms")) t->phase3_duration_ms = ti["phase3_duration_ms"];
+      if (ti.containsKey("phase1_output_state")) t->phase1_output_state = ti["phase1_output_state"];
+      if (ti.containsKey("phase2_output_state")) t->phase2_output_state = ti["phase2_output_state"];
+      if (ti.containsKey("phase3_output_state")) t->phase3_output_state = ti["phase3_output_state"];
+      if (ti.containsKey("pulse_duration_ms")) t->pulse_duration_ms = ti["pulse_duration_ms"];
+      if (ti.containsKey("trigger_level")) t->trigger_level = ti["trigger_level"];
+      if (ti.containsKey("on_duration_ms")) t->on_duration_ms = ti["on_duration_ms"];
+      if (ti.containsKey("off_duration_ms")) t->off_duration_ms = ti["off_duration_ms"];
+      if (ti.containsKey("input_dis")) t->input_dis = ti["input_dis"];
+      if (ti.containsKey("delay_ms")) t->delay_ms = ti["delay_ms"];
+      if (ti.containsKey("trigger_edge")) t->trigger_edge = ti["trigger_edge"];
+      if (ti.containsKey("output_coil")) t->output_coil = ti["output_coil"];
+      if (ti.containsKey("ctrl_reg")) t->ctrl_reg = ti["ctrl_reg"];
+    }
+  }
+
+  // ── RESTORE STATIC REGISTERS ──
+  if (doc.containsKey("static_regs")) {
+    JsonArray sra = doc["static_regs"];
+    g_persist_config.static_reg_count = 0;
+    for (JsonObject ro : sra) {
+      if (g_persist_config.static_reg_count >= MAX_DYNAMIC_REGS) break;
+      StaticRegisterMapping *r = &g_persist_config.static_regs[g_persist_config.static_reg_count];
+      r->register_address = ro["address"] | 0;
+      r->value_type = ro["value_type"] | 0;
+      r->value_16 = ro["value_16"] | 0;
+      r->value_32 = ro["value_32"] | (uint32_t)0;
+      g_persist_config.static_reg_count++;
+    }
+  }
+
+  // ── RESTORE DYNAMIC REGISTERS ──
+  if (doc.containsKey("dynamic_regs")) {
+    JsonArray dra = doc["dynamic_regs"];
+    g_persist_config.dynamic_reg_count = 0;
+    for (JsonObject ro : dra) {
+      if (g_persist_config.dynamic_reg_count >= MAX_DYNAMIC_REGS) break;
+      DynamicRegisterMapping *r = &g_persist_config.dynamic_regs[g_persist_config.dynamic_reg_count];
+      r->register_address = ro["address"] | 0;
+      r->source_type = ro["source_type"] | 0;
+      r->source_id = ro["source_id"] | 0;
+      r->source_function = ro["source_function"] | 0;
+      g_persist_config.dynamic_reg_count++;
+    }
+  }
+
+  // ── RESTORE STATIC COILS ──
+  if (doc.containsKey("static_coils")) {
+    JsonArray sca = doc["static_coils"];
+    g_persist_config.static_coil_count = 0;
+    for (JsonObject co : sca) {
+      if (g_persist_config.static_coil_count >= MAX_DYNAMIC_COILS) break;
+      StaticCoilMapping *c = &g_persist_config.static_coils[g_persist_config.static_coil_count];
+      c->coil_address = co["address"] | 0;
+      c->static_value = co["value"] | 0;
+      g_persist_config.static_coil_count++;
+    }
+  }
+
+  // ── RESTORE DYNAMIC COILS ──
+  if (doc.containsKey("dynamic_coils")) {
+    JsonArray dca = doc["dynamic_coils"];
+    g_persist_config.dynamic_coil_count = 0;
+    for (JsonObject co : dca) {
+      if (g_persist_config.dynamic_coil_count >= MAX_DYNAMIC_COILS) break;
+      DynamicCoilMapping *c = &g_persist_config.dynamic_coils[g_persist_config.dynamic_coil_count];
+      c->coil_address = co["address"] | 0;
+      c->source_type = co["source_type"] | 0;
+      c->source_id = co["source_id"] | 0;
+      c->source_function = co["source_function"] | 0;
+      g_persist_config.dynamic_coil_count++;
+    }
+  }
+
+  // ── RESTORE VARIABLE MAPPINGS ──
+  if (doc.containsKey("var_maps")) {
+    JsonArray vma = doc["var_maps"];
+    g_persist_config.var_map_count = 0;
+    for (JsonObject mo : vma) {
+      if (g_persist_config.var_map_count >= 32) break;
+      VariableMapping *m = &g_persist_config.var_maps[g_persist_config.var_map_count];
+      m->source_type = mo["source_type"] | 0;
+      m->gpio_pin = mo["gpio_pin"] | 0;
+      m->associated_counter = mo["associated_counter"] | 0xFF;
+      m->associated_timer = mo["associated_timer"] | 0xFF;
+      m->st_program_id = mo["st_program_id"] | 0xFF;
+      m->st_var_index = mo["st_var_index"] | 0;
+      m->is_input = mo["is_input"] | 0;
+      m->input_type = mo["input_type"] | 0;
+      m->output_type = mo["output_type"] | 0;
+      m->input_reg = mo["input_reg"] | 0xFFFF;
+      m->coil_reg = mo["coil_reg"] | 0xFFFF;
+      m->word_count = mo["word_count"] | 1;
+      g_persist_config.var_map_count++;
+    }
+  }
+
+  // ── RESTORE PERSIST REGS ──
+  if (doc.containsKey("persist_regs")) {
+    JsonObject pr = doc["persist_regs"];
+    if (pr.containsKey("enabled")) g_persist_config.persist_regs.enabled = pr["enabled"].as<bool>() ? 1 : 0;
+    if (pr.containsKey("auto_load_enabled")) g_persist_config.persist_regs.auto_load_enabled = pr["auto_load_enabled"].as<bool>() ? 1 : 0;
+    if (pr.containsKey("auto_load_group_ids")) {
+      JsonArray aids = pr["auto_load_group_ids"];
+      for (int i = 0; i < 7 && i < (int)aids.size(); i++) {
+        g_persist_config.persist_regs.auto_load_group_ids[i] = aids[i];
+      }
+    }
+    if (pr.containsKey("groups")) {
+      JsonArray ga = pr["groups"];
+      g_persist_config.persist_regs.group_count = 0;
+      for (JsonObject go : ga) {
+        if (g_persist_config.persist_regs.group_count >= PERSIST_MAX_GROUPS) break;
+        PersistGroup *pg = &g_persist_config.persist_regs.groups[g_persist_config.persist_regs.group_count];
+        memset(pg, 0, sizeof(PersistGroup));
+        strncpy(pg->name, go["name"] | "", sizeof(pg->name) - 1);
+        pg->name[sizeof(pg->name) - 1] = '\0';
+        pg->reg_count = go["reg_count"] | 0;
+        if (pg->reg_count > PERSIST_GROUP_MAX_REGS) pg->reg_count = PERSIST_GROUP_MAX_REGS;
+        if (go.containsKey("reg_addresses")) {
+          JsonArray addrs = go["reg_addresses"];
+          for (int j = 0; j < pg->reg_count && j < (int)addrs.size(); j++) {
+            pg->reg_addresses[j] = addrs[j];
+          }
+        }
+        if (go.containsKey("reg_values")) {
+          JsonArray vals = go["reg_values"];
+          for (int j = 0; j < pg->reg_count && j < (int)vals.size(); j++) {
+            pg->reg_values[j] = vals[j];
+          }
+        }
+        g_persist_config.persist_regs.group_count++;
+      }
+    }
+  }
+
+  // ── RESTORE LOGIC PROGRAMS ──
+  if (doc.containsKey("logic_programs")) {
+    st_logic_engine_state_t *st = st_logic_get_state();
+    if (st) {
+      JsonArray lpa = doc["logic_programs"];
+      for (JsonObject pr : lpa) {
+        int id = pr["id"] | -1;
+        if (id < 0 || id >= ST_LOGIC_MAX_PROGRAMS) continue;
+
+        // Delete existing program
+        st_logic_delete(st, id);
+
+        // Upload source if present
+        const char *src = pr["source"] | (const char *)nullptr;
+        if (src && strlen(src) > 0) {
+          st_logic_upload(st, id, src, strlen(src));
+          st_logic_compile(st, id);
+        }
+
+        // Set name
+        if (pr.containsKey("name")) {
+          strncpy(st->programs[id].name, pr["name"] | "", sizeof(st->programs[id].name) - 1);
+          st->programs[id].name[sizeof(st->programs[id].name) - 1] = '\0';
+        }
+
+        // Set enabled
+        if (pr.containsKey("enabled")) {
+          st_logic_set_enabled(st, id, pr["enabled"].as<bool>() ? 1 : 0);
+        }
+      }
+
+      // Save ST Logic to SPIFFS
+      st_logic_save_to_persist_config(&g_persist_config);
+    }
+  }
+
+  // Save PersistConfig to NVS
+  bool save_ok = config_save_to_nvs(&g_persist_config);
+  if (!save_ok) {
+    return api_send_error(req, 500, "Config saved partially - NVS write failed");
+  }
+
+  // Apply config
+  config_apply(&g_persist_config);
+
+  JsonDocument resp;
+  resp["status"] = 200;
+  resp["message"] = "Configuration restored and applied";
+  resp["warning"] = "Full config replaced. Reboot recommended.";
+
+  char respbuf[256];
+  serializeJson(resp, respbuf, sizeof(respbuf));
+
+  return api_send_json(req, respbuf);
 }

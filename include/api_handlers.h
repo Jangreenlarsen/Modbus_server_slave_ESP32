@@ -214,6 +214,20 @@ esp_err_t api_handler_modules_get(httpd_req_t *req);
 esp_err_t api_handler_modules_post(httpd_req_t *req);
 
 /* ============================================================================
+ * BACKUP / RESTORE ENDPOINTS
+ * ============================================================================ */
+
+/**
+ * GET /api/system/backup - Download full config backup as JSON
+ */
+esp_err_t api_handler_system_backup(httpd_req_t *req);
+
+/**
+ * POST /api/system/restore - Restore config from backup JSON
+ */
+esp_err_t api_handler_system_restore(httpd_req_t *req);
+
+/* ============================================================================
  * UTILITY FUNCTIONS
  * ============================================================================ */
 

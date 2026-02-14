@@ -230,7 +230,7 @@ A: Read [`CLAUDE_ARCH.md`](CLAUDE_ARCH.md)
 | **Target** | ESP32-WROOM-32 (240MHz dual-core) |
 | **Protocol** | Modbus RTU (RS-485) |
 | **Architecture** | 30+ modular .cpp/.h files |
-| **Version** | v5.3.0 (Build #1084) |
+| **Version** | v6.0.7 (Build #1227) |
 | **Components** | Counters, Timers, ST Logic, CLI |
 | **Key Feature** | IEC 61131-3 Type System (INT/DINT/REAL) |
 
@@ -248,9 +248,9 @@ All checked? Ready to code! 🚀
 
 ---
 
-**Last Updated:** 2026-01-20
-**Version:** v5.3.0
-**Build:** #1084
+**Last Updated:** 2026-02-14
+**Version:** v6.0.7
+**Build:** #1227
 **Status:** ✅ Navigation Hub (Modular Documentation)
 
 **Remember:** The value of documentation is not in its size, but in its usability. Start with [`CLAUDE_INDEX.md`](CLAUDE_INDEX.md) →
