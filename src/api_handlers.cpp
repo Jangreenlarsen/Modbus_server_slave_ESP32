@@ -3151,13 +3151,6 @@ esp_err_t api_handler_system_backup(httpd_req_t *req)
   http_server_stat_request();
   CHECK_AUTH(req);
 
-  // Allocate ~20KB heap buffer for full backup JSON
-  const size_t BUF_SIZE = 20480;
-  char *buf = (char *)malloc(BUF_SIZE);
-  if (!buf) {
-    return api_send_error(req, 500, "Out of memory");
-  }
-
   JsonDocument doc;
 
   // ── METADATA ──
@@ -3384,12 +3377,15 @@ esp_err_t api_handler_system_backup(httpd_req_t *req)
     }
   }
 
-  // Serialize
-  size_t json_len = serializeJson(doc, buf, BUF_SIZE);
-  if (json_len >= BUF_SIZE) {
-    free(buf);
-    return api_send_error(req, 500, "Backup too large");
+  // Measure needed buffer size, then allocate dynamically
+  size_t json_len = measureJson(doc);
+  size_t buf_size = json_len + 64;  // margin for null-terminator + safety
+  char *buf = (char *)malloc(buf_size);
+  if (!buf) {
+    return api_send_error(req, 500, "Out of memory");
   }
+
+  serializeJson(doc, buf, buf_size);
 
   // Set Content-Disposition for browser download
   httpd_resp_set_hdr(req, "Content-Disposition", "attachment; filename=\"backup.json\"");
@@ -3404,10 +3400,10 @@ esp_err_t api_handler_system_restore(httpd_req_t *req)
   http_server_stat_request();
   CHECK_AUTH(req);
 
-  // Read request body (up to 24KB)
+  // Read request body (up to 32KB)
   int content_len = req->content_len;
-  if (content_len <= 0 || content_len > 24576) {
-    return api_send_error(req, 400, "Invalid body size (max 24KB)");
+  if (content_len <= 0 || content_len > 32768) {
+    return api_send_error(req, 400, "Invalid body size (max 32KB)");
   }
 
   char *body = (char *)malloc(content_len + 1);

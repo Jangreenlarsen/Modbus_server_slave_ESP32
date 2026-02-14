@@ -3537,23 +3537,47 @@ void cli_cmd_show_watchdog(void) {
 
 void cli_cmd_show_backup(void) {
   debug_println("\n=== BACKUP / RESTORE ===");
-  debug_println("Download backup via HTTP API:");
 
   uint32_t ip = network_manager_get_local_ip();
-  if (ip != 0) {
-    char url[80];
-    const char *proto = g_persist_config.network.http.tls_enabled ? "https" : "http";
-    uint16_t port = g_persist_config.network.http.port;
-    snprintf(url, sizeof(url), "  %s://%d.%d.%d.%d:%d/api/system/backup",
-             proto, (int)(ip & 0xFF), (int)((ip >> 8) & 0xFF),
-             (int)((ip >> 16) & 0xFF), (int)((ip >> 24) & 0xFF), port);
-    debug_println(url);
-  } else {
-    debug_println("  (WiFi ikke forbundet)");
+  if (ip == 0) {
+    debug_println("WiFi ikke forbundet - backup kraever HTTP API.");
+    debug_println("Tilslut WiFi og proev igen.");
+    debug_println("");
+    return;
   }
 
-  debug_println("\nRestore:");
-  debug_println("  POST /api/system/restore med backup JSON fil");
-  debug_println("  curl -u user:pass -X POST -d @backup.json http://<ip>/api/system/restore");
+  char base[64];
+  const char *proto = g_persist_config.network.http.tls_enabled ? "https" : "http";
+  uint16_t port = g_persist_config.network.http.port;
+  snprintf(base, sizeof(base), "%s://%d.%d.%d.%d:%d",
+           proto, (int)(ip & 0xFF), (int)((ip >> 8) & 0xFF),
+           (int)((ip >> 16) & 0xFF), (int)((ip >> 24) & 0xFF), port);
+
+  char line[128];
+
+  debug_println("\n1) Download backup (browser eller curl):");
+  snprintf(line, sizeof(line), "   %s/api/system/backup", base);
+  debug_println(line);
+
+  if (g_persist_config.network.http.auth_enabled) {
+    snprintf(line, sizeof(line), "   curl -u %s:<password> %s/api/system/backup -o backup.json",
+             g_persist_config.network.http.username, base);
+  } else {
+    snprintf(line, sizeof(line), "   curl %s/api/system/backup -o backup.json", base);
+  }
+  debug_println(line);
+
+  debug_println("\n2) Restore fra backup fil:");
+  if (g_persist_config.network.http.auth_enabled) {
+    snprintf(line, sizeof(line), "   curl -u %s:<password> -X POST -H \"Content-Type: application/json\" -d @backup.json %s/api/system/restore",
+             g_persist_config.network.http.username, base);
+  } else {
+    snprintf(line, sizeof(line), "   curl -X POST -H \"Content-Type: application/json\" -d @backup.json %s/api/system/restore", base);
+  }
+  debug_println(line);
+
+  debug_println("\nIndhold: Modbus, WiFi, HTTP, counters, timers,");
+  debug_println("         registers, coils, var_maps, ST Logic source.");
+  debug_println("         Passwords inkluderet i backup.");
   debug_println("");
 }
