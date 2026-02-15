@@ -370,14 +370,45 @@ void cli_cmd_show_config(const char *section) {
   }
   debug_println("");
 
-  debug_println("hardware (fixed):");
-  debug_println("  GPIO 4  - UART1 RX (Modbus)");
-  debug_println("  GPIO 5  - UART1 TX (Modbus)");
-  debug_println("  GPIO 15 - RS485 DIR");
-  debug_println("  GPIO 19 - Counter 1 HW (PCNT Unit 0)");
-  debug_println("  GPIO 25 - Counter 2 HW (PCNT Unit 1)");
-  debug_println("  GPIO 27 - Counter 3 HW (PCNT Unit 2)");
-  debug_println("  GPIO 33 - Counter 4 HW (PCNT Unit 3)");
+  debug_println("hardware pins:");
+  debug_println("  GPIO 2  - LED (heartbeat/user)");
+  if (g_persist_config.modbus_slave.enabled) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "  GPIO %-2d - UART1 RX (Modbus Slave)", PIN_UART1_RX);
+    debug_println(buf);
+    snprintf(buf, sizeof(buf), "  GPIO %-2d - UART1 TX (Modbus Slave)", PIN_UART1_TX);
+    debug_println(buf);
+    snprintf(buf, sizeof(buf), "  GPIO %-2d - RS485 DIR (Modbus Slave)", PIN_RS485_DIR);
+    debug_println(buf);
+  }
+  if (g_persist_config.modbus_master.enabled) {
+    char buf[64];
+    snprintf(buf, sizeof(buf), "  GPIO %-2d - UART TX (Modbus Master)", MODBUS_MASTER_TX_PIN);
+    debug_println(buf);
+    snprintf(buf, sizeof(buf), "  GPIO %-2d - UART RX (Modbus Master)", MODBUS_MASTER_RX_PIN);
+    debug_println(buf);
+    snprintf(buf, sizeof(buf), "  GPIO %-2d - RS485 DE/RE (Modbus Master)", MODBUS_MASTER_DE_PIN);
+    debug_println(buf);
+  }
+  for (uint8_t i = 0; i < COUNTER_COUNT; i++) {
+    const CounterConfig &cc = g_persist_config.counters[i];
+    if (cc.hw_mode == COUNTER_HW_PCNT && cc.hw_gpio > 0) {
+      char buf[64];
+      snprintf(buf, sizeof(buf), "  GPIO %-2d - Counter %d HW (PCNT)", cc.hw_gpio, i + 1);
+      debug_println(buf);
+    }
+  }
+  if (!g_persist_config.modbus_slave.enabled && !g_persist_config.modbus_master.enabled) {
+    bool any_counter = false;
+    for (uint8_t i = 0; i < COUNTER_COUNT; i++) {
+      if (g_persist_config.counters[i].hw_mode == COUNTER_HW_PCNT && g_persist_config.counters[i].hw_gpio > 0) {
+        any_counter = true; break;
+      }
+    }
+    if (!any_counter) {
+      debug_println("  (kun GPIO 2 aktiv)");
+    }
+  }
   debug_println("");
 
   // Count GPIO mappings
